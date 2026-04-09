@@ -598,29 +598,38 @@ def upload_to_instagram(short_path: str, metadata: dict):
     log("Uploading to Instagram Reels...")
     try:
         import signal
+        from urllib.parse import unquote
         from instagrapi import Client
+        from instagrapi.mixins.challenge import ChallengeChoice
 
         # Timeout handler to prevent hanging on login challenges
         class InstagramTimeout(Exception):
             pass
 
         def _timeout_handler(signum, frame):
-            raise InstagramTimeout("Instagram operation timed out (120s)")
+            raise InstagramTimeout("Instagram operation timed out (180s)")
 
         old_handler = signal.signal(signal.SIGALRM, _timeout_handler)
-        signal.alarm(120)  # 2-minute timeout for entire Instagram flow
+        signal.alarm(180)  # 3-minute timeout for entire Instagram flow
 
         try:
             cl = Client()
             cl.set_user_agent("Instagram 269.0.0.18.75 Android (33/13; 420dpi; 1080x2400; samsung; SM-G991B; o1s; exynos2100)")
+
+            # Auto-resolve challenges by choosing email verification
+            def challenge_code_handler(username, choice):
+                """Auto-select email for challenge resolution."""
+                log(f"  Instagram: challenge triggered (choice={choice})")
+                return None  # Can't auto-resolve without user input
+            cl.challenge_code_handler = challenge_code_handler
 
             logged_in = False
 
             # Priority 1: Use browser session cookie from IG_SESSION secret
             if IG_SESSION:
                 try:
-                    # IG_SESSION contains the raw sessionid cookie value
-                    session_id = IG_SESSION.strip()
+                    # URL-decode the session ID in case it has %3A etc.
+                    session_id = unquote(IG_SESSION.strip())
                     cl.login_by_sessionid(session_id)
                     logged_in = True
                     log("  Instagram: logged in via session cookie")
@@ -635,6 +644,7 @@ def upload_to_instagram(short_path: str, metadata: dict):
                     try:
                         cl = Client()
                         cl.set_user_agent("Instagram 269.0.0.18.75 Android (33/13; 420dpi; 1080x2400; samsung; SM-G991B; o1s; exynos2100)")
+                        cl.challenge_code_handler = challenge_code_handler
                         cl.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
                         logged_in = True
                         log("  Instagram: fresh login succeeded")
@@ -658,11 +668,21 @@ def upload_to_instagram(short_path: str, metadata: dict):
                 f"AI-generated political analysis."
             )
 
-            # Upload as Reel
-            media = cl.clip_upload(short_path, caption=caption)
-            reel_id = media.pk
-            log(f"  Instagram Reel posted: https://instagram.com/reel/{media.code}")
-            return reel_id
+            # Upload as Reel (with retry on challenge)
+            import time
+            for attempt in range(2):
+                try:
+                    media = cl.clip_upload(short_path, caption=caption)
+                    reel_id = media.pk
+                    log(f"  Instagram Reel posted: https://instagram.com/reel/{media.code}")
+                    return reel_id
+                except Exception as upload_err:
+                    err_str = str(upload_err).lower()
+                    if "challenge" in err_str and attempt == 0:
+                        log(f"  Instagram: challenge on upload, retrying in 10s...")
+                        time.sleep(10)
+                        continue
+                    raise
 
         finally:
             signal.alarm(0)  # Cancel the alarm
