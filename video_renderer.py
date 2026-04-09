@@ -541,63 +541,78 @@ def render_video(
         ], capture_output=True, timeout=60)
         bg_paths.append(fb)
 
-    # ── Step 2: Build the background video with crossfades ──
-    # Split duration across segments
+    # ── Step 2: Build the background video ──
+    # Trim each clip to fill its portion, scale to target resolution, then concat
     segment_duration = duration / len(bg_paths)
-    crossfade = min(2.0, segment_duration / 4)
-
     bg_concat = os.path.join(tmpdir, "bg_concat.mp4")
 
-    if len(bg_paths) == 1:
-        # Single video: just loop/trim
-        subprocess.run([
-            "ffmpeg", "-y", "-stream_loop", "-1", "-i", bg_paths[0],
-            "-t", str(duration), "-vf", f"scale={WIDTH}:{HEIGHT}:force_original_aspect_ratio=increase,crop={WIDTH}:{HEIGHT}",
-            "-an", "-c:v", "libx264", "-preset", "fast", "-crf", "23", bg_concat,
-        ], capture_output=True, timeout=300)
-    else:
-        # Multiple videos with crossfade transitions
-        # First, trim and scale each segment
-        trimmed = []
-        for i, bp in enumerate(bg_paths):
-            tp = os.path.join(tmpdir, f"bg_trimmed_{i}.mp4")
-            seg_len = segment_duration + crossfade  # Extra for crossfade overlap
-            subprocess.run([
-                "ffmpeg", "-y", "-stream_loop", "-1", "-i", bp,
-                "-t", str(seg_len),
-                "-vf", f"scale={WIDTH}:{HEIGHT}:force_original_aspect_ratio=increase,crop={WIDTH}:{HEIGHT}",
-                "-an", "-c:v", "libx264", "-preset", "fast", "-crf", "23", tp,
-            ], capture_output=True, timeout=120)
+    # Trim and normalize each background clip
+    trimmed = []
+    for i, bp in enumerate(bg_paths):
+        tp = os.path.join(tmpdir, f"bg_trimmed_{i}.mp4")
+        result = subprocess.run([
+            "ffmpeg", "-y", "-stream_loop", "-1", "-i", bp,
+            "-t", str(segment_duration + 1),
+            "-vf", (
+                f"scale={WIDTH}:{HEIGHT}:force_original_aspect_ratio=increase,"
+                f"crop={WIDTH}:{HEIGHT},"
+                "setsar=1,fps=30"
+            ),
+            "-an", "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+            "-pix_fmt", "yuv420p",
+            tp,
+        ], capture_output=True, text=True, timeout=120)
+        if os.path.exists(tp) and os.path.getsize(tp) > 1024:
             trimmed.append(tp)
+            print(f"[renderer] Trimmed bg {i+1}: {os.path.getsize(tp)} bytes")
+        else:
+            print(f"[renderer] Trim bg {i+1} failed: {result.stderr[-200:]}")
 
-        # Concatenate with xfade filter
-        if len(trimmed) == 2:
-            offset1 = segment_duration - crossfade
-            subprocess.run([
-                "ffmpeg", "-y", "-i", trimmed[0], "-i", trimmed[1],
-                "-filter_complex",
-                f"[0:v][1:v]xfade=transition=fade:duration={crossfade}:offset={offset1},format=yuv420p[v]",
-                "-map", "[v]", "-t", str(duration),
-                "-c:v", "libx264", "-preset", "fast", "-crf", "23", bg_concat,
-            ], capture_output=True, timeout=300)
-        elif len(trimmed) >= 3:
-            offset1 = segment_duration - crossfade
-            offset2 = 2 * segment_duration - 2 * crossfade
-            subprocess.run([
-                "ffmpeg", "-y", "-i", trimmed[0], "-i", trimmed[1], "-i", trimmed[2],
-                "-filter_complex",
-                f"[0:v][1:v]xfade=transition=fade:duration={crossfade}:offset={offset1}[v01];"
-                f"[v01][2:v]xfade=transition=fade:duration={crossfade}:offset={offset2},format=yuv420p[v]",
-                "-map", "[v]", "-t", str(duration),
-                "-c:v", "libx264", "-preset", "fast", "-crf", "23", bg_concat,
-            ], capture_output=True, timeout=300)
+    if not trimmed:
+        # All trims failed — generate dark fallback
+        print("[renderer] All background trims failed, generating dark fallback...")
+        fb = os.path.join(tmpdir, "bg_fallback.mp4")
+        subprocess.run([
+            "ffmpeg", "-y", "-f", "lavfi", "-i",
+            f"color=c=0x040412:s={WIDTH}x{HEIGHT}:d={int(duration + 5)},format=yuv420p",
+            "-c:v", "libx264", "-preset", "fast", "-crf", "23", fb,
+        ], capture_output=True, timeout=60)
+        trimmed.append(fb)
+
+    if len(trimmed) == 1:
+        # Single clip — loop to fill duration
+        result = subprocess.run([
+            "ffmpeg", "-y", "-stream_loop", "-1", "-i", trimmed[0],
+            "-t", str(duration),
+            "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+            "-pix_fmt", "yuv420p", "-an",
+            bg_concat,
+        ], capture_output=True, text=True, timeout=300)
+        if result.returncode != 0:
+            print(f"[renderer] Single-clip loop failed: {result.stderr[-200:]}")
+    else:
+        # Multiple clips — use concat demuxer (simple and reliable)
+        concat_list = os.path.join(tmpdir, "concat_list.txt")
+        with open(concat_list, "w") as f:
+            for tp in trimmed:
+                f.write(f"file '{tp}'\n")
+
+        result = subprocess.run([
+            "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", concat_list,
+            "-t", str(duration),
+            "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+            "-pix_fmt", "yuv420p", "-an",
+            bg_concat,
+        ], capture_output=True, text=True, timeout=300)
+        if result.returncode != 0:
+            print(f"[renderer] Concat failed: {result.stderr[-200:]}")
 
     if not os.path.exists(bg_concat) or os.path.getsize(bg_concat) < 1024:
-        # bg_concat failed — regenerate fallback
+        # Final fallback
         print("[renderer] bg_concat missing or empty, generating fallback background...")
         subprocess.run([
             "ffmpeg", "-y", "-f", "lavfi", "-i",
-            f"color=c=0x040412:s={WIDTH}x{HEIGHT}:d={int(duration + 5)}",
+            f"color=c=0x040412:s={WIDTH}x{HEIGHT}:d={int(duration + 5)},format=yuv420p",
             "-c:v", "libx264", "-preset", "fast", "-crf", "23", bg_concat,
         ], capture_output=True, timeout=60)
         if not os.path.exists(bg_concat) or os.path.getsize(bg_concat) < 1024:
