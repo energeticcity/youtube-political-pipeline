@@ -42,7 +42,4 @@ jobs:
           YOUTUBE_CHANNEL_ID: ${{ secrets.YOUTUBE_CHANNEL_ID }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
           GITHUB_TOKEN: ${{ github.token }}
-          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
-          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
-          NOTIFICATION_EMAIL: ${{ secrets.NOTIFICATION_EMAIL }}
         run: python pipeline.py
