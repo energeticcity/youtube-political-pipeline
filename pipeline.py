@@ -27,6 +27,7 @@ GITHUB_REPO = "energeticcity/youtube-political-pipeline"
 
 INSTAGRAM_USERNAME = os.environ.get("INSTAGRAM_USERNAME", "")
 INSTAGRAM_PASSWORD = os.environ.get("INSTAGRAM_PASSWORD", "")
+IG_SESSION = os.environ.get("IG_SESSION", "")  # base64-encoded session from export_ig_session.py
 TIKTOK_USERNAME = os.environ.get("TIKTOK_USERNAME", "")
 TIKTOK_PASSWORD = os.environ.get("TIKTOK_PASSWORD", "")
 
@@ -590,12 +591,13 @@ def upload_short_to_youtube(short_path: str, metadata: dict):
 
 def upload_to_instagram(short_path: str, metadata: dict):
     """Upload Short as an Instagram Reel using instagrapi."""
-    if not INSTAGRAM_USERNAME or not INSTAGRAM_PASSWORD:
-        log("Instagram upload skipped (no credentials)")
+    if not IG_SESSION and (not INSTAGRAM_USERNAME or not INSTAGRAM_PASSWORD):
+        log("Instagram upload skipped (no credentials or session)")
         return None
 
     log("Uploading to Instagram Reels...")
     try:
+        import base64
         import signal
         from instagrapi import Client
 
@@ -611,27 +613,45 @@ def upload_to_instagram(short_path: str, metadata: dict):
 
         try:
             cl = Client()
-            # Set user agent to look like a real device
             cl.set_user_agent("Instagram 269.0.0.18.75 Android (33/13; 420dpi; 1080x2400; samsung; SM-G991B; o1s; exynos2100)")
 
-            # Check for saved session to avoid repeated logins
+            # Priority 1: Use saved session from IG_SESSION secret (avoids IP blacklist)
             session_file = "/tmp/ig_session.json"
-            try:
-                if os.path.exists(session_file):
+            logged_in = False
+
+            if IG_SESSION:
+                try:
+                    session_json = base64.b64decode(IG_SESSION).decode()
+                    with open(session_file, "w") as f:
+                        f.write(session_json)
                     cl.load_settings(session_file)
                     cl.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
-                    log("  Instagram: restored session")
+                    logged_in = True
+                    log("  Instagram: logged in via saved session")
+                except InstagramTimeout:
+                    raise
+                except Exception as e:
+                    log(f"  Instagram: saved session failed ({e})")
+
+            # Priority 2: Fall back to fresh login (may fail from datacenter IPs)
+            if not logged_in:
+                if INSTAGRAM_USERNAME and INSTAGRAM_PASSWORD:
+                    try:
+                        cl = Client()
+                        cl.set_user_agent("Instagram 269.0.0.18.75 Android (33/13; 420dpi; 1080x2400; samsung; SM-G991B; o1s; exynos2100)")
+                        cl.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
+                        logged_in = True
+                        log("  Instagram: fresh login succeeded")
+                    except InstagramTimeout:
+                        raise
+                    except Exception as e:
+                        log(f"  Instagram: fresh login failed ({e})")
+                        log("  Instagram: datacenter IPs are often blocked.")
+                        log("  Run export_ig_session.py on your computer and set IG_SESSION secret.")
+                        return None
                 else:
-                    cl.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
-                    cl.dump_settings(session_file)
-                    log("  Instagram: fresh login")
-            except InstagramTimeout:
-                raise
-            except Exception as login_err:
-                log(f"  Instagram: session restore failed ({login_err}), doing fresh login...")
-                cl = Client()
-                cl.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
-                cl.dump_settings(session_file)
+                    log("  Instagram: no credentials for fallback login")
+                    return None
 
             # Build caption for Reel
             title = metadata.get("title", "The Political Lens")
