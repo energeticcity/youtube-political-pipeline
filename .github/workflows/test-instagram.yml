@@ -9,6 +9,7 @@ jobs:
     env:
       INSTAGRAM_USERNAME: ${{ secrets.INSTAGRAM_USERNAME }}
       INSTAGRAM_PASSWORD: ${{ secrets.INSTAGRAM_PASSWORD }}
+      IG_SESSION: ${{ secrets.IG_SESSION }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
