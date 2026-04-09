@@ -128,31 +128,56 @@ def log(msg: str):
 
 def fetch_rss() -> str:
     log("Fetching Google News RSS...")
-    resp = requests.get(
-        "https://news.google.com/rss/search",
-        params={"q": "US politics congress senate president white house", "hl": "en-US", "gl": "US", "ceid": "US:en"},
-        headers={"User-Agent": "Mozilla/5.0 (compatible; RSS reader)"},
-        timeout=30,
-    )
-    resp.raise_for_status()
-    # Truncate to first 4000 chars for the prompt
-    text = resp.text[:4000]
-    log(f"  Got {len(resp.text)} bytes of RSS data")
+    headlines = []
+
+    # Fetch from multiple queries to get diverse, breaking stories
+    queries = [
+        "US politics breaking news today",
+        "congress senate president white house today",
+        "US political news latest",
+    ]
+    for query in queries:
+        try:
+            resp = requests.get(
+                "https://news.google.com/rss/search",
+                params={"q": query, "hl": "en-US", "gl": "US", "ceid": "US:en"},
+                headers={"User-Agent": "Mozilla/5.0 (compatible; RSS reader)"},
+                timeout=15,
+            )
+            resp.raise_for_status()
+            headlines.append(resp.text[:3000])
+        except Exception as e:
+            log(f"  RSS query '{query}' failed: {e}")
+
+    text = "\n---\n".join(headlines)
+    log(f"  Got {len(text)} chars of RSS data from {len(headlines)} feeds")
     return text
 
 
 # ── Step 2: Pick a topic ──────────────────────────────────────────────────────
 
 def pick_topic(rss_text: str) -> dict:
+    import random
     log("Asking Claude to pick a topic...")
+
+    # Add randomization to avoid always picking the same story
+    seed_word = random.choice(["surprising", "controversial", "impactful", "urgent", "explosive", "developing"])
+    time_hint = random.choice(["in the last few hours", "breaking today", "just announced", "developing right now"])
+
     result = call_claude(
-        system="You are a YouTube political topic selector. Respond ONLY with the exact XML format. No other text.",
-        user_message=f"""Here are TODAY's top political news headlines from Google News:
+        system="You are a YouTube political news selector. You MUST pick a story directly from the headlines provided. Respond ONLY with the exact XML format. No other text.",
+        user_message=f"""Here are TODAY's top political news headlines from Google News RSS:
 
 {rss_text}
 
 ---
-From these REAL headlines, select the single most YouTube-worthy political story. Pick something that is BREAKING or TRENDING right now — a specific bill, vote, scandal, conflict, or announcement that viewers will be searching for TODAY. Do NOT pick generic evergreen topics. Pick from the actual headlines above.
+CRITICAL RULES:
+1. Pick the single most {seed_word} political story that is {time_hint}.
+2. You MUST select from the ACTUAL headlines above. Do NOT invent topics or pick evergreen subjects.
+3. The topic MUST reference a specific person, event, bill, vote, action, or announcement from the headlines.
+4. Do NOT pick generic topics like "25th Amendment" or "government shutdown" unless that is literally in today's headlines.
+5. Prefer stories about specific actions taken TODAY: votes, speeches, executive orders, indictments, rulings, deals, etc.
+6. Your <TOPIC> should closely match or paraphrase an actual headline from above.
 
 Also assign a background video category:
 - congress: Senate, House, legislation, bills, congressional hearings
