@@ -20,48 +20,74 @@ YOUTUBE_CLIENT_ID = os.environ.get("YOUTUBE_CLIENT_ID", "")
 YOUTUBE_CLIENT_SECRET = os.environ.get("YOUTUBE_CLIENT_SECRET", "")
 YOUTUBE_REFRESH_TOKEN = os.environ.get("YOUTUBE_REFRESH_TOKEN", "")
 YOUTUBE_CHANNEL_ID = os.environ.get("YOUTUBE_CHANNEL_ID", "UCWlSqBKvWmBcdLSPo7WL3PA")
+PEXELS_API_KEY = os.environ.get("PEXELS_API_KEY", "")
 
 ELEVENLABS_VOICE_ID = "EkK5I93UQWFDigLMpZcX"
 
 CLAUDE_MODEL = "claude-haiku-4-5-20251001"
 
-BG_VIDEOS = {
-    "congress": [
-        "https://assets.mixkit.co/videos/11800/11800-720.mp4",
-        "https://assets.mixkit.co/videos/11798/11798-720.mp4",
-        "https://assets.mixkit.co/videos/40677/40677-720.mp4",
-    ],
-    "economy": [
-        "https://assets.mixkit.co/videos/47213/47213-720.mp4",
-        "https://assets.mixkit.co/videos/47796/47796-720.mp4",
-        "https://assets.mixkit.co/videos/18305/18305-720.mp4",
-    ],
-    "military": [
-        "https://assets.mixkit.co/videos/23018/23018-720.mp4",
-        "https://assets.mixkit.co/videos/7373/7373-720.mp4",
-        "https://assets.mixkit.co/videos/47862/47862-720.mp4",
-    ],
-    "election": [
-        "https://assets.mixkit.co/videos/49265/49265-720.mp4",
-        "https://assets.mixkit.co/videos/49264/49264-720.mp4",
-        "https://assets.mixkit.co/videos/49263/49263-720.mp4",
-    ],
-    "justice": [
-        "https://assets.mixkit.co/videos/17396/17396-720.mp4",
-        "https://assets.mixkit.co/videos/4290/4290-720.mp4",
-        "https://assets.mixkit.co/videos/32790/32790-720.mp4",
-    ],
-    "international": [
-        "https://assets.mixkit.co/videos/24062/24062-720.mp4",
-        "https://assets.mixkit.co/videos/24351/24351-720.mp4",
-        "https://assets.mixkit.co/videos/24357/24357-720.mp4",
-    ],
-    "default": [
-        "https://assets.mixkit.co/videos/11802/11802-720.mp4",
-        "https://assets.mixkit.co/videos/8764/8764-720.mp4",
-        "https://assets.mixkit.co/videos/46806/46806-720.mp4",
-    ],
+# Pexels search terms by category — used to find relevant stock footage
+PEXELS_SEARCH_TERMS = {
+    "congress": "government building capitol",
+    "economy": "stock market finance city",
+    "military": "military defense national security",
+    "election": "voting election democracy",
+    "justice": "courthouse law legal scales",
+    "international": "world globe diplomacy flags",
+    "default": "american flag washington politics",
 }
+
+
+def fetch_pexels_backgrounds(category: str, topic: str, count: int = 3) -> list[str]:
+    """Search Pexels for topic-relevant stock video. Returns list of video URLs."""
+    if not PEXELS_API_KEY:
+        log("  WARNING: No PEXELS_API_KEY set, using fallback dark background")
+        return []
+
+    # Try topic-specific search first, fall back to category keywords
+    search_queries = [
+        topic.split(":")[0][:40],  # First part of topic headline
+        PEXELS_SEARCH_TERMS.get(category, PEXELS_SEARCH_TERMS["default"]),
+    ]
+
+    videos = []
+    for query in search_queries:
+        if len(videos) >= count:
+            break
+        try:
+            log(f"  Searching Pexels: '{query}'...")
+            resp = requests.get(
+                "https://api.pexels.com/videos/search",
+                params={
+                    "query": query,
+                    "per_page": 10,
+                    "orientation": "landscape",
+                    "size": "medium",
+                },
+                headers={"Authorization": PEXELS_API_KEY},
+                timeout=15,
+            )
+            resp.raise_for_status()
+            results = resp.json().get("videos", [])
+
+            for vid in results:
+                if len(videos) >= count:
+                    break
+                # Pick the HD file (720p or closest)
+                files = sorted(
+                    vid.get("video_files", []),
+                    key=lambda f: abs(f.get("height", 0) - 720),
+                )
+                for vf in files:
+                    if vf.get("width", 0) >= 1280 and vf.get("file_type") == "video/mp4":
+                        videos.append(vf["link"])
+                        log(f"  Found: {vf.get('width')}x{vf.get('height')} ({vid.get('duration', '?')}s)")
+                        break
+        except Exception as e:
+            log(f"  Pexels search failed for '{query}': {e}")
+
+    log(f"  Got {len(videos)} background videos from Pexels")
+    return videos
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -145,7 +171,7 @@ Respond ONLY:
     topic = extract_tag(result, "TOPIC")
     angle = extract_tag(result, "ANGLE")
     bgcat = extract_tag(result, "BGCATEGORY").lower()
-    if bgcat not in BG_VIDEOS:
+    if bgcat not in PEXELS_SEARCH_TERMS:
         bgcat = "default"
     log(f"  Topic: {topic}")
     log(f"  Angle: {angle}")
@@ -276,7 +302,10 @@ def render_video_local(audio_path: str, topic_data: dict, script_data: dict, out
 
     log("Rendering video locally with FFmpeg...")
     bgcat = topic_data["bgcategory"]
-    videos = BG_VIDEOS.get(bgcat, BG_VIDEOS["default"])
+
+    # Fetch background videos from Pexels based on topic
+    bg_videos = fetch_pexels_backgrounds(bgcat, topic_data["topic"])
+
     talking_points = [
         script_data["point1"],
         script_data["point2"],
@@ -289,7 +318,7 @@ def render_video_local(audio_path: str, topic_data: dict, script_data: dict, out
         headline=topic_data["topic"],
         talking_points=talking_points,
         category=bgcat,
-        bg_video_urls=videos,
+        bg_video_urls=bg_videos,
         audio_path=audio_path,
         output_path=video_path,
     )
@@ -312,6 +341,35 @@ def render_thumbnail_local(topic_data: dict, metadata: dict, output_dir: str) ->
     )
     log(f"  Thumbnail rendered: {thumb_path}")
     return thumb_path
+
+
+# ── Step 9: Render YouTube Short ───────────────────────────────────────────────
+
+def render_short(video_path: str, audio_path: str, topic_data: dict, script_data: dict, output_dir: str) -> str:
+    """Create a 9:16 vertical Short from the same content, max 60 seconds."""
+    from video_renderer import render_short as _render_short
+
+    log("Rendering YouTube Short (9:16 vertical)...")
+    short_path = os.path.join(output_dir, "short_video.mp4")
+
+    bgcat = topic_data["bgcategory"]
+    bg_videos = fetch_pexels_backgrounds(bgcat, topic_data["topic"], count=1)
+
+    talking_points = [
+        script_data["point1"],
+        script_data["point2"],
+    ]
+
+    _render_short(
+        headline=topic_data["topic"],
+        talking_points=talking_points,
+        category=bgcat,
+        bg_video_urls=bg_videos,
+        audio_path=audio_path,
+        output_path=short_path,
+    )
+    log(f"  Short rendered: {short_path}")
+    return short_path
 
 
 # ── Step 10: Upload to YouTube ─────────────────────────────────────────────────
@@ -413,6 +471,82 @@ def upload_to_youtube(video_path: str, thumbnail_path: str, metadata: dict):
         log(f"  WARNING: Thumbnail upload failed (channel may need verification): {e}")
         log("  Video was uploaded successfully — thumbnail can be set manually.")
     log(f"  Done! https://youtube.com/watch?v={video_id}")
+    return video_id
+
+
+def upload_short_to_youtube(short_path: str, metadata: dict):
+    """Upload a YouTube Short (vertical video, ≤60s)."""
+    if not YOUTUBE_REFRESH_TOKEN:
+        log("YouTube Short upload skipped (no refresh token)")
+        return
+
+    if not os.path.exists(short_path):
+        log("YouTube Short upload skipped (no short video found)")
+        return
+
+    log("Uploading YouTube Short...")
+    access_token = get_youtube_access_token()
+
+    tags = [t.strip() for t in metadata["tags"].split(",") if t.strip()][:15]
+    tags.append("shorts")
+
+    # Shorts title: prepend #Shorts for discoverability
+    short_title = metadata["title"]
+    if len(short_title) > 90:
+        short_title = short_title[:87] + "..."
+    short_title = short_title + " #Shorts"
+    if len(short_title) > 100:
+        short_title = short_title[:100]
+
+    short_desc = (
+        f"{metadata['title']}\n\n"
+        f"Watch the full analysis on our channel!\n\n"
+        f"#politics #news #shorts #politicalnews\n\n"
+        f"AI-generated political analysis. Not affiliated with any political party."
+    )
+
+    init_resp = requests.post(
+        "https://www.googleapis.com/upload/youtube/v3/videos",
+        params={"uploadType": "resumable", "part": "snippet,status"},
+        headers={
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "snippet": {
+                "title": short_title,
+                "description": short_desc,
+                "tags": tags,
+                "categoryId": "25",
+            },
+            "status": {
+                "privacyStatus": "public",
+                "selfDeclaredMadeForKids": False,
+            },
+        },
+        timeout=30,
+    )
+    init_resp.raise_for_status()
+    upload_url = init_resp.headers["Location"]
+
+    with open(short_path, "rb") as f:
+        video_data = f.read()
+
+    log(f"  Uploading {len(video_data) / (1024*1024):.1f} MB short...")
+    upload_resp = requests.put(
+        upload_url,
+        headers={
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "video/mp4",
+            "Content-Length": str(len(video_data)),
+        },
+        data=video_data,
+        timeout=300,
+    )
+    upload_resp.raise_for_status()
+    short_id = upload_resp.json()["id"]
+    log(f"  Short uploaded: https://youtube.com/shorts/{short_id}")
+    return short_id
 
 
 # ── Main Pipeline ──────────────────────────────────────────────────────────────
@@ -455,8 +589,16 @@ def main():
     # Step 7: Render video locally (this is the longest step)
     video_path = render_video_local(audio_path, topic_data, script_data, output_dir)
 
-    # Step 8: Upload to YouTube
+    # Step 8: Upload main video to YouTube
     upload_to_youtube(video_path, thumbnail_path, metadata)
+
+    # Step 9: Render and upload YouTube Short
+    try:
+        short_path = render_short(video_path, audio_path, topic_data, script_data, output_dir)
+        upload_short_to_youtube(short_path, metadata)
+    except Exception as e:
+        log(f"  WARNING: Short generation/upload failed: {e}")
+        log("  Main video was uploaded successfully.")
 
     log("=" * 60)
     log("Pipeline complete!")
