@@ -6,15 +6,14 @@ import requests
 
 INSTAGRAM_USERNAME = os.environ.get("INSTAGRAM_USERNAME", "")
 INSTAGRAM_PASSWORD = os.environ.get("INSTAGRAM_PASSWORD", "")
+IG_SESSION = os.environ.get("IG_SESSION", "")
 
 SHORT_URL = "https://github.com/energeticcity/youtube-political-pipeline/releases/download/v20260409-1428/short_v20260409-1428.mp4"
 
 def main():
-    if not INSTAGRAM_USERNAME or not INSTAGRAM_PASSWORD:
-        print("ERROR: INSTAGRAM_USERNAME and INSTAGRAM_PASSWORD env vars required")
+    if not IG_SESSION and (not INSTAGRAM_USERNAME or not INSTAGRAM_PASSWORD):
+        print("ERROR: Need IG_SESSION or INSTAGRAM_USERNAME+INSTAGRAM_PASSWORD env vars")
         sys.exit(1)
-
-    print(f"Instagram username: {INSTAGRAM_USERNAME[:3]}***")
 
     # Download the short
     print(f"Downloading short from GitHub Release...")
@@ -42,8 +41,31 @@ def main():
     try:
         cl = Client()
         cl.set_user_agent("Instagram 269.0.0.18.75 Android (33/13; 420dpi; 1080x2400; samsung; SM-G991B; o1s; exynos2100)")
-        cl.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
-        print("  Login successful!")
+
+        logged_in = False
+
+        # Priority 1: Use session cookie
+        if IG_SESSION:
+            try:
+                session_id = IG_SESSION.strip()
+                cl.login_by_sessionid(session_id)
+                logged_in = True
+                print("  Login via session cookie successful!")
+            except Exception as e:
+                print(f"  Session cookie login failed: {e}")
+
+        # Priority 2: Fresh login
+        if not logged_in and INSTAGRAM_USERNAME and INSTAGRAM_PASSWORD:
+            try:
+                cl.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
+                logged_in = True
+                print("  Fresh login successful!")
+            except Exception as e:
+                print(f"  Fresh login failed: {e}")
+
+        if not logged_in:
+            print("  FAILED: Could not log in to Instagram")
+            return
 
         caption = (
             "US political leaders react as Trump announces ceasefire\n\n"
@@ -57,7 +79,7 @@ def main():
         print(f"  SUCCESS! Reel posted: https://instagram.com/reel/{media.code}")
 
     except InstagramTimeout:
-        print("  FAILED: Instagram operation timed out (120s) - likely login challenge")
+        print("  FAILED: Instagram operation timed out (120s)")
     except Exception as e:
         print(f"  FAILED: {e}")
     finally:
