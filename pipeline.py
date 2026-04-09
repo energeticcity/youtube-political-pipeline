@@ -153,7 +153,7 @@ def fetch_rss() -> str:
                 timeout=15,
             )
             resp.raise_for_status()
-            headlines.append(resp.text[:3000])
+            headlines.append(resp.text[:2000])
         except Exception as e:
             log(f"  RSS query '{query}' failed: {e}")
 
