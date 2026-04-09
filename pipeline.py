@@ -700,26 +700,39 @@ def update_rss_feed(video_url: str, metadata: dict, thumbnail_url: str = "", you
     # Add new item at the top (after channel metadata)
     item = ET.Element("item")
     ET.SubElement(item, "title").text = metadata.get("title", "Political Lens Short")
-    ET.SubElement(item, "description").text = metadata.get("description", "")
+
+    # Build a concise description with video download link
+    # Keep it short to avoid bloating the feed
+    desc_parts = []
+    full_desc = metadata.get("description", "")
+    # Take just the first 2 sentences of the description
+    sentences = full_desc.split(".")
+    short_desc = ". ".join(sentences[:2]).strip()
+    if short_desc and not short_desc.endswith("."):
+        short_desc += "."
+    desc_parts.append(short_desc)
+
+    if video_url:
+        desc_parts.append(f"\nVideo: {video_url}")
+    if youtube_short_id:
+        desc_parts.append(f"\nWatch: https://youtube.com/shorts/{youtube_short_id}")
+
+    desc_parts.append("\n#politics #news #politicalnews #shorts")
+    ET.SubElement(item, "description").text = "\n".join(desc_parts)
 
     # Link to YouTube Short if available
     if youtube_short_id:
         ET.SubElement(item, "link").text = f"https://youtube.com/shorts/{youtube_short_id}"
         ET.SubElement(item, "guid", isPermaLink="true").text = f"https://youtube.com/shorts/{youtube_short_id}"
-    else:
+    elif video_url:
+        ET.SubElement(item, "link").text = video_url
         ET.SubElement(item, "guid", isPermaLink="false").text = video_url
 
     ET.SubElement(item, "pubDate").text = now
 
-    # Media enclosure — this is what dlvr.it uses for the video file
-    if video_url:
-        ET.SubElement(item, "enclosure", url=video_url, type="video/mp4", length="0")
-        # Also add media:content for broader compatibility
-        media_content = ET.SubElement(item, "{http://search.yahoo.com/mrss/}content",
-                                       url=video_url, type="video/mp4", medium="video")
-
-    if thumbnail_url:
-        media_thumb = ET.SubElement(item, "{http://search.yahoo.com/mrss/}thumbnail", url=thumbnail_url)
+    # NOTE: No <enclosure> or media:content tags — these cause dlvr.it
+    # to try downloading the full MP4, exceeding their 15MB feed size limit.
+    # The video download URL is included in the description text instead.
 
     # Insert item after channel metadata (before other items)
     items = channel.findall("item")
