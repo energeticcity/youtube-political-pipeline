@@ -25,11 +25,9 @@ PEXELS_API_KEY = os.environ.get("PEXELS_API_KEY", "")
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
 GITHUB_REPO = "energeticcity/youtube-political-pipeline"
 
-INSTAGRAM_USERNAME = os.environ.get("INSTAGRAM_USERNAME", "")
-INSTAGRAM_PASSWORD = os.environ.get("INSTAGRAM_PASSWORD", "")
-IG_SESSION = os.environ.get("IG_SESSION", "")  # base64-encoded session from export_ig_session.py
-TIKTOK_USERNAME = os.environ.get("TIKTOK_USERNAME", "")
-TIKTOK_PASSWORD = os.environ.get("TIKTOK_PASSWORD", "")
+NOTIFICATION_EMAIL = os.environ.get("NOTIFICATION_EMAIL", "areaburn@moosefm.ca")
+SMTP_USERNAME = os.environ.get("SMTP_USERNAME", "")  # Gmail address for sending
+SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")  # Gmail app password
 
 ELEVENLABS_VOICE_ID = "EkK5I93UQWFDigLMpZcX"
 
@@ -587,156 +585,7 @@ def upload_short_to_youtube(short_path: str, metadata: dict):
     return short_id
 
 
-# ── Step 11: Upload Short to Instagram Reels ──────────────────────────────────
-
-def upload_to_instagram(short_path: str, metadata: dict):
-    """Upload Short as an Instagram Reel using instagrapi."""
-    if not IG_SESSION and (not INSTAGRAM_USERNAME or not INSTAGRAM_PASSWORD):
-        log("Instagram upload skipped (no credentials or session)")
-        return None
-
-    log("Uploading to Instagram Reels...")
-    try:
-        import signal
-        from urllib.parse import unquote
-        from instagrapi import Client
-        from instagrapi.mixins.challenge import ChallengeChoice
-
-        # Timeout handler to prevent hanging on login challenges
-        class InstagramTimeout(Exception):
-            pass
-
-        def _timeout_handler(signum, frame):
-            raise InstagramTimeout("Instagram operation timed out (180s)")
-
-        old_handler = signal.signal(signal.SIGALRM, _timeout_handler)
-        signal.alarm(180)  # 3-minute timeout for entire Instagram flow
-
-        try:
-            cl = Client()
-            cl.set_user_agent("Instagram 269.0.0.18.75 Android (33/13; 420dpi; 1080x2400; samsung; SM-G991B; o1s; exynos2100)")
-
-            # Auto-resolve challenges by choosing email verification
-            def challenge_code_handler(username, choice):
-                """Auto-select email for challenge resolution."""
-                log(f"  Instagram: challenge triggered (choice={choice})")
-                return None  # Can't auto-resolve without user input
-            cl.challenge_code_handler = challenge_code_handler
-
-            logged_in = False
-
-            # Priority 1: Use browser session cookie from IG_SESSION secret
-            if IG_SESSION:
-                try:
-                    # URL-decode the session ID in case it has %3A etc.
-                    session_id = unquote(IG_SESSION.strip())
-                    cl.login_by_sessionid(session_id)
-                    logged_in = True
-                    log("  Instagram: logged in via session cookie")
-                except InstagramTimeout:
-                    raise
-                except Exception as e:
-                    log(f"  Instagram: session cookie login failed ({e})")
-
-            # Priority 2: Fall back to fresh login (may fail from datacenter IPs)
-            if not logged_in:
-                if INSTAGRAM_USERNAME and INSTAGRAM_PASSWORD:
-                    try:
-                        cl = Client()
-                        cl.set_user_agent("Instagram 269.0.0.18.75 Android (33/13; 420dpi; 1080x2400; samsung; SM-G991B; o1s; exynos2100)")
-                        cl.challenge_code_handler = challenge_code_handler
-                        cl.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
-                        logged_in = True
-                        log("  Instagram: fresh login succeeded")
-                    except InstagramTimeout:
-                        raise
-                    except Exception as e:
-                        log(f"  Instagram: fresh login failed ({e})")
-                        log("  Instagram: datacenter IPs are often blocked.")
-                        log("  Get sessionid cookie from browser and set IG_SESSION secret.")
-                        return None
-                else:
-                    log("  Instagram: no credentials for fallback login")
-                    return None
-
-            # Build caption for Reel
-            title = metadata.get("title", "The Political Lens")
-            caption = (
-                f"{title}\n\n"
-                f"Watch the full analysis on YouTube: The Political Lens\n\n"
-                f"#politics #news #politicalnews #shorts #politicalanalysis #breakingnews\n\n"
-                f"AI-generated political analysis."
-            )
-
-            # Upload as Reel (with retry on challenge)
-            import time
-            for attempt in range(2):
-                try:
-                    media = cl.clip_upload(short_path, caption=caption)
-                    reel_id = media.pk
-                    log(f"  Instagram Reel posted: https://instagram.com/reel/{media.code}")
-                    return reel_id
-                except Exception as upload_err:
-                    err_str = str(upload_err).lower()
-                    if "challenge" in err_str and attempt == 0:
-                        log(f"  Instagram: challenge on upload, retrying in 10s...")
-                        time.sleep(10)
-                        continue
-                    raise
-
-        finally:
-            signal.alarm(0)  # Cancel the alarm
-            signal.signal(signal.SIGALRM, old_handler)
-
-    except Exception as e:
-        log(f"  WARNING: Instagram upload failed: {e}")
-        return None
-
-
-# ── Step 12: Upload Short to TikTok ──────────────────────────────────────────
-
-def upload_to_tiktok(short_path: str, metadata: dict):
-    """Upload Short to TikTok using tiktok-uploader (Playwright-based)."""
-    if not TIKTOK_USERNAME or not TIKTOK_PASSWORD:
-        log("TikTok upload skipped (no credentials)")
-        return None
-
-    log("Uploading to TikTok...")
-    try:
-        from tiktok_uploader.upload import upload_video
-        from tiktok_uploader.auth import AuthBackend
-
-        title = metadata.get("title", "The Political Lens")
-        # TikTok captions are limited, keep it punchy
-        caption = f"{title} #politics #news #politicalnews #fyp #foryou"
-        if len(caption) > 150:
-            caption = caption[:147] + "..."
-
-        # Try cookie-based auth first
-        cookie_file = "/tmp/tiktok_cookies.json"
-        if os.path.exists(cookie_file):
-            log("  TikTok: using saved cookies")
-            upload_video(
-                short_path,
-                description=caption,
-                cookies=cookie_file,
-                headless=True,
-            )
-        else:
-            log("  TikTok: no cookies found, skipping (manual cookie setup needed)")
-            log("  To set up: export TikTok cookies from your browser as JSON")
-            log("  and save as TIKTOK_COOKIES GitHub secret")
-            return None
-
-        log(f"  TikTok video posted!")
-        return True
-
-    except Exception as e:
-        log(f"  WARNING: TikTok upload failed: {e}")
-        return None
-
-
-# ── Step 13: Upload Short to GitHub Release & Update RSS Feed ─────────────────
+# ── Step 11: Upload Short to GitHub Release & Update RSS Feed ─────────────────
 
 def upload_short_to_github_release(short_path: str, tag_name: str) -> str:
     """Upload the Short MP4 as a GitHub Release asset. Returns the public download URL."""
@@ -926,6 +775,80 @@ def update_rss_feed(video_url: str, metadata: dict, thumbnail_url: str = "", you
     log(f"  RSS feed updated: https://raw.githubusercontent.com/{GITHUB_REPO}/main/feed.xml")
 
 
+# ── Step 12: Email notification for manual cross-posting ─────────────────────
+
+def send_email_notification(metadata: dict, short_download_url: str = None):
+    """Send an email with video title, description, and download link for manual posting."""
+    if not SMTP_USERNAME or not SMTP_PASSWORD:
+        log("Email notification skipped (no SMTP credentials)")
+        log("  Set SMTP_USERNAME and SMTP_PASSWORD secrets to enable.")
+        return
+
+    log("Sending email notification...")
+    try:
+        import smtplib
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
+
+        title = metadata.get("title", "New Political Lens Video")
+        description = metadata.get("description", "")
+        tags = metadata.get("tags", "")
+
+        # Build email body
+        body_parts = [
+            f"New video generated by The Political Lens pipeline.",
+            f"",
+            f"TITLE:",
+            f"{title}",
+            f"",
+            f"DESCRIPTION:",
+            f"{description}",
+            f"",
+            f"TAGS:",
+            f"{tags}",
+        ]
+
+        if short_download_url:
+            body_parts.extend([
+                f"",
+                f"SHORT VIDEO DOWNLOAD:",
+                f"{short_download_url}",
+                f"",
+                f"Use this link to download the Short and upload to Instagram/TikTok.",
+            ])
+
+        # Suggested captions for copy-paste
+        body_parts.extend([
+            f"",
+            f"--- INSTAGRAM CAPTION (copy/paste) ---",
+            f"{title}",
+            f"",
+            f"Watch the full analysis on YouTube: The Political Lens",
+            f"",
+            f"#politics #news #politicalnews #shorts #politicalanalysis #breakingnews",
+            f"",
+            f"--- TIKTOK CAPTION (copy/paste) ---",
+            f"{title} #politics #news #politicalnews #fyp #foryou",
+        ])
+
+        body = "\n".join(body_parts)
+
+        msg = MIMEMultipart()
+        msg["From"] = SMTP_USERNAME
+        msg["To"] = NOTIFICATION_EMAIL
+        msg["Subject"] = f"New Video: {title}"
+        msg.attach(MIMEText(body, "plain"))
+
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(SMTP_USERNAME, SMTP_PASSWORD)
+            server.sendmail(SMTP_USERNAME, NOTIFICATION_EMAIL, msg.as_string())
+
+        log(f"  Email sent to {NOTIFICATION_EMAIL}")
+
+    except Exception as e:
+        log(f"  WARNING: Email notification failed: {e}")
+
+
 # ── Main Pipeline ──────────────────────────────────────────────────────────────
 
 def main():
@@ -988,21 +911,7 @@ def main():
         except Exception as e:
             log(f"  WARNING: YouTube Short upload failed: {e}")
 
-    # Step 11: Upload to Instagram Reels
-    if short_path:
-        try:
-            upload_to_instagram(short_path, metadata)
-        except Exception as e:
-            log(f"  WARNING: Instagram upload failed: {e}")
-
-    # Step 12: Upload to TikTok
-    if short_path:
-        try:
-            upload_to_tiktok(short_path, metadata)
-        except Exception as e:
-            log(f"  WARNING: TikTok upload failed: {e}")
-
-    # Step 13: Upload Short to GitHub Release for backup/RSS access
+    # Step 11: Upload Short to GitHub Release for backup/RSS access
     if short_path:
         try:
             from datetime import datetime, timezone
@@ -1015,6 +924,13 @@ def main():
             )
         except Exception as e:
             log(f"  WARNING: GitHub Release/RSS update failed: {e}")
+
+    # Step 12: Email notification with links for manual cross-posting
+    try:
+        short_download_url = video_download_url if short_path else None
+    except NameError:
+        short_download_url = None
+    send_email_notification(metadata, short_download_url)
 
     log("=" * 60)
     log("Pipeline complete!")
