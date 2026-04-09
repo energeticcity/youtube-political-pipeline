@@ -506,19 +506,29 @@ def render_video(
     bg_paths = []
     for i, url_or_path in enumerate(bg_video_urls[:3]):
         bp = os.path.join(tmpdir, f"bg_{i}.mp4")
-        if os.path.isfile(url_or_path):
-            # Local file path
-            import shutil
-            shutil.copy2(url_or_path, bp)
-            print(f"[renderer] Using local background {i+1}: {url_or_path}")
-        else:
-            # URL — download it
-            print(f"[renderer] Downloading background {i+1}: {url_or_path[:60]}...")
-            resp = requests.get(url_or_path, timeout=120)
-            resp.raise_for_status()
-            with open(bp, "wb") as f:
-                f.write(resp.content)
-        bg_paths.append(bp)
+        try:
+            if os.path.isfile(url_or_path):
+                # Local file path
+                import shutil
+                shutil.copy2(url_or_path, bp)
+                print(f"[renderer] Using local background {i+1}: {url_or_path}")
+            else:
+                # URL — download it
+                print(f"[renderer] Downloading background {i+1}: {url_or_path[:60]}...")
+                resp = requests.get(url_or_path, timeout=60, headers={
+                    "User-Agent": "Mozilla/5.0 (compatible; PipelineBot/1.0)"
+                })
+                resp.raise_for_status()
+                with open(bp, "wb") as f:
+                    f.write(resp.content)
+            # Verify file is a real video (at least 10KB)
+            if os.path.exists(bp) and os.path.getsize(bp) > 10240:
+                bg_paths.append(bp)
+                print(f"[renderer] Background {i+1} OK: {os.path.getsize(bp)} bytes")
+            else:
+                print(f"[renderer] Background {i+1} too small or missing, skipping")
+        except Exception as e:
+            print(f"[renderer] Background {i+1} download failed: {e}")
 
     if not bg_paths:
         # Generate a simple dark gradient background as fallback
@@ -582,8 +592,16 @@ def render_video(
                 "-c:v", "libx264", "-preset", "fast", "-crf", "23", bg_concat,
             ], capture_output=True, timeout=300)
 
-    if not os.path.exists(bg_concat):
-        raise RuntimeError("Failed to create background video")
+    if not os.path.exists(bg_concat) or os.path.getsize(bg_concat) < 1024:
+        # bg_concat failed — regenerate fallback
+        print("[renderer] bg_concat missing or empty, generating fallback background...")
+        subprocess.run([
+            "ffmpeg", "-y", "-f", "lavfi", "-i",
+            f"color=c=0x040412:s={WIDTH}x{HEIGHT}:d={int(duration + 5)}",
+            "-c:v", "libx264", "-preset", "fast", "-crf", "23", bg_concat,
+        ], capture_output=True, timeout=60)
+        if not os.path.exists(bg_concat) or os.path.getsize(bg_concat) < 1024:
+            raise RuntimeError("Failed to create background video")
 
     print(f"[renderer] Background video ready: {os.path.getsize(bg_concat)} bytes")
 
