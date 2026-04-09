@@ -597,7 +597,6 @@ def upload_to_instagram(short_path: str, metadata: dict):
 
     log("Uploading to Instagram Reels...")
     try:
-        import base64
         import signal
         from instagrapi import Client
 
@@ -615,23 +614,20 @@ def upload_to_instagram(short_path: str, metadata: dict):
             cl = Client()
             cl.set_user_agent("Instagram 269.0.0.18.75 Android (33/13; 420dpi; 1080x2400; samsung; SM-G991B; o1s; exynos2100)")
 
-            # Priority 1: Use saved session from IG_SESSION secret (avoids IP blacklist)
-            session_file = "/tmp/ig_session.json"
             logged_in = False
 
+            # Priority 1: Use browser session cookie from IG_SESSION secret
             if IG_SESSION:
                 try:
-                    session_json = base64.b64decode(IG_SESSION).decode()
-                    with open(session_file, "w") as f:
-                        f.write(session_json)
-                    cl.load_settings(session_file)
-                    cl.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
+                    # IG_SESSION contains the raw sessionid cookie value
+                    session_id = IG_SESSION.strip()
+                    cl.login_by_sessionid(session_id)
                     logged_in = True
-                    log("  Instagram: logged in via saved session")
+                    log("  Instagram: logged in via session cookie")
                 except InstagramTimeout:
                     raise
                 except Exception as e:
-                    log(f"  Instagram: saved session failed ({e})")
+                    log(f"  Instagram: session cookie login failed ({e})")
 
             # Priority 2: Fall back to fresh login (may fail from datacenter IPs)
             if not logged_in:
@@ -647,7 +643,7 @@ def upload_to_instagram(short_path: str, metadata: dict):
                     except Exception as e:
                         log(f"  Instagram: fresh login failed ({e})")
                         log("  Instagram: datacenter IPs are often blocked.")
-                        log("  Run export_ig_session.py on your computer and set IG_SESSION secret.")
+                        log("  Get sessionid cookie from browser and set IG_SESSION secret.")
                         return None
                 else:
                     log("  Instagram: no credentials for fallback login")
