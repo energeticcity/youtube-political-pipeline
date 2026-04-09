@@ -32,15 +32,6 @@ jobs:
       - name: Install Python dependencies
         run: pip install -r requirements.txt
 
-      - name: Install Playwright for TikTok upload
-        run: python -m playwright install chromium --with-deps || true
-
-      - name: Restore TikTok cookies
-        if: env.TIKTOK_COOKIES != ''
-        env:
-          TIKTOK_COOKIES: ${{ secrets.TIKTOK_COOKIES }}
-        run: echo "$TIKTOK_COOKIES" > /tmp/tiktok_cookies.json
-
       - name: Run pipeline
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -51,9 +42,7 @@ jobs:
           YOUTUBE_CHANNEL_ID: ${{ secrets.YOUTUBE_CHANNEL_ID }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
           GITHUB_TOKEN: ${{ github.token }}
-          INSTAGRAM_USERNAME: ${{ secrets.INSTAGRAM_USERNAME }}
-          INSTAGRAM_PASSWORD: ${{ secrets.INSTAGRAM_PASSWORD }}
-          IG_SESSION: ${{ secrets.IG_SESSION }}
-          TIKTOK_USERNAME: ${{ secrets.TIKTOK_USERNAME }}
-          TIKTOK_PASSWORD: ${{ secrets.TIKTOK_PASSWORD }}
+          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          NOTIFICATION_EMAIL: ${{ secrets.NOTIFICATION_EMAIL }}
         run: python pipeline.py
