@@ -25,6 +25,11 @@ PEXELS_API_KEY = os.environ.get("PEXELS_API_KEY", "")
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
 GITHUB_REPO = "energeticcity/youtube-political-pipeline"
 
+INSTAGRAM_USERNAME = os.environ.get("INSTAGRAM_USERNAME", "")
+INSTAGRAM_PASSWORD = os.environ.get("INSTAGRAM_PASSWORD", "")
+TIKTOK_USERNAME = os.environ.get("TIKTOK_USERNAME", "")
+TIKTOK_PASSWORD = os.environ.get("TIKTOK_PASSWORD", "")
+
 ELEVENLABS_VOICE_ID = "EkK5I93UQWFDigLMpZcX"
 
 CLAUDE_MODEL = "claude-haiku-4-5-20251001"
@@ -577,7 +582,103 @@ def upload_short_to_youtube(short_path: str, metadata: dict):
     return short_id
 
 
-# ── Step 11: Upload Short to GitHub Release & Update RSS Feed ─────────────────
+# ── Step 11: Upload Short to Instagram Reels ──────────────────────────────────
+
+def upload_to_instagram(short_path: str, metadata: dict):
+    """Upload Short as an Instagram Reel using instagrapi."""
+    if not INSTAGRAM_USERNAME or not INSTAGRAM_PASSWORD:
+        log("Instagram upload skipped (no credentials)")
+        return None
+
+    log("Uploading to Instagram Reels...")
+    try:
+        from instagrapi import Client
+
+        cl = Client()
+        # Set user agent to look like a real device
+        cl.set_user_agent("Instagram 269.0.0.18.75 Android (33/13; 420dpi; 1080x2400; samsung; SM-G991B; o1s; exynos2100)")
+
+        # Check for saved session to avoid repeated logins
+        session_file = "/tmp/ig_session.json"
+        try:
+            if os.path.exists(session_file):
+                cl.load_settings(session_file)
+                cl.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
+                log("  Instagram: restored session")
+            else:
+                cl.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
+                cl.dump_settings(session_file)
+                log("  Instagram: fresh login")
+        except Exception as login_err:
+            log(f"  Instagram: session restore failed ({login_err}), doing fresh login...")
+            cl = Client()
+            cl.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
+            cl.dump_settings(session_file)
+
+        # Build caption for Reel
+        title = metadata.get("title", "The Political Lens")
+        caption = (
+            f"{title}\n\n"
+            f"Watch the full analysis on YouTube: The Political Lens\n\n"
+            f"#politics #news #politicalnews #shorts #politicalanalysis #breakingnews\n\n"
+            f"AI-generated political analysis."
+        )
+
+        # Upload as Reel
+        media = cl.clip_upload(short_path, caption=caption)
+        reel_id = media.pk
+        log(f"  Instagram Reel posted: https://instagram.com/reel/{media.code}")
+        return reel_id
+
+    except Exception as e:
+        log(f"  WARNING: Instagram upload failed: {e}")
+        return None
+
+
+# ── Step 12: Upload Short to TikTok ──────────────────────────────────────────
+
+def upload_to_tiktok(short_path: str, metadata: dict):
+    """Upload Short to TikTok using tiktok-uploader (Playwright-based)."""
+    if not TIKTOK_USERNAME or not TIKTOK_PASSWORD:
+        log("TikTok upload skipped (no credentials)")
+        return None
+
+    log("Uploading to TikTok...")
+    try:
+        from tiktok_uploader.upload import upload_video
+        from tiktok_uploader.auth import AuthBackend
+
+        title = metadata.get("title", "The Political Lens")
+        # TikTok captions are limited, keep it punchy
+        caption = f"{title} #politics #news #politicalnews #fyp #foryou"
+        if len(caption) > 150:
+            caption = caption[:147] + "..."
+
+        # Try cookie-based auth first
+        cookie_file = "/tmp/tiktok_cookies.json"
+        if os.path.exists(cookie_file):
+            log("  TikTok: using saved cookies")
+            upload_video(
+                short_path,
+                description=caption,
+                cookies=cookie_file,
+                headless=True,
+            )
+        else:
+            log("  TikTok: no cookies found, skipping (manual cookie setup needed)")
+            log("  To set up: export TikTok cookies from your browser as JSON")
+            log("  and save as TIKTOK_COOKIES GitHub secret")
+            return None
+
+        log(f"  TikTok video posted!")
+        return True
+
+    except Exception as e:
+        log(f"  WARNING: TikTok upload failed: {e}")
+        return None
+
+
+# ── Step 13: Upload Short to GitHub Release & Update RSS Feed ─────────────────
 
 def upload_short_to_github_release(short_path: str, tag_name: str) -> str:
     """Upload the Short MP4 as a GitHub Release asset. Returns the public download URL."""
@@ -815,12 +916,24 @@ def main():
         short_path = render_short(video_path, audio_path, topic_data, script_data, output_dir)
         short_id = upload_short_to_youtube(short_path, metadata)
 
-        # Step 10: Upload Short to GitHub Release for cross-platform access
+        # Step 10: Upload to Instagram Reels
+        try:
+            upload_to_instagram(short_path, metadata)
+        except Exception as e:
+            log(f"  WARNING: Instagram upload failed: {e}")
+
+        # Step 11: Upload to TikTok
+        try:
+            upload_to_tiktok(short_path, metadata)
+        except Exception as e:
+            log(f"  WARNING: TikTok upload failed: {e}")
+
+        # Step 12: Upload Short to GitHub Release for backup/RSS access
         from datetime import datetime, timezone
         tag = datetime.now(timezone.utc).strftime("v%Y%m%d-%H%M")
         video_download_url = upload_short_to_github_release(short_path, tag)
 
-        # Step 11: Update RSS feed for dlvr.it → TikTok + Instagram
+        # Step 13: Update RSS feed
         update_rss_feed(
             video_url=video_download_url,
             metadata=metadata,
