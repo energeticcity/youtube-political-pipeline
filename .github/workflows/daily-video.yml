@@ -53,6 +53,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           INSTAGRAM_USERNAME: ${{ secrets.INSTAGRAM_USERNAME }}
           INSTAGRAM_PASSWORD: ${{ secrets.INSTAGRAM_PASSWORD }}
+          IG_SESSION: ${{ secrets.IG_SESSION }}
           TIKTOK_USERNAME: ${{ secrets.TIKTOK_USERNAME }}
           TIKTOK_PASSWORD: ${{ secrets.TIKTOK_PASSWORD }}
         run: python pipeline.py
