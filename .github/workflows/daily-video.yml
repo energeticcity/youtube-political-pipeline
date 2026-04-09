@@ -2,10 +2,13 @@ name: Daily Political Video Pipeline
 
 on:
   schedule:
-    # Run twice daily: 14:00 UTC (10am ET) and 22:00 UTC (6pm ET)
-    - cron: '0 14 * * *'
-    - cron: '0 22 * * *'
+    # Run twice daily
+    - cron: '0 14 * * *'   # 10am ET / 7am PT
+    - cron: '0 22 * * *'   # 6pm ET / 3pm PT
   workflow_dispatch:  # Allow manual triggers from GitHub UI
+
+permissions:
+  contents: write
 
 jobs:
   generate-video:
@@ -38,4 +41,5 @@ jobs:
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
           YOUTUBE_CHANNEL_ID: ${{ secrets.YOUTUBE_CHANNEL_ID }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: python pipeline.py
