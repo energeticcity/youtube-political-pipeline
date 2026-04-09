@@ -2,7 +2,9 @@
 """Quick test: download the latest Short from GitHub Release and upload to Instagram."""
 import os
 import sys
+import time
 import requests
+from urllib.parse import unquote
 
 INSTAGRAM_USERNAME = os.environ.get("INSTAGRAM_USERNAME", "")
 INSTAGRAM_PASSWORD = os.environ.get("INSTAGRAM_PASSWORD", "")
@@ -16,7 +18,7 @@ def main():
         sys.exit(1)
 
     # Download the short
-    print(f"Downloading short from GitHub Release...")
+    print("Downloading short from GitHub Release...")
     resp = requests.get(SHORT_URL, timeout=60, allow_redirects=True)
     resp.raise_for_status()
     short_path = "/tmp/test_short.mp4"
@@ -33,10 +35,10 @@ def main():
         pass
 
     def _timeout_handler(signum, frame):
-        raise InstagramTimeout("Instagram operation timed out (120s)")
+        raise InstagramTimeout("Instagram operation timed out (180s)")
 
     old_handler = signal.signal(signal.SIGALRM, _timeout_handler)
-    signal.alarm(120)
+    signal.alarm(180)
 
     try:
         cl = Client()
@@ -47,7 +49,7 @@ def main():
         # Priority 1: Use session cookie
         if IG_SESSION:
             try:
-                session_id = IG_SESSION.strip()
+                session_id = unquote(IG_SESSION.strip())
                 cl.login_by_sessionid(session_id)
                 logged_in = True
                 print("  Login via session cookie successful!")
@@ -75,11 +77,22 @@ def main():
         )
 
         print("  Uploading Reel...")
-        media = cl.clip_upload(short_path, caption=caption)
-        print(f"  SUCCESS! Reel posted: https://instagram.com/reel/{media.code}")
+        for attempt in range(2):
+            try:
+                media = cl.clip_upload(short_path, caption=caption)
+                print(f"  SUCCESS! Reel posted: https://instagram.com/reel/{media.code}")
+                break
+            except Exception as upload_err:
+                err_str = str(upload_err).lower()
+                if "challenge" in err_str and attempt == 0:
+                    print(f"  Challenge on upload, retrying in 10s...")
+                    time.sleep(10)
+                    continue
+                print(f"  FAILED: {upload_err}")
+                break
 
     except InstagramTimeout:
-        print("  FAILED: Instagram operation timed out (120s)")
+        print("  FAILED: Instagram operation timed out (180s)")
     except Exception as e:
         print(f"  FAILED: {e}")
     finally:
