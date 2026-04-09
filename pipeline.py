@@ -391,22 +391,27 @@ def upload_to_youtube(video_path: str, thumbnail_path: str, metadata: dict):
     video_id = upload_resp.json()["id"]
     log(f"  Video uploaded: https://youtube.com/watch?v={video_id}")
 
-    # Set thumbnail
+    # Set thumbnail (requires verified channel; skip gracefully if forbidden)
     log("  Setting thumbnail...")
-    with open(thumbnail_path, "rb") as f:
-        thumb_data = f.read()
+    try:
+        with open(thumbnail_path, "rb") as f:
+            thumb_data = f.read()
 
-    requests.post(
-        "https://www.googleapis.com/upload/youtube/v3/thumbnails/set",
-        params={"videoId": video_id},
-        headers={
-            "Authorization": f"Bearer {access_token}",
-            "Content-Type": "image/jpeg",
-        },
-        data=thumb_data,
-        timeout=60,
-    ).raise_for_status()
-    log("  Thumbnail set!")
+        thumb_resp = requests.post(
+            "https://www.googleapis.com/upload/youtube/v3/thumbnails/set",
+            params={"videoId": video_id},
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "Content-Type": "image/jpeg",
+            },
+            data=thumb_data,
+            timeout=60,
+        )
+        thumb_resp.raise_for_status()
+        log("  Thumbnail set!")
+    except Exception as e:
+        log(f"  WARNING: Thumbnail upload failed (channel may need verification): {e}")
+        log("  Video was uploaded successfully — thumbnail can be set manually.")
     log(f"  Done! https://youtube.com/watch?v={video_id}")
 
 
