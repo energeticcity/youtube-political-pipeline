@@ -22,6 +22,9 @@ YOUTUBE_REFRESH_TOKEN = os.environ.get("YOUTUBE_REFRESH_TOKEN", "")
 YOUTUBE_CHANNEL_ID = os.environ.get("YOUTUBE_CHANNEL_ID", "UCWlSqBKvWmBcdLSPo7WL3PA")
 PEXELS_API_KEY = os.environ.get("PEXELS_API_KEY", "")
 
+GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
+GITHUB_REPO = "energeticcity/youtube-political-pipeline"
+
 ELEVENLABS_VOICE_ID = "EkK5I93UQWFDigLMpZcX"
 
 CLAUDE_MODEL = "claude-haiku-4-5-20251001"
@@ -574,6 +577,183 @@ def upload_short_to_youtube(short_path: str, metadata: dict):
     return short_id
 
 
+# ── Step 11: Upload Short to GitHub Release & Update RSS Feed ─────────────────
+
+def upload_short_to_github_release(short_path: str, tag_name: str) -> str:
+    """Upload the Short MP4 as a GitHub Release asset. Returns the public download URL."""
+    if not GITHUB_TOKEN:
+        log("GitHub Release upload skipped (no GITHUB_TOKEN)")
+        return ""
+
+    log("Uploading Short to GitHub Release...")
+    headers = {
+        "Authorization": f"token {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github+json",
+    }
+
+    # Create release
+    release_data = {
+        "tag_name": tag_name,
+        "name": f"Short {tag_name}",
+        "body": "Auto-generated Short video for cross-platform distribution.",
+        "draft": False,
+        "prerelease": False,
+    }
+    resp = requests.post(
+        f"https://api.github.com/repos/{GITHUB_REPO}/releases",
+        headers=headers, json=release_data, timeout=30,
+    )
+    if resp.status_code not in (201, 422):
+        resp.raise_for_status()
+
+    if resp.status_code == 422:
+        # Release with this tag may already exist — get it
+        resp = requests.get(
+            f"https://api.github.com/repos/{GITHUB_REPO}/releases/tags/{tag_name}",
+            headers=headers, timeout=15,
+        )
+        resp.raise_for_status()
+
+    release = resp.json()
+    upload_url = release["upload_url"].replace("{?name,label}", "")
+
+    # Upload the MP4 asset
+    filename = f"short_{tag_name}.mp4"
+    with open(short_path, "rb") as f:
+        video_data = f.read()
+
+    log(f"  Uploading {len(video_data) / (1024*1024):.1f} MB to release {tag_name}...")
+    asset_resp = requests.post(
+        f"{upload_url}?name={filename}",
+        headers={
+            "Authorization": f"token {GITHUB_TOKEN}",
+            "Content-Type": "application/octet-stream",
+        },
+        data=video_data,
+        timeout=300,
+    )
+    asset_resp.raise_for_status()
+    download_url = asset_resp.json()["browser_download_url"]
+    log(f"  Short available at: {download_url}")
+    return download_url
+
+
+def update_rss_feed(video_url: str, metadata: dict, thumbnail_url: str = "", youtube_short_id: str = ""):
+    """Update the RSS feed XML in the repo with the new Short video entry."""
+    if not GITHUB_TOKEN:
+        log("RSS feed update skipped (no GITHUB_TOKEN)")
+        return
+
+    from datetime import datetime, timezone
+    import xml.etree.ElementTree as ET
+    import base64
+
+    log("Updating RSS feed...")
+    headers = {
+        "Authorization": f"token {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github+json",
+    }
+
+    # Fetch existing feed.xml (or start fresh)
+    feed_path = "feed.xml"
+    existing_sha = None
+    existing_xml = None
+
+    resp = requests.get(
+        f"https://api.github.com/repos/{GITHUB_REPO}/contents/{feed_path}",
+        headers=headers, timeout=15,
+    )
+    if resp.status_code == 200:
+        existing_sha = resp.json()["sha"]
+        existing_xml = base64.b64decode(resp.json()["content"]).decode("utf-8")
+
+    # Parse or create feed
+    now = datetime.now(timezone.utc).strftime("%a, %d %b %Y %H:%M:%S +0000")
+
+    if existing_xml:
+        try:
+            root = ET.fromstring(existing_xml)
+            channel = root.find("channel")
+        except ET.ParseError:
+            channel = None
+    else:
+        channel = None
+
+    if channel is None:
+        # Build fresh RSS feed
+        root = ET.Element("rss", version="2.0", attrib={
+            "xmlns:media": "http://search.yahoo.com/mrss/",
+            "xmlns:atom": "http://www.w3.org/2005/Atom",
+        })
+        channel = ET.SubElement(root, "channel")
+        ET.SubElement(channel, "title").text = "The Political Lens - Shorts"
+        ET.SubElement(channel, "link").text = f"https://github.com/{GITHUB_REPO}"
+        ET.SubElement(channel, "description").text = "Daily AI-powered political analysis shorts for TikTok and Instagram"
+        ET.SubElement(channel, "language").text = "en-us"
+
+    # Update lastBuildDate
+    last_build = channel.find("lastBuildDate")
+    if last_build is None:
+        last_build = ET.SubElement(channel, "lastBuildDate")
+    last_build.text = now
+
+    # Add new item at the top (after channel metadata)
+    item = ET.Element("item")
+    ET.SubElement(item, "title").text = metadata.get("title", "Political Lens Short")
+    ET.SubElement(item, "description").text = metadata.get("description", "")
+
+    # Link to YouTube Short if available
+    if youtube_short_id:
+        ET.SubElement(item, "link").text = f"https://youtube.com/shorts/{youtube_short_id}"
+        ET.SubElement(item, "guid", isPermaLink="true").text = f"https://youtube.com/shorts/{youtube_short_id}"
+    else:
+        ET.SubElement(item, "guid", isPermaLink="false").text = video_url
+
+    ET.SubElement(item, "pubDate").text = now
+
+    # Media enclosure — this is what dlvr.it uses for the video file
+    if video_url:
+        ET.SubElement(item, "enclosure", url=video_url, type="video/mp4", length="0")
+        # Also add media:content for broader compatibility
+        media_content = ET.SubElement(item, "{http://search.yahoo.com/mrss/}content",
+                                       url=video_url, type="video/mp4", medium="video")
+
+    if thumbnail_url:
+        media_thumb = ET.SubElement(item, "{http://search.yahoo.com/mrss/}thumbnail", url=thumbnail_url)
+
+    # Insert item after channel metadata (before other items)
+    items = channel.findall("item")
+    if items:
+        idx = list(channel).index(items[0])
+        channel.insert(idx, item)
+    else:
+        channel.append(item)
+
+    # Keep only last 20 items
+    all_items = channel.findall("item")
+    for old_item in all_items[20:]:
+        channel.remove(old_item)
+
+    # Serialize
+    ET.indent(root, space="  ")
+    xml_str = '<?xml version="1.0" encoding="UTF-8"?>\n' + ET.tostring(root, encoding="unicode")
+
+    # Push to GitHub
+    push_data = {
+        "message": f"Update RSS feed: {metadata.get('title', 'new short')}",
+        "content": base64.b64encode(xml_str.encode()).decode(),
+    }
+    if existing_sha:
+        push_data["sha"] = existing_sha
+
+    resp = requests.put(
+        f"https://api.github.com/repos/{GITHUB_REPO}/contents/{feed_path}",
+        headers=headers, json=push_data, timeout=30,
+    )
+    resp.raise_for_status()
+    log(f"  RSS feed updated: https://raw.githubusercontent.com/{GITHUB_REPO}/main/feed.xml")
+
+
 # ── Main Pipeline ──────────────────────────────────────────────────────────────
 
 def main():
@@ -617,10 +797,22 @@ def main():
     # Step 8: Upload main video to YouTube
     upload_to_youtube(video_path, thumbnail_path, metadata)
 
-    # Step 9: Render and upload YouTube Short
+    # Step 9: Render and upload YouTube Short + cross-platform distribution
     try:
         short_path = render_short(video_path, audio_path, topic_data, script_data, output_dir)
-        upload_short_to_youtube(short_path, metadata)
+        short_id = upload_short_to_youtube(short_path, metadata)
+
+        # Step 10: Upload Short to GitHub Release for cross-platform access
+        from datetime import datetime, timezone
+        tag = datetime.now(timezone.utc).strftime("v%Y%m%d-%H%M")
+        video_download_url = upload_short_to_github_release(short_path, tag)
+
+        # Step 11: Update RSS feed for dlvr.it → TikTok + Instagram
+        update_rss_feed(
+            video_url=video_download_url,
+            metadata=metadata,
+            youtube_short_id=short_id or "",
+        )
     except Exception as e:
         log(f"  WARNING: Short generation/upload failed: {e}")
         log("  Main video was uploaded successfully.")
