@@ -460,6 +460,8 @@ def upload_to_youtube(video_path: str, thumbnail_path: str, metadata: dict):
         },
         timeout=30,
     )
+    if init_resp.status_code != 200:
+        log(f"  YouTube API error {init_resp.status_code}: {init_resp.text[:500]}")
     init_resp.raise_for_status()
     upload_url = init_resp.headers["Location"]
 
@@ -559,6 +561,8 @@ def upload_short_to_youtube(short_path: str, metadata: dict):
         },
         timeout=30,
     )
+    if init_resp.status_code != 200:
+        log(f"  YouTube Short API error {init_resp.status_code}: {init_resp.text[:500]}")
     init_resp.raise_for_status()
     upload_url = init_resp.headers["Location"]
 
@@ -927,7 +931,11 @@ def main():
     video_path = render_video_local(audio_path, topic_data, script_data, output_dir)
 
     # Step 8: Upload main video to YouTube
-    upload_to_youtube(video_path, thumbnail_path, metadata)
+    try:
+        upload_to_youtube(video_path, thumbnail_path, metadata)
+    except Exception as e:
+        log(f"  WARNING: YouTube main video upload failed: {e}")
+        log("  Continuing with Short rendering and cross-platform uploads...")
 
     # Step 9: Render YouTube Short
     short_path = None
