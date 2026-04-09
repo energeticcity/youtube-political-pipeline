@@ -911,37 +911,48 @@ def main():
     # Step 8: Upload main video to YouTube
     upload_to_youtube(video_path, thumbnail_path, metadata)
 
-    # Step 9: Render and upload YouTube Short + cross-platform distribution
+    # Step 9: Render YouTube Short
+    short_path = None
+    short_id = None
     try:
         short_path = render_short(video_path, audio_path, topic_data, script_data, output_dir)
-        short_id = upload_short_to_youtube(short_path, metadata)
+    except Exception as e:
+        log(f"  WARNING: Short rendering failed: {e}")
 
-        # Step 10: Upload to Instagram Reels
+    # Step 10: Upload Short to YouTube
+    if short_path:
+        try:
+            short_id = upload_short_to_youtube(short_path, metadata)
+        except Exception as e:
+            log(f"  WARNING: YouTube Short upload failed: {e}")
+
+    # Step 11: Upload to Instagram Reels
+    if short_path:
         try:
             upload_to_instagram(short_path, metadata)
         except Exception as e:
             log(f"  WARNING: Instagram upload failed: {e}")
 
-        # Step 11: Upload to TikTok
+    # Step 12: Upload to TikTok
+    if short_path:
         try:
             upload_to_tiktok(short_path, metadata)
         except Exception as e:
             log(f"  WARNING: TikTok upload failed: {e}")
 
-        # Step 12: Upload Short to GitHub Release for backup/RSS access
-        from datetime import datetime, timezone
-        tag = datetime.now(timezone.utc).strftime("v%Y%m%d-%H%M")
-        video_download_url = upload_short_to_github_release(short_path, tag)
-
-        # Step 13: Update RSS feed
-        update_rss_feed(
-            video_url=video_download_url,
-            metadata=metadata,
-            youtube_short_id=short_id or "",
-        )
-    except Exception as e:
-        log(f"  WARNING: Short generation/upload failed: {e}")
-        log("  Main video was uploaded successfully.")
+    # Step 13: Upload Short to GitHub Release for backup/RSS access
+    if short_path:
+        try:
+            from datetime import datetime, timezone
+            tag = datetime.now(timezone.utc).strftime("v%Y%m%d-%H%M")
+            video_download_url = upload_short_to_github_release(short_path, tag)
+            update_rss_feed(
+                video_url=video_download_url,
+                metadata=metadata,
+                youtube_short_id=short_id or "",
+            )
+        except Exception as e:
+            log(f"  WARNING: GitHub Release/RSS update failed: {e}")
 
     log("=" * 60)
     log("Pipeline complete!")
