@@ -592,43 +592,61 @@ def upload_to_instagram(short_path: str, metadata: dict):
 
     log("Uploading to Instagram Reels...")
     try:
+        import signal
         from instagrapi import Client
 
-        cl = Client()
-        # Set user agent to look like a real device
-        cl.set_user_agent("Instagram 269.0.0.18.75 Android (33/13; 420dpi; 1080x2400; samsung; SM-G991B; o1s; exynos2100)")
+        # Timeout handler to prevent hanging on login challenges
+        class InstagramTimeout(Exception):
+            pass
 
-        # Check for saved session to avoid repeated logins
-        session_file = "/tmp/ig_session.json"
+        def _timeout_handler(signum, frame):
+            raise InstagramTimeout("Instagram operation timed out (120s)")
+
+        old_handler = signal.signal(signal.SIGALRM, _timeout_handler)
+        signal.alarm(120)  # 2-minute timeout for entire Instagram flow
+
         try:
-            if os.path.exists(session_file):
-                cl.load_settings(session_file)
-                cl.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
-                log("  Instagram: restored session")
-            else:
+            cl = Client()
+            # Set user agent to look like a real device
+            cl.set_user_agent("Instagram 269.0.0.18.75 Android (33/13; 420dpi; 1080x2400; samsung; SM-G991B; o1s; exynos2100)")
+
+            # Check for saved session to avoid repeated logins
+            session_file = "/tmp/ig_session.json"
+            try:
+                if os.path.exists(session_file):
+                    cl.load_settings(session_file)
+                    cl.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
+                    log("  Instagram: restored session")
+                else:
+                    cl.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
+                    cl.dump_settings(session_file)
+                    log("  Instagram: fresh login")
+            except InstagramTimeout:
+                raise
+            except Exception as login_err:
+                log(f"  Instagram: session restore failed ({login_err}), doing fresh login...")
+                cl = Client()
                 cl.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
                 cl.dump_settings(session_file)
-                log("  Instagram: fresh login")
-        except Exception as login_err:
-            log(f"  Instagram: session restore failed ({login_err}), doing fresh login...")
-            cl = Client()
-            cl.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
-            cl.dump_settings(session_file)
 
-        # Build caption for Reel
-        title = metadata.get("title", "The Political Lens")
-        caption = (
-            f"{title}\n\n"
-            f"Watch the full analysis on YouTube: The Political Lens\n\n"
-            f"#politics #news #politicalnews #shorts #politicalanalysis #breakingnews\n\n"
-            f"AI-generated political analysis."
-        )
+            # Build caption for Reel
+            title = metadata.get("title", "The Political Lens")
+            caption = (
+                f"{title}\n\n"
+                f"Watch the full analysis on YouTube: The Political Lens\n\n"
+                f"#politics #news #politicalnews #shorts #politicalanalysis #breakingnews\n\n"
+                f"AI-generated political analysis."
+            )
 
-        # Upload as Reel
-        media = cl.clip_upload(short_path, caption=caption)
-        reel_id = media.pk
-        log(f"  Instagram Reel posted: https://instagram.com/reel/{media.code}")
-        return reel_id
+            # Upload as Reel
+            media = cl.clip_upload(short_path, caption=caption)
+            reel_id = media.pk
+            log(f"  Instagram Reel posted: https://instagram.com/reel/{media.code}")
+            return reel_id
+
+        finally:
+            signal.alarm(0)  # Cancel the alarm
+            signal.signal(signal.SIGALRM, old_handler)
 
     except Exception as e:
         log(f"  WARNING: Instagram upload failed: {e}")
