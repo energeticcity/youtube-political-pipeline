@@ -741,8 +741,6 @@ def create_short_overlay(
     img = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
 
-    fonts = load_fonts()
-
     # Dark gradient overlay — heavier for readability on mobile
     gradient = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     gdraw = ImageDraw.Draw(gradient)
@@ -763,7 +761,7 @@ def create_short_overlay(
 
     # Channel name — top center
     try:
-        ch_font = ImageFont.truetype(fonts["bold"], 28)
+        ch_font = ImageFont.truetype(FONT_BOLD, 28)
     except Exception:
         ch_font = ImageFont.load_default()
     ch_bbox = draw.textbbox((0, 0), channel_name, font=ch_font)
@@ -772,7 +770,7 @@ def create_short_overlay(
 
     # Category badge
     try:
-        cat_font = ImageFont.truetype(fonts["bold"], 20)
+        cat_font = ImageFont.truetype(FONT_BOLD, 20)
     except Exception:
         cat_font = ImageFont.load_default()
     cat_text = category.upper()
@@ -789,7 +787,7 @@ def create_short_overlay(
 
     # Main headline — large, centered, wrapped
     try:
-        head_font = ImageFont.truetype(fonts["extrabold"], 54)
+        head_font = ImageFont.truetype(FONT_EXTRABOLD, 54)
     except Exception:
         head_font = ImageFont.load_default()
 
@@ -848,7 +846,7 @@ def create_short_overlay(
             fill=RED_ACCENT,
         )
         try:
-            num_font = ImageFont.truetype(fonts["extrabold"], 32)
+            num_font = ImageFont.truetype(FONT_EXTRABOLD, 32)
         except Exception:
             num_font = ImageFont.load_default()
         num_text = str(point_num)
@@ -862,7 +860,7 @@ def create_short_overlay(
 
         # Point text
         try:
-            pt_font = ImageFont.truetype(fonts["semibold"], 28)
+            pt_font = ImageFont.truetype(FONT_SEMIBOLD, 28)
         except Exception:
             pt_font = ImageFont.load_default()
         text_x = circle_x + circle_r + 25
@@ -893,7 +891,7 @@ def create_short_overlay(
     draw.rectangle([(0, bar_y), (width, bar_y + 3)], fill=RED_ACCENT)
 
     try:
-        bar_font = ImageFont.truetype(fonts["bold"], 20)
+        bar_font = ImageFont.truetype(FONT_BOLD, 20)
     except Exception:
         bar_font = ImageFont.load_default()
     draw.text((30, bar_y + 30), "LIVE ANALYSIS", font=bar_font, fill=RED_ACCENT)
