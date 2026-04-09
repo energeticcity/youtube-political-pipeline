@@ -722,6 +722,365 @@ def render_video(
     return output_path
 
 
+# ── YouTube Short Renderer (9:16 vertical, ≤60s) ──────────────────────────────
+
+SHORT_WIDTH = 1080
+SHORT_HEIGHT = 1920
+
+def create_short_overlay(
+    width: int,
+    height: int,
+    headline: str,
+    talking_point: str,
+    point_num: int,
+    total_points: int,
+    channel_name: str = "THE POLITICAL LENS",
+    category: str = "POLITICS",
+) -> Image.Image:
+    """Create a single overlay frame for the Short format (9:16)."""
+    img = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+
+    fonts = load_fonts()
+
+    # Dark gradient overlay — heavier for readability on mobile
+    gradient = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    gdraw = ImageDraw.Draw(gradient)
+    for y in range(height):
+        # Darker at top and bottom, lighter in middle
+        if y < height * 0.3:
+            alpha = int(220 - (y / (height * 0.3)) * 60)
+        elif y > height * 0.7:
+            alpha = int(160 + ((y - height * 0.7) / (height * 0.3)) * 60)
+        else:
+            alpha = 160
+        gdraw.rectangle([(0, y), (width, y + 1)], fill=(4, 4, 18, alpha))
+    img = Image.alpha_composite(img, gradient)
+    draw = ImageDraw.Draw(img)
+
+    # Red accent bar at top
+    draw.rectangle([(0, 0), (width, 5)], fill=RED_ACCENT)
+
+    # Channel name — top center
+    try:
+        ch_font = ImageFont.truetype(fonts["bold"], 28)
+    except Exception:
+        ch_font = ImageFont.load_default()
+    ch_bbox = draw.textbbox((0, 0), channel_name, font=ch_font)
+    ch_w = ch_bbox[2] - ch_bbox[0]
+    draw.text(((width - ch_w) // 2, 50), channel_name, font=ch_font, fill=WHITE)
+
+    # Category badge
+    try:
+        cat_font = ImageFont.truetype(fonts["bold"], 20)
+    except Exception:
+        cat_font = ImageFont.load_default()
+    cat_text = category.upper()
+    cat_bbox = draw.textbbox((0, 0), cat_text, font=cat_font)
+    cat_w = cat_bbox[2] - cat_bbox[0]
+    cat_h = cat_bbox[3] - cat_bbox[1]
+    cat_x = (width - cat_w - 30) // 2
+    cat_y = 100
+    draw.rounded_rectangle(
+        [(cat_x, cat_y), (cat_x + cat_w + 30, cat_y + cat_h + 16)],
+        radius=6, fill=RED_ACCENT,
+    )
+    draw.text((cat_x + 15, cat_y + 8), cat_text, font=cat_font, fill=WHITE)
+
+    # Main headline — large, centered, wrapped
+    try:
+        head_font = ImageFont.truetype(fonts["extrabold"], 54)
+    except Exception:
+        head_font = ImageFont.load_default()
+
+    # Word-wrap headline to fit width
+    max_w = width - 80
+    words = headline.split()
+    lines = []
+    current = ""
+    for w in words:
+        test = f"{current} {w}".strip()
+        bbox = draw.textbbox((0, 0), test, font=head_font)
+        if bbox[2] - bbox[0] > max_w and current:
+            lines.append(current)
+            current = w
+        else:
+            current = test
+    if current:
+        lines.append(current)
+    lines = lines[:4]  # Max 4 lines
+
+    head_y = 180
+    for line in lines:
+        bbox = draw.textbbox((0, 0), line, font=head_font)
+        lw = bbox[2] - bbox[0]
+        draw.text(((width - lw) // 2, head_y), line, font=head_font, fill=WHITE)
+        head_y += bbox[3] - bbox[1] + 10
+
+    # Red divider
+    div_y = head_y + 20
+    bar_w = 200
+    draw.rectangle(
+        [((width - bar_w) // 2, div_y), ((width + bar_w) // 2, div_y + 4)],
+        fill=RED_ACCENT,
+    )
+
+    # Talking point card — lower area
+    if talking_point:
+        card_y = height - 600
+        card_margin = 40
+        card_h = 200
+
+        # Card background
+        draw.rounded_rectangle(
+            [(card_margin, card_y), (width - card_margin, card_y + card_h)],
+            radius=12,
+            fill=(20, 20, 40, 220),
+        )
+
+        # Point number circle
+        circle_r = 30
+        circle_x = card_margin + 40
+        circle_y = card_y + card_h // 2
+        draw.ellipse(
+            [(circle_x - circle_r, circle_y - circle_r),
+             (circle_x + circle_r, circle_y + circle_r)],
+            fill=RED_ACCENT,
+        )
+        try:
+            num_font = ImageFont.truetype(fonts["extrabold"], 32)
+        except Exception:
+            num_font = ImageFont.load_default()
+        num_text = str(point_num)
+        num_bbox = draw.textbbox((0, 0), num_text, font=num_font)
+        num_w = num_bbox[2] - num_bbox[0]
+        num_h = num_bbox[3] - num_bbox[1]
+        draw.text(
+            (circle_x - num_w // 2, circle_y - num_h // 2 - 2),
+            num_text, font=num_font, fill=WHITE,
+        )
+
+        # Point text
+        try:
+            pt_font = ImageFont.truetype(fonts["semibold"], 28)
+        except Exception:
+            pt_font = ImageFont.load_default()
+        text_x = circle_x + circle_r + 25
+        text_max_w = width - card_margin - text_x - 20
+        words = talking_point.split()
+        lines = []
+        current = ""
+        for w in words:
+            test = f"{current} {w}".strip()
+            bbox = draw.textbbox((0, 0), test, font=pt_font)
+            if bbox[2] - bbox[0] > text_max_w and current:
+                lines.append(current)
+                current = w
+            else:
+                current = test
+        if current:
+            lines.append(current)
+        lines = lines[:3]
+
+        text_y = card_y + 30
+        for line in lines:
+            draw.text((text_x, text_y), line, font=pt_font, fill=WHITE)
+            text_y += 42
+
+    # Bottom bar — "LIVE ANALYSIS" + progress
+    bar_y = height - 100
+    draw.rectangle([(0, bar_y), (width, height)], fill=(10, 10, 30, 220))
+    draw.rectangle([(0, bar_y), (width, bar_y + 3)], fill=RED_ACCENT)
+
+    try:
+        bar_font = ImageFont.truetype(fonts["bold"], 20)
+    except Exception:
+        bar_font = ImageFont.load_default()
+    draw.text((30, bar_y + 30), "LIVE ANALYSIS", font=bar_font, fill=RED_ACCENT)
+
+    # Subscribe CTA
+    cta_text = "SUBSCRIBE FOR DAILY UPDATES"
+    cta_bbox = draw.textbbox((0, 0), cta_text, font=bar_font)
+    cta_w = cta_bbox[2] - cta_bbox[0]
+    draw.text((width - cta_w - 30, bar_y + 30), cta_text, font=bar_font, fill=(180, 180, 180))
+
+    return img
+
+
+def render_short(
+    headline: str,
+    talking_points: list[str],
+    category: str,
+    bg_video_urls: list[str],
+    audio_path: str,
+    output_path: str = "short.mp4",
+    channel_name: str = "THE POLITICAL LENS",
+    max_duration: float = 58.0,
+) -> str:
+    """
+    Render a YouTube Short (9:16 vertical, ≤60 seconds).
+    Uses first portion of audio, simpler overlay with fewer talking points.
+    """
+    import requests as req
+
+    tmpdir = tempfile.mkdtemp(prefix="politicallens_short_")
+    full_duration = get_mp3_duration(audio_path)
+    duration = min(full_duration, max_duration)
+
+    print(f"[short] Duration: {duration:.1f}s (full audio: {full_duration:.1f}s)")
+    print(f"[short] Resolution: {SHORT_WIDTH}x{SHORT_HEIGHT}")
+
+    # ── Step 1: Trim audio to max_duration ──
+    trimmed_audio = os.path.join(tmpdir, "trimmed.mp3")
+    subprocess.run([
+        "ffmpeg", "-y", "-i", audio_path,
+        "-t", str(duration),
+        "-c", "copy", trimmed_audio,
+    ], capture_output=True, timeout=30)
+
+    # ── Step 2: Background video ──
+    bg_concat = os.path.join(tmpdir, "bg_short.mp4")
+
+    bg_paths = []
+    for i, url_or_path in enumerate(bg_video_urls[:1]):  # Just 1 clip for shorts
+        bp = os.path.join(tmpdir, f"bg_{i}.mp4")
+        try:
+            if os.path.isfile(url_or_path):
+                import shutil
+                shutil.copy2(url_or_path, bp)
+            else:
+                resp = req.get(url_or_path, timeout=60, headers={
+                    "User-Agent": "Mozilla/5.0 (compatible; PipelineBot/1.0)"
+                })
+                resp.raise_for_status()
+                with open(bp, "wb") as f:
+                    f.write(resp.content)
+            if os.path.exists(bp) and os.path.getsize(bp) > 10240:
+                bg_paths.append(bp)
+        except Exception as e:
+            print(f"[short] Background download failed: {e}")
+
+    if bg_paths:
+        # Scale to 9:16 vertical — crop center
+        subprocess.run([
+            "ffmpeg", "-y",
+            "-stream_loop", "-1",
+            "-i", bg_paths[0],
+            "-t", str(int(duration + 2)),
+            "-vf", f"scale=-1:{SHORT_HEIGHT},crop={SHORT_WIDTH}:{SHORT_HEIGHT}",
+            "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+            "-an", bg_concat,
+        ], capture_output=True, timeout=120)
+
+    # Fallback dark background
+    if not os.path.exists(bg_concat) or os.path.getsize(bg_concat) < 1024:
+        print("[short] Generating fallback dark background...")
+        subprocess.run([
+            "ffmpeg", "-y", "-f", "lavfi", "-i",
+            f"color=c=0x040412:s={SHORT_WIDTH}x{SHORT_HEIGHT}:d={int(duration + 2)}",
+            "-c:v", "libx264", "-preset", "fast", "-crf", "23", bg_concat,
+        ], capture_output=True, timeout=60)
+
+    # ── Step 3: Generate overlay frames ──
+    points = talking_points[:2]  # Max 2 talking points for shorts
+
+    # Calculate timing: intro → point 1 → point 2 → CTA
+    intro_end = min(8.0, duration * 0.15)
+    cta_start = max(duration - 5.0, duration * 0.85)
+    point_duration = (cta_start - intro_end) / max(len(points), 1)
+
+    overlays = []
+
+    # Intro overlay (headline only)
+    intro_img = create_short_overlay(
+        SHORT_WIDTH, SHORT_HEIGHT, headline, "", 0, len(points),
+        channel_name=channel_name, category=category,
+    )
+    intro_path = os.path.join(tmpdir, "short_intro.png")
+    intro_img.save(intro_path)
+    overlays.append(("intro", intro_path, 0, intro_end))
+
+    # Point overlays
+    for i, point in enumerate(points):
+        start = intro_end + i * point_duration
+        end = start + point_duration
+        pt_img = create_short_overlay(
+            SHORT_WIDTH, SHORT_HEIGHT, headline, point, i + 1, len(points),
+            channel_name=channel_name, category=category,
+        )
+        pt_path = os.path.join(tmpdir, f"short_pt{i}.png")
+        pt_img.save(pt_path)
+        overlays.append((f"point{i}", pt_path, start, end))
+
+    # CTA overlay
+    cta_img = create_short_overlay(
+        SHORT_WIDTH, SHORT_HEIGHT, headline, "FOLLOW FOR DAILY ANALYSIS", 0, 0,
+        channel_name=channel_name, category=category,
+    )
+    cta_path = os.path.join(tmpdir, "short_cta.png")
+    cta_img.save(cta_path)
+    overlays.append(("cta", cta_path, cta_start, duration))
+
+    # ── Step 4: Composite overlays onto background ──
+    composite_path = os.path.join(tmpdir, "short_composite.mp4")
+
+    input_args = ["-i", bg_concat]
+    for _, path, _, _ in overlays:
+        input_args.extend(["-i", path])
+
+    filter_parts = []
+    prev = "0:v"
+    for idx, (name, _, start, end) in enumerate(overlays):
+        inp = f"{idx + 1}:v"
+        out = f"v{idx}"
+        fade_in = start
+        fade_out = max(start, end - 0.3)
+        filter_parts.append(
+            f"[{prev}][{inp}]overlay=0:0:enable='between(t,{fade_in:.1f},{end:.1f})'[{out}]"
+        )
+        prev = out
+
+    filter_complex = ";".join(filter_parts)
+
+    cmd = [
+        "ffmpeg", "-y",
+        *input_args,
+        "-filter_complex", filter_complex,
+        "-map", f"[{prev}]",
+        "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+        "-t", str(int(duration + 1)),
+        composite_path,
+    ]
+
+    print("[short] Compositing overlays...")
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+    if result.returncode != 0:
+        print(f"[short] FFmpeg error: {result.stderr[-500:]}")
+        raise RuntimeError("Short overlay compositing failed")
+
+    # ── Step 5: Add audio ──
+    print("[short] Adding audio...")
+    subprocess.run([
+        "ffmpeg", "-y",
+        "-i", composite_path,
+        "-i", trimmed_audio,
+        "-c:v", "copy",
+        "-c:a", "aac", "-b:a", "192k",
+        "-shortest",
+        output_path,
+    ], capture_output=True, timeout=120)
+
+    if not os.path.exists(output_path):
+        raise RuntimeError("Short video creation failed")
+
+    size_mb = os.path.getsize(output_path) / (1024 * 1024)
+    print(f"[short] Final short: {output_path} ({size_mb:.1f} MB)")
+
+    import shutil
+    shutil.rmtree(tmpdir, ignore_errors=True)
+    return output_path
+
+
 # ── Quick Test ────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
