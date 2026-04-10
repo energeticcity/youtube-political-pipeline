@@ -132,14 +132,15 @@ def log(msg: str):
 # ── Step 1: Fetch Google News RSS ─────────────────────────────────────────────
 
 def fetch_rss() -> str:
+    from datetime import datetime, timezone, timedelta
     log("Fetching Google News RSS...")
     headlines = []
 
-    # Fetch from multiple queries to get diverse, breaking stories
+    # Use 'when:1d' to restrict to last 24 hours
     queries = [
-        "US politics breaking news today",
-        "congress senate president white house today",
-        "US political news latest",
+        "US politics breaking news when:1d",
+        "congress senate president white house when:1d",
+        "US political news when:1d",
     ]
     for query in queries:
         try:
@@ -163,26 +164,29 @@ def fetch_rss() -> str:
 
 def pick_topic(rss_text: str) -> dict:
     import random
-    log("Asking Claude to pick a topic...")
+    from datetime import datetime, timezone
+    log("Asking Gemini to pick a topic...")
+
+    today_str = datetime.now(timezone.utc).strftime("%B %d, %Y")
 
     # Add randomization to avoid always picking the same story
     seed_word = random.choice(["surprising", "controversial", "impactful", "urgent", "explosive", "developing"])
-    time_hint = random.choice(["in the last few hours", "breaking today", "just announced", "developing right now"])
 
     result = call_llm(
         system="You are a YouTube political news selector. You MUST pick a story directly from the headlines provided. Respond ONLY with the exact XML format. No other text.",
-        user_message=f"""Here are TODAY's top political news headlines from Google News RSS:
+        user_message=f"""TODAY is {today_str}. Here are the LATEST political news headlines from the last 24 hours:
 
 {rss_text}
 
 ---
 CRITICAL RULES:
-1. Pick the single most {seed_word} political story that is {time_hint}.
-2. You MUST select from the ACTUAL headlines above. Do NOT invent topics or pick evergreen subjects.
+1. Pick the single most {seed_word} story that happened TODAY ({today_str}) or in the last 24 hours.
+2. You MUST select from the ACTUAL headlines above. Do NOT invent topics.
 3. The topic MUST reference a specific person, event, bill, vote, action, or announcement from the headlines.
-4. Do NOT pick generic topics like "25th Amendment" or "government shutdown" unless that is literally in today's headlines.
-5. Prefer stories about specific actions taken TODAY: votes, speeches, executive orders, indictments, rulings, deals, etc.
-6. Your <TOPIC> should closely match or paraphrase an actual headline from above.
+4. REJECT any headline that is about an event from more than 2 days ago. Only pick FRESH, BREAKING news.
+5. Do NOT pick generic/evergreen topics like "25th Amendment explained" or "how government works".
+6. Prefer stories about specific actions: votes, speeches, executive orders, indictments, rulings, deals, etc.
+7. Your <TOPIC> should closely match or paraphrase an actual headline from above.
 
 Also assign a background video category:
 - congress: Senate, House, legislation, bills, congressional hearings
