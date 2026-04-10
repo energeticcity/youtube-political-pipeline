@@ -14,7 +14,7 @@ from pathlib import Path
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 
-ANTHROPIC_API_KEY = os.environ["ANTHROPIC_API_KEY"]
+GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 ELEVENLABS_API_KEY = os.environ["ELEVENLABS_API_KEY"]
 YOUTUBE_CLIENT_ID = os.environ.get("YOUTUBE_CLIENT_ID", "")
 YOUTUBE_CLIENT_SECRET = os.environ.get("YOUTUBE_CLIENT_SECRET", "")
@@ -28,7 +28,7 @@ GITHUB_REPO = "energeticcity/youtube-political-pipeline"
 
 ELEVENLABS_VOICE_ID = "EkK5I93UQWFDigLMpZcX"
 
-CLAUDE_MODEL = "claude-haiku-4-5-20251001"
+GEMINI_MODEL = "gemini-2.0-flash"
 
 # Pexels search terms by category — used to find relevant stock footage
 PEXELS_SEARCH_TERMS = {
@@ -102,28 +102,27 @@ def extract_tag(text: str, tag: str) -> str:
     return m.group(1).strip() if m else ""
 
 
-def call_claude(system: str, user_message: str, max_tokens: int = 512) -> str:
-    """Call the Anthropic Messages API and return the text response."""
+def call_llm(system: str, user_message: str, max_tokens: int = 512) -> str:
+    """Call the Google Gemini API and return the text response."""
     resp = requests.post(
-        "https://api.anthropic.com/v1/messages",
-        headers={
-            "x-api-key": ANTHROPIC_API_KEY,
-            "anthropic-version": "2023-06-01",
-            "content-type": "application/json",
-        },
+        f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent",
+        params={"key": GEMINI_API_KEY},
+        headers={"content-type": "application/json"},
         json={
-            "model": CLAUDE_MODEL,
-            "max_tokens": max_tokens,
-            "system": system,
-            "messages": [{"role": "user", "content": user_message}],
+            "systemInstruction": {"parts": [{"text": system}]},
+            "contents": [{"role": "user", "parts": [{"text": user_message}]}],
+            "generationConfig": {
+                "maxOutputTokens": max_tokens,
+                "temperature": 0.7,
+            },
         },
         timeout=60,
     )
     if resp.status_code != 200:
-        log(f"  Claude API error {resp.status_code}: {resp.text[:500]}")
+        log(f"  Gemini API error {resp.status_code}: {resp.text[:500]}")
     resp.raise_for_status()
     data = resp.json()
-    return data["content"][0]["text"]
+    return data["candidates"][0]["content"]["parts"][0]["text"]
 
 
 def log(msg: str):
@@ -170,7 +169,7 @@ def pick_topic(rss_text: str) -> dict:
     seed_word = random.choice(["surprising", "controversial", "impactful", "urgent", "explosive", "developing"])
     time_hint = random.choice(["in the last few hours", "breaking today", "just announced", "developing right now"])
 
-    result = call_claude(
+    result = call_llm(
         system="You are a YouTube political news selector. You MUST pick a story directly from the headlines provided. Respond ONLY with the exact XML format. No other text.",
         user_message=f"""Here are TODAY's top political news headlines from Google News RSS:
 
@@ -214,7 +213,7 @@ Respond ONLY:
 
 def write_script(topic_data: dict) -> dict:
     log("Asking Claude to write a script...")
-    result = call_claude(
+    result = call_llm(
         system="You are a YouTube political content creator writing scripts for text-to-speech voiceover. Your scripts must sound completely natural when spoken aloud. Output ONLY the exact format requested. No extra commentary.",
         user_message=f"""Write a 300-400 word YouTube script for spoken delivery on this topic.
 Topic: {topic_data['topic']}.
@@ -256,7 +255,7 @@ Respond ONLY in this exact format with no other text:
 
 def generate_metadata(topic_data: dict, script_excerpt: str) -> dict:
     log("Asking Claude for YouTube metadata...")
-    result = call_claude(
+    result = call_llm(
         system="You are a YouTube SEO expert for a political news channel called The Political Lens. Generate metadata optimized for TODAY's trending searches. Respond ONLY in the exact XML format. No other text.",
         user_message=f"""Generate YouTube metadata for this TIMELY political news video.
 Topic: {topic_data['topic']}
