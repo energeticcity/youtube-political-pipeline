@@ -119,6 +119,8 @@ def call_claude(system: str, user_message: str, max_tokens: int = 512) -> str:
         },
         timeout=60,
     )
+    if resp.status_code != 200:
+        log(f"  Claude API error {resp.status_code}: {resp.text[:500]}")
     resp.raise_for_status()
     data = resp.json()
     return data["content"][0]["text"]
