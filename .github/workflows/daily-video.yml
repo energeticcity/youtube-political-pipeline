@@ -5,7 +5,16 @@ on:
     # Run twice daily
     - cron: '0 14 * * *'   # 10am ET / 7am PT
     - cron: '0 22 * * *'   # 6pm ET / 3pm PT
-  workflow_dispatch:  # Allow manual triggers from GitHub UI
+  workflow_dispatch:
+    inputs:
+      custom_topic:
+        description: 'Custom topic to generate a video about (leave blank for auto RSS)'
+        required: false
+        default: ''
+      custom_category:
+        description: 'Pexels background category (congress, economy, military, election, justice, international, default)'
+        required: false
+        default: 'default'
 
 permissions:
   contents: write
@@ -43,4 +52,6 @@ jobs:
           YOUTUBE_CHANNEL_ID: ${{ secrets.YOUTUBE_CHANNEL_ID }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
           GITHUB_TOKEN: ${{ github.token }}
+          CUSTOM_TOPIC: ${{ github.event.inputs.custom_topic }}
+          CUSTOM_CATEGORY: ${{ github.event.inputs.custom_category }}
         run: python pipeline.py

@@ -866,11 +866,26 @@ def main():
     output_dir = tempfile.mkdtemp(prefix="pipeline_")
     log(f"Output dir: {output_dir}")
 
-    # Step 1: Fetch RSS
-    rss_text = fetch_rss()
+    # Check for custom topic override via environment variable
+    custom_topic = os.environ.get("CUSTOM_TOPIC", "").strip()
 
-    # Step 2: Pick topic
-    topic_data = pick_topic(rss_text)
+    if custom_topic:
+        log(f"Using custom topic: {custom_topic}")
+        # Determine category from topic
+        custom_category = os.environ.get("CUSTOM_CATEGORY", "default").strip().lower()
+        if custom_category not in PEXELS_SEARCH_TERMS:
+            custom_category = "default"
+        topic_data = {
+            "topic": custom_topic,
+            "angle": f"Breaking analysis of: {custom_topic}",
+            "bgcategory": custom_category,
+        }
+    else:
+        # Step 1: Fetch RSS
+        rss_text = fetch_rss()
+
+        # Step 2: Pick topic
+        topic_data = pick_topic(rss_text)
 
     # Step 3: Write script
     script_data = write_script(topic_data)
