@@ -133,15 +133,20 @@ def log(msg: str):
 
 def fetch_rss() -> str:
     from datetime import datetime, timezone, timedelta
+    from email.utils import parsedate_to_datetime
     log("Fetching Google News RSS...")
     headlines = []
 
-    # Use 'when:1d' to restrict to last 24 hours
+    # Use 'when:12h' to restrict to the last 12 hours for maximum freshness
     queries = [
-        "US politics breaking news when:1d",
-        "congress senate president white house when:1d",
-        "US political news when:1d",
+        "US politics breaking news when:12h",
+        "congress senate president white house when:12h",
+        "Trump Biden executive order when:12h",
+        "US political news today when:12h",
     ]
+
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=14)  # 14h grace period
+
     for query in queries:
         try:
             resp = requests.get(
@@ -151,12 +156,40 @@ def fetch_rss() -> str:
                 timeout=15,
             )
             resp.raise_for_status()
-            headlines.append(resp.text[:2000])
+            # Parse RSS and filter by pubDate to ensure freshness
+            raw = resp.text
+            items = re.findall(r'<item>(.*?)</item>', raw, re.DOTALL)
+            fresh_items = []
+            for item in items:
+                title_m = re.search(r'<title>(.*?)</title>', item)
+                pub_m = re.search(r'<pubDate>(.*?)</pubDate>', item)
+                if not title_m:
+                    continue
+                title = title_m.group(1).strip()
+                # Check pubDate if available
+                if pub_m:
+                    try:
+                        pub_dt = parsedate_to_datetime(pub_m.group(1))
+                        if pub_dt < cutoff:
+                            continue  # Skip stale articles
+                    except Exception:
+                        pass
+                fresh_items.append(title)
+            headlines.extend(fresh_items[:10])  # Top 10 per query
         except Exception as e:
             log(f"  RSS query '{query}' failed: {e}")
 
-    text = "\n---\n".join(headlines)
-    log(f"  Got {len(text)} chars of RSS data from {len(headlines)} feeds")
+    # Deduplicate while preserving order
+    seen = set()
+    unique = []
+    for h in headlines:
+        h_lower = h.lower().strip()
+        if h_lower not in seen:
+            seen.add(h_lower)
+            unique.append(h)
+
+    text = "\n".join(f"- {h}" for h in unique)
+    log(f"  Got {len(unique)} fresh headlines from RSS")
     return text
 
 
@@ -174,19 +207,19 @@ def pick_topic(rss_text: str) -> dict:
 
     result = call_llm(
         system="You are a YouTube political news selector. You MUST pick a story directly from the headlines provided. Respond ONLY with the exact XML format. No other text.",
-        user_message=f"""TODAY is {today_str}. Here are the LATEST political news headlines from the last 24 hours:
+        user_message=f"""TODAY is {today_str}. Here are the LATEST political news headlines from the last 12 hours:
 
 {rss_text}
 
 ---
 CRITICAL RULES:
-1. Pick the single most {seed_word} story that happened TODAY ({today_str}) or in the last 24 hours.
-2. You MUST select from the ACTUAL headlines above. Do NOT invent topics.
-3. The topic MUST reference a specific person, event, bill, vote, action, or announcement from the headlines.
-4. REJECT any headline that is about an event from more than 2 days ago. Only pick FRESH, BREAKING news.
-5. Do NOT pick generic/evergreen topics like "25th Amendment explained" or "how government works".
-6. Prefer stories about specific actions: votes, speeches, executive orders, indictments, rulings, deals, etc.
-7. Your <TOPIC> should closely match or paraphrase an actual headline from above.
+1. Pick the single most {seed_word} story from the headlines above. It MUST be from the last 12 hours.
+2. You MUST select from the ACTUAL headlines above. Do NOT invent or generalize topics.
+3. The topic MUST name a specific person, event, bill, vote, action, or announcement from the headlines.
+4. ABSOLUTELY DO NOT pick generic/evergreen topics like "25th Amendment explained", "how government works", "political polarization", etc.
+5. ABSOLUTELY DO NOT pick topics about ongoing situations unless there is a NEW development in the last 12 hours.
+6. Prefer stories about specific NEW actions: votes, speeches, executive orders, indictments, rulings, announcements, deals, conflicts.
+7. Your <TOPIC> should closely match or paraphrase an actual headline from above — NOT a broad summary.
 
 Also assign a background video category:
 - congress: Senate, House, legislation, bills, congressional hearings
