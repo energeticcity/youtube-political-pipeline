@@ -628,6 +628,55 @@ def update_rss_feed(video_url: str, metadata: dict, joke: dict, youtube_short_id
     log(f"  RSS feed updated: https://raw.githubusercontent.com/{GITHUB_REPO}/main/feed.xml")
 
 
+# ── TikTok manual-upload notification ─────────────────────────────────────────
+
+def notify_for_tiktok(video_url: str, joke: dict, metadata: dict, episode: int):
+    """Create a GitHub Issue with the video link + ready-to-paste TikTok caption.
+    GitHub emails the issue automatically — open on phone, download, upload to TikTok."""
+    if not GITHUB_TOKEN:
+        log("TikTok notification skipped (no GITHUB_TOKEN)")
+        return
+
+    log("Posting TikTok manual-upload notification...")
+    try:
+        caption = (
+            f"{joke['setup']} {joke['punchline']} "
+            f"#dadjokes #dadjoke #dadjokefix #comedy #fyp #foryou #funny #jokes"
+        )
+        body = (
+            f"## Dad Joke #{episode} — ready for TikTok\n\n"
+            f"**[📱 Download video on phone]({video_url})**\n\n"
+            f"### TikTok caption (tap to copy)\n"
+            f"```\n{caption}\n```\n\n"
+            f"### Setup\n{joke['setup']}\n\n"
+            f"### Punchline\n{joke['punchline']}\n\n"
+            f"### Suggested workflow\n"
+            f"1. Tap the download link above on your phone\n"
+            f"2. Save the video to your camera roll\n"
+            f"3. Open TikTok → + → upload from camera roll\n"
+            f"4. Tap **Add sound** and pick a trending audio (lower its volume)\n"
+            f"5. Paste the caption above and post\n"
+        )
+
+        resp = requests.post(
+            f"https://api.github.com/repos/{GITHUB_REPO}/issues",
+            headers={
+                "Authorization": f"token {GITHUB_TOKEN}",
+                "Accept": "application/vnd.github+json",
+            },
+            json={
+                "title": f"📱 TikTok upload ready: Dad Joke #{episode}",
+                "body": body,
+                "labels": ["tiktok-upload"],
+            },
+            timeout=30,
+        )
+        resp.raise_for_status()
+        log(f"  Issue created: {resp.json().get('html_url', '')}")
+    except Exception as e:
+        log(f"  WARNING: TikTok notification failed: {e}")
+
+
 # ── Main pipeline ─────────────────────────────────────────────────────────────
 
 def main():
@@ -700,7 +749,8 @@ def main():
     except Exception as e:
         log(f"  WARNING: YouTube upload failed: {e}")
 
-    # 9. Upload final video to GitHub Release + update RSS for Publer
+    # 9. Upload final video to GitHub Release + update RSS for Make.com (IG)
+    video_url = ""
     try:
         video_url = upload_to_github_release(
             short_path, tag, f"short_{tag}.mp4", "video/mp4"
@@ -713,6 +763,10 @@ def main():
         )
     except Exception as e:
         log(f"  WARNING: GitHub Release / RSS update failed: {e}")
+
+    # 10. TikTok manual-upload notification
+    if video_url:
+        notify_for_tiktok(video_url, joke, metadata, episode)
 
     log("=" * 60)
     log("Pipeline complete!")
