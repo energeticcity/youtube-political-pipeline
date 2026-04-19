@@ -5,7 +5,7 @@ Automated pipeline that posts two dad joke videos a day to YouTube Shorts, then 
 Each run:
 1. Pulls a clean dad joke from r/dadjokes (Gemini fallback if nothing usable).
 2. Generates voiceover with ElevenLabs.
-3. Animates a "dad" avatar talking via the D-ID API.
+3. Animates the "Hank" avatar talking via the HeyGen API.
 4. Renders intro/outro cards + on-screen captions with ffmpeg.
 5. Uploads to YouTube as a Short.
 6. Updates `feed.xml` so Publer auto-posts to TikTok and Instagram.
@@ -18,9 +18,9 @@ The previous political-news version of this pipeline lives on the [`political-ar
 |---|---|
 | `GEMINI_API_KEY` | Joke fallback + metadata generation |
 | `ELEVENLABS_API_KEY` | TTS voiceover |
-| `ELEVENLABS_VOICE_ID` | (Optional) Voice ID for the "dad" voice. Defaults to a fallback. |
-| `DID_API_KEY` | Talking-avatar video generation |
-| `DAD_PHOTO_URL` | (Optional) Public URL to the dad photo. Defaults to `dad_avatar.jpg` in this repo. |
+| `ELEVENLABS_VOICE_ID` | Voice ID for the "dad" voice (e.g. `XmUeU0FRyne67Dy7UaT4`) |
+| `HEYGEN_API_KEY` | Talking-avatar video generation |
+| `HEYGEN_AVATAR_ID` | The Photo Avatar ID for Hank in HeyGen |
 | `YOUTUBE_CLIENT_ID` | YouTube OAuth |
 | `YOUTUBE_CLIENT_SECRET` | YouTube OAuth |
 | `YOUTUBE_REFRESH_TOKEN` | YouTube OAuth |
@@ -28,10 +28,11 @@ The previous political-news version of this pipeline lives on the [`political-ar
 
 ## One-time setup
 
-1. **Pick a dad photo.** Generate one with the prompt: *"friendly middle-aged dad with grey-streaked hair, warm smile, plain neutral background, photorealistic portrait, looking directly at camera, soft studio lighting, square crop"* in Midjourney/DALL-E, or grab a CC0 photo. Save as `dad_avatar.jpg`, commit to repo root, or host elsewhere and set `DAD_PHOTO_URL`.
-2. **Pick a "dad" voice on ElevenLabs.** Browse their voice library for a warm, friendly middle-aged male voice. Set `ELEVENLABS_VOICE_ID`.
-3. **Sign up for D-ID.** Free trial covers ~5 minutes; the Lite plan is ~$6/mo for ~10 minutes (covers 60 jokes).
-4. **Set up Publer.** Connect TikTok + Instagram, then add the RSS feed at `https://raw.githubusercontent.com/energeticcity/youtube-political-pipeline/main/feed.xml` as an auto-post source.
+1. **Generate Hank's portrait** (the dad character). Save as `dad_avatar.jpg` in the repo root.
+2. **Upload Hank to HeyGen as a Photo Avatar.** Avatars → Create Avatar → Photo Avatar → upload `dad_avatar.jpg`. Copy the avatar ID and set as `HEYGEN_AVATAR_ID`.
+3. **Sign up for HeyGen Creator API tier ($24/mo)** for API access. Generate an API key under Space Settings → API. Set as `HEYGEN_API_KEY`.
+4. **Pick a dad voice on ElevenLabs.** Browse the voice library for a warm middle-aged male voice. Set `ELEVENLABS_VOICE_ID`.
+5. **Set up Publer.** Connect TikTok + Instagram, then add the RSS feed at `https://raw.githubusercontent.com/energeticcity/youtube-political-pipeline/main/feed.xml` as an auto-post source.
 
 ## Schedule
 

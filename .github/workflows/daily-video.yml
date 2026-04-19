@@ -1,7 +1,7 @@
 name: Daily Dad Joke Pipeline
 
 on:
-  # Schedule disabled until D-ID + dad photo + voice ID are configured.
+  # Schedule disabled until HeyGen + voice ID are configured.
   # Re-enable by uncommenting once all secrets are set.
   # schedule:
   #   - cron: '0 14 * * *'   # 10am ET / 7am PT
@@ -39,8 +39,8 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
           ELEVENLABS_VOICE_ID: ${{ secrets.ELEVENLABS_VOICE_ID }}
-          DID_API_KEY: ${{ secrets.DID_API_KEY }}
-          DAD_PHOTO_URL: ${{ secrets.DAD_PHOTO_URL }}
+          HEYGEN_API_KEY: ${{ secrets.HEYGEN_API_KEY }}
+          HEYGEN_AVATAR_ID: ${{ secrets.HEYGEN_AVATAR_ID }}
           YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}

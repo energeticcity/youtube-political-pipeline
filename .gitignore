@@ -3,6 +3,7 @@ __pycache__/
 *.mp4
 *.mp3
 *.jpg
+.DS_Store
 !fonts/
 !brand/**
 !dad_avatar.jpg

@@ -2,7 +2,7 @@
 """
 Daily Dad Joke Pipeline
 Fetches a clean dad joke, generates voiceover via ElevenLabs, animates a dad avatar
-via D-ID, renders intro/outro cards + captions, and publishes to YouTube + RSS feed
+via HeyGen, renders intro/outro cards + captions, and publishes to YouTube + RSS feed
 (which Publer reads to auto-post to TikTok and Instagram).
 """
 
@@ -21,12 +21,8 @@ from pathlib import Path
 
 GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 ELEVENLABS_API_KEY = os.environ["ELEVENLABS_API_KEY"]
-DID_API_KEY = os.environ["DID_API_KEY"]
-
-DAD_PHOTO_URL = os.environ.get(
-    "DAD_PHOTO_URL",
-    f"https://raw.githubusercontent.com/energeticcity/youtube-political-pipeline/main/dad_avatar.jpg",
-)
+HEYGEN_API_KEY = os.environ["HEYGEN_API_KEY"]
+HEYGEN_AVATAR_ID = os.environ["HEYGEN_AVATAR_ID"]
 
 YOUTUBE_CLIENT_ID = os.environ.get("YOUTUBE_CLIENT_ID", "")
 YOUTUBE_CLIENT_SECRET = os.environ.get("YOUTUBE_CLIENT_SECRET", "")
@@ -281,7 +277,7 @@ def get_and_increment_episode_count() -> int:
     return new_count
 
 
-# ── Step 5: Host audio on GitHub Release for D-ID to fetch ────────────────────
+# ── Step 5: Host audio on GitHub Release for HeyGen to fetch ──────────────────
 
 def upload_to_github_release(
     file_path: str, tag_name: str, filename: str, content_type: str
@@ -342,67 +338,72 @@ def upload_to_github_release(
     return asset_resp.json()["browser_download_url"]
 
 
-# ── Step 6: D-ID avatar generation ────────────────────────────────────────────
+# ── Step 6: HeyGen avatar generation ──────────────────────────────────────────
 
 def generate_avatar_video(audio_url: str, output_path: str) -> str:
-    """Animate the dad photo lip-syncing to the given audio URL. Returns local path to MP4."""
-    log("Generating talking dad avatar via D-ID...")
+    """Animate Hank lip-syncing to the given audio URL via HeyGen. Returns local MP4 path."""
+    log("Generating talking dad avatar via HeyGen...")
 
-    # D-ID API keys from the dashboard are already base64(email:secret); use Basic auth.
-    auth_header = f"Basic {DID_API_KEY}"
+    headers = {
+        "X-Api-Key": HEYGEN_API_KEY,
+        "Content-Type": "application/json",
+    }
 
     create_resp = requests.post(
-        "https://api.d-id.com/talks",
-        headers={
-            "Authorization": auth_header,
-            "Content-Type": "application/json",
-        },
+        "https://api.heygen.com/v2/video/generate",
+        headers=headers,
         json={
-            "source_url": DAD_PHOTO_URL,
-            "script": {
-                "type": "audio",
-                "audio_url": audio_url,
-            },
-            "config": {
-                "stitch": True,
-                "result_format": "mp4",
-            },
+            "video_inputs": [
+                {
+                    "character": {
+                        "type": "avatar",
+                        "avatar_id": HEYGEN_AVATAR_ID,
+                        "avatar_style": "normal",
+                    },
+                    "voice": {
+                        "type": "audio",
+                        "audio_url": audio_url,
+                    },
+                }
+            ],
+            "dimension": {"width": 720, "height": 1280},
         },
         timeout=30,
     )
-    if create_resp.status_code not in (200, 201):
-        log(f"  D-ID create error {create_resp.status_code}: {create_resp.text[:500]}")
+    if create_resp.status_code != 200:
+        log(f"  HeyGen create error {create_resp.status_code}: {create_resp.text[:500]}")
     create_resp.raise_for_status()
-    talk_id = create_resp.json()["id"]
-    log(f"  Talk created: {talk_id}, polling for completion...")
+    video_id = create_resp.json()["data"]["video_id"]
+    log(f"  Video job created: {video_id}, polling for completion...")
 
-    for attempt in range(60):  # up to ~5 minutes
+    for attempt in range(80):  # up to ~6.5 minutes (HeyGen can be slow under load)
         time.sleep(5)
         status_resp = requests.get(
-            f"https://api.d-id.com/talks/{talk_id}",
-            headers={"Authorization": auth_header},
+            "https://api.heygen.com/v1/video_status.get",
+            params={"video_id": video_id},
+            headers={"X-Api-Key": HEYGEN_API_KEY},
             timeout=15,
         )
         status_resp.raise_for_status()
-        data = status_resp.json()
+        data = status_resp.json().get("data", {})
         status = data.get("status")
 
-        if status == "done":
-            result_url = data["result_url"]
-            log(f"  D-ID render done, downloading {result_url}...")
-            video_resp = requests.get(result_url, timeout=120)
+        if status == "completed":
+            video_url = data["video_url"]
+            log(f"  HeyGen render done, downloading {video_url[:80]}...")
+            video_resp = requests.get(video_url, timeout=180)
             video_resp.raise_for_status()
             with open(output_path, "wb") as f:
                 f.write(video_resp.content)
             log(f"  Avatar saved: {output_path} ({len(video_resp.content) / 1024:.0f} KB)")
             return output_path
-        if status == "error" or status == "rejected":
-            raise RuntimeError(f"D-ID failed: {data.get('error') or data}")
+        if status == "failed":
+            raise RuntimeError(f"HeyGen failed: {data.get('error') or data}")
 
         if attempt % 4 == 0:
-            log(f"  D-ID status: {status}")
+            log(f"  HeyGen status: {status}")
 
-    raise TimeoutError("D-ID render timed out after 5 minutes")
+    raise TimeoutError("HeyGen render timed out after 6.5 minutes")
 
 
 # ── Step 7: YouTube upload ────────────────────────────────────────────────────
@@ -660,12 +661,12 @@ def main():
     with open(audio_path, "wb") as f:
         f.write(audio_data)
 
-    # 5. Host audio so D-ID can fetch it
+    # 5. Host audio so HeyGen can fetch it
     audio_url = upload_to_github_release(
         audio_path, tag, f"audio_{tag}.mp3", "audio/mpeg"
     )
 
-    # 6. D-ID avatar
+    # 6. HeyGen avatar
     avatar_path = os.path.join(output_dir, "avatar.mp4")
     generate_avatar_video(audio_url, avatar_path)
 
