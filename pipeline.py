@@ -234,6 +234,24 @@ def generate_tts(script: str) -> bytes:
     return resp.content
 
 
+def denoise_audio(input_path: str, output_path: str) -> str:
+    """Apply FFT denoising + highpass + gentle compression to clean up TTS hiss."""
+    import subprocess
+    log("Denoising TTS audio...")
+    subprocess.run(
+        [
+            "ffmpeg", "-y", "-loglevel", "error",
+            "-i", input_path,
+            "-af", "afftdn=nf=-25:nr=12:nt=w,highpass=f=80,acompressor=threshold=-22dB:ratio=2:attack=20:release=200",
+            "-ar", "44100",
+            "-b:a", "192k",
+            output_path,
+        ],
+        check=True,
+    )
+    return output_path
+
+
 # ── Episode counter (stored in repo as state.json) ────────────────────────────
 
 def get_and_increment_episode_count() -> int:
@@ -718,9 +736,13 @@ def main():
 
     # 4. TTS
     audio_data = generate_tts(script_data["script"])
-    audio_path = os.path.join(output_dir, "voiceover.mp3")
-    with open(audio_path, "wb") as f:
+    raw_audio_path = os.path.join(output_dir, "voiceover_raw.mp3")
+    with open(raw_audio_path, "wb") as f:
         f.write(audio_data)
+
+    # 4b. Denoise the TTS output before HeyGen fetches it
+    audio_path = os.path.join(output_dir, "voiceover.mp3")
+    denoise_audio(raw_audio_path, audio_path)
 
     # 5. Host audio so HeyGen can fetch it
     audio_url = upload_to_github_release(
