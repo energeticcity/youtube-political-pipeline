@@ -390,9 +390,12 @@ def upload_video_to_repo(local_path: str, repo_filename: str) -> str:
         log(f"  Repo video upload error {resp.status_code}: {resp.text[:300]}")
     resp.raise_for_status()
 
-    raw_url = f"https://raw.githubusercontent.com/{GITHUB_REPO}/main/{repo_path}"
-    log(f"  Video at: {raw_url}")
-    return raw_url
+    # jsDelivr serves with content-type: video/mp4 (Instagram-friendly).
+    # raw.githubusercontent.com serves application/octet-stream which some
+    # downstream consumers reject.
+    cdn_url = f"https://cdn.jsdelivr.net/gh/{GITHUB_REPO}@main/{repo_path}"
+    log(f"  Video at: {cdn_url}")
+    return cdn_url
 
 
 def prune_old_videos(keep_last: int = 25):
