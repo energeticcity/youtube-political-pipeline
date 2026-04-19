@@ -732,7 +732,7 @@ def update_rss_feed(video_url: str, metadata: dict, joke: dict, youtube_short_id
 
 def notify_for_tiktok(video_url: str, joke: dict, metadata: dict, episode: int):
     """Create a GitHub Issue with the video link + ready-to-paste TikTok caption.
-    GitHub emails the issue automatically — open on phone, download, upload to TikTok."""
+    GitHub emails the issue automatically — open on phone, save to Photos, upload."""
     if not GITHUB_TOKEN:
         log("TikTok notification skipped (no GITHUB_TOKEN)")
         return
@@ -745,17 +745,27 @@ def notify_for_tiktok(video_url: str, joke: dict, metadata: dict, episode: int):
         )
         body = (
             f"## Dad Joke #{episode} — ready for TikTok\n\n"
-            f"**[📱 Download video on phone]({video_url})**\n\n"
+            f"### ▶️ Tap to play, then save to Photos\n"
+            f"**[Open video on phone]({video_url})**\n\n"
             f"### TikTok caption (tap to copy)\n"
             f"```\n{caption}\n```\n\n"
-            f"### Setup\n{joke['setup']}\n\n"
-            f"### Punchline\n{joke['punchline']}\n\n"
-            f"### Suggested workflow\n"
-            f"1. Tap the download link above on your phone\n"
-            f"2. Save the video to your camera roll\n"
-            f"3. Open TikTok → + → upload from camera roll\n"
-            f"4. Tap **Add sound** and pick a trending audio (lower its volume)\n"
-            f"5. Paste the caption above and post\n"
+            f"---\n"
+            f"### iPhone: save to Photos in 3 taps\n"
+            f"1. Tap the link above — video opens in Safari\n"
+            f"2. Tap the **share icon** (square with up arrow) at the bottom\n"
+            f"3. Scroll down and tap **Save Video** → goes straight to Photos\n\n"
+            f"### Android: save to Gallery\n"
+            f"1. Tap the link — video opens in Chrome\n"
+            f"2. Tap the **⋮ menu** (top right) → **Download**\n"
+            f"3. Open Gallery, video appears under Downloads (or move to Camera roll)\n\n"
+            f"### Then post to TikTok\n"
+            f"1. Open TikTok → tap **+** → **Upload** from your library\n"
+            f"2. Pick this video → Next\n"
+            f"3. Tap **Add sound** → pick a trending audio → drag its volume to ~10%\n"
+            f"4. Tap Next → paste the caption above → **Post**\n\n"
+            f"### Setup / Punchline (for reference)\n"
+            f"- {joke['setup']}\n"
+            f"- {joke['punchline']}\n"
         )
 
         resp = requests.post(
