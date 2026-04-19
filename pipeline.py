@@ -743,21 +743,23 @@ def notify_for_tiktok(video_url: str, joke: dict, metadata: dict, episode: int):
             f"{joke['setup']} {joke['punchline']} "
             f"#dadjokes #dadjoke #dadjokefix #comedy #fyp #foryou #funny #jokes"
         )
+        # Build the player-page URL: extracts video filename from the jsDelivr video URL.
+        video_filename = video_url.rsplit("/", 1)[-1]
+        player_url = (
+            f"https://cdn.jsdelivr.net/gh/{GITHUB_REPO}@main/play.html#{video_filename}"
+        )
         body = (
             f"## Dad Joke #{episode} — ready for TikTok\n\n"
-            f"### ▶️ Tap to play, then save to Photos\n"
-            f"**[Open video on phone]({video_url})**\n\n"
+            f"### ▶️ Tap → 'Save to Photos' button → done\n"
+            f"**[📥 Open & save video]({player_url})**\n\n"
             f"### TikTok caption (tap to copy)\n"
             f"```\n{caption}\n```\n\n"
             f"---\n"
-            f"### iPhone: save to Photos in 3 taps\n"
-            f"1. Tap the link above — video opens in Safari\n"
-            f"2. Tap the **share icon** (square with up arrow) at the bottom\n"
-            f"3. Scroll down and tap **Save Video** → goes straight to Photos\n\n"
-            f"### Android: save to Gallery\n"
-            f"1. Tap the link — video opens in Chrome\n"
-            f"2. Tap the **⋮ menu** (top right) → **Download**\n"
-            f"3. Open Gallery, video appears under Downloads (or move to Camera roll)\n\n"
+            f"### How to save to Photos\n"
+            f"1. Tap the link above — opens a player page in Safari\n"
+            f"2. Tap the big yellow **📥 Save to Photos** button\n"
+            f"3. Pick **Save Video** in the share sheet → it lands in Photos\n\n"
+            f"_(Backup: long-press the video itself → Save to Photos)_\n\n"
             f"### Then post to TikTok\n"
             f"1. Open TikTok → tap **+** → **Upload** from your library\n"
             f"2. Pick this video → Next\n"
