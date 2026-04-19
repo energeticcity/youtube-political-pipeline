@@ -739,14 +739,19 @@ def notify_for_tiktok(video_url: str, joke: dict, metadata: dict, episode: int):
 
     log("Posting TikTok manual-upload notification...")
     try:
+        from urllib.parse import quote
         caption = (
             f"{joke['setup']} {joke['punchline']} "
             f"#dadjokes #dadjoke #dadjokefix #comedy #fyp #foryou #funny #jokes"
         )
-        # Build the player-page URL: extracts video filename from the jsDelivr video URL.
+        title = metadata.get("title") or f"Dad Joke #{episode}"
+        # Build player-page URL with video filename + title + caption encoded in hash
         video_filename = video_url.rsplit("/", 1)[-1]
         player_url = (
-            f"https://cdn.jsdelivr.net/gh/{GITHUB_REPO}@main/play.html#{video_filename}"
+            f"https://cdn.jsdelivr.net/gh/{GITHUB_REPO}@main/play.html"
+            f"#v={quote(video_filename, safe='')}"
+            f"&t={quote(title, safe='')}"
+            f"&c={quote(caption, safe='')}"
         )
         body = (
             f"## Dad Joke #{episode} — ready for TikTok\n\n"
