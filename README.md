@@ -32,13 +32,7 @@ The previous political-news version of this pipeline lives on the [`political-ar
 2. **Upload Hank to HeyGen as a Photo Avatar.** Avatars → Create Avatar → Photo Avatar → upload `dad_avatar.jpg`. Copy the avatar ID and set as `HEYGEN_AVATAR_ID`.
 3. **Sign up for HeyGen Creator API tier ($24/mo)** for API access. Generate an API key under Space Settings → API. Set as `HEYGEN_API_KEY`.
 4. **Pick a dad voice on ElevenLabs.** Browse the voice library for a warm middle-aged male voice. Set `ELEVENLABS_VOICE_ID`.
-5. **Set up Make.com for Instagram auto-posting** (free tier, ~30 min):
-   - Create a Make.com account
-   - New scenario → trigger: **RSS - Watch RSS feed items** → URL: `https://raw.githubusercontent.com/energeticcity/youtube-political-pipeline/main/feed.xml`
-   - Add module: **Instagram for Business - Create a Photo or Reel** → connect IG Business account (must be linked to a Facebook Page)
-   - Map the RSS `description` to the IG caption, the video URL (extracted from the description) to the media file
-   - Set scenario interval to 15 min
-   - Activate scenario
+5. **Set up Make.com for Instagram + YouTube auto-posting** — see [MAKE_SETUP.md](MAKE_SETUP.md) for detailed step-by-step instructions. Free tier covers both platforms. Replaces both Publer and the in-pipeline YouTube OAuth.
 6. **TikTok = manual upload.** Each pipeline run creates a GitHub Issue ("📱 TikTok upload ready") with a phone-friendly download link and a copyable caption. Open the issue email on your phone, save the video, upload to TikTok, add a trending sound. ~30 sec per video.
 
 ## Schedule

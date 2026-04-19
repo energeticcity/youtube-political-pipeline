@@ -599,6 +599,14 @@ def update_rss_feed(video_url: str, metadata: dict, joke: dict, youtube_short_id
 
     ET.SubElement(item, "pubDate").text = now
 
+    # Enclosure tag — Make.com / RSS readers auto-extract the video URL from this
+    if video_url:
+        ET.SubElement(item, "enclosure", {
+            "url": video_url,
+            "type": "video/mp4",
+            "length": "0",
+        })
+
     items = channel.findall("item")
     if items:
         idx = list(channel).index(items[0])
