@@ -7,4 +7,5 @@ __pycache__/
 !fonts/
 !brand/**
 !dad_avatar.jpg
+!videos/**
 output_*/

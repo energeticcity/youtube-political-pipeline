@@ -360,6 +360,77 @@ def upload_to_github_release(
     return asset_resp.json()["browser_download_url"]
 
 
+# ── Commit video to repo (Instagram-compatible direct URL) ────────────────────
+
+def upload_video_to_repo(local_path: str, repo_filename: str) -> str:
+    """Commit a video to the repo's videos/ folder. Returns a clean raw URL
+    that Instagram and other downloaders can fetch without redirect chains."""
+    if not GITHUB_TOKEN:
+        raise RuntimeError("GITHUB_TOKEN required")
+
+    headers = {
+        "Authorization": f"token {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github+json",
+    }
+    repo_path = f"videos/{repo_filename}"
+
+    with open(local_path, "rb") as f:
+        content = base64.b64encode(f.read()).decode()
+
+    log(f"  Committing {repo_filename} ({len(content) * 3 // 4 // 1024} KB) to repo videos/...")
+    push_data = {
+        "message": f"Add video: {repo_filename}",
+        "content": content,
+    }
+    resp = requests.put(
+        f"https://api.github.com/repos/{GITHUB_REPO}/contents/{repo_path}",
+        headers=headers, json=push_data, timeout=120,
+    )
+    if resp.status_code not in (200, 201):
+        log(f"  Repo video upload error {resp.status_code}: {resp.text[:300]}")
+    resp.raise_for_status()
+
+    raw_url = f"https://raw.githubusercontent.com/{GITHUB_REPO}/main/{repo_path}"
+    log(f"  Video at: {raw_url}")
+    return raw_url
+
+
+def prune_old_videos(keep_last: int = 25):
+    """Delete oldest videos from the repo's videos/ folder, keeping the most recent N."""
+    if not GITHUB_TOKEN:
+        return
+
+    headers = {
+        "Authorization": f"token {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github+json",
+    }
+    try:
+        resp = requests.get(
+            f"https://api.github.com/repos/{GITHUB_REPO}/contents/videos",
+            headers=headers, timeout=15,
+        )
+        if resp.status_code != 200:
+            return
+        files = resp.json()
+        # Sort by name descending — filename pattern short_vYYYYMMDD-HHMM.mp4 sorts chronologically
+        files = [f for f in files if f.get("name", "").startswith("short_")]
+        files.sort(key=lambda f: f["name"], reverse=True)
+
+        for old in files[keep_last:]:
+            requests.delete(
+                f"https://api.github.com/repos/{GITHUB_REPO}/contents/{old['path']}",
+                headers=headers,
+                json={
+                    "message": f"Prune old video: {old['name']}",
+                    "sha": old["sha"],
+                },
+                timeout=15,
+            )
+            log(f"  Pruned old video: {old['name']}")
+    except Exception as e:
+        log(f"  Video prune skipped: {e}")
+
+
 # ── Step 6: HeyGen avatar generation ──────────────────────────────────────────
 
 def generate_avatar_video(audio_url: str, output_path: str) -> str:
@@ -779,12 +850,11 @@ def main():
     except Exception as e:
         log(f"  WARNING: YouTube upload failed: {e}")
 
-    # 9. Upload final video to GitHub Release + update RSS for Make.com (IG)
+    # 9. Commit final video to repo (Instagram-friendly direct URL via raw.githubusercontent)
     video_url = ""
     try:
-        video_url = upload_to_github_release(
-            short_path, tag, f"short_{tag}.mp4", "video/mp4"
-        )
+        video_url = upload_video_to_repo(short_path, f"short_{tag}.mp4")
+        prune_old_videos(keep_last=25)
         update_rss_feed(
             video_url=video_url,
             metadata=metadata,
@@ -792,7 +862,7 @@ def main():
             youtube_short_id=short_id,
         )
     except Exception as e:
-        log(f"  WARNING: GitHub Release / RSS update failed: {e}")
+        log(f"  WARNING: Video repo upload / RSS update failed: {e}")
 
     # 10. TikTok manual-upload notification
     if video_url:
