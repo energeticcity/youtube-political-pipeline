@@ -1,11 +1,26 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<rss xmlns:media="http://search.yahoo.com/mrss/" xmlns:atom="http://www.w3.org/2005/Atom" version="2.0">
+<rss version="2.0">
   <channel>
     <title>Two Dad Jokes Daily</title>
     <link>https://github.com/energeticcity/youtube-political-pipeline</link>
     <description>Two fresh dad jokes every day, delivered by an animated dad. For TikTok and Instagram Reels.</description>
     <language>en-us</language>
-    <lastBuildDate>Sun, 19 Apr 2026 22:02:39 +0000</lastBuildDate>
+    <lastBuildDate>Sun, 19 Apr 2026 22:16:37 +0000</lastBuildDate>
+    <item>
+      <title>Dad Joke #3: February's a Soldier?</title>
+      <description>Can February march?
+
+No, but April may.
+
+Follow for two dad jokes a day!
+
+Video: https://github.com/energeticcity/youtube-political-pipeline/releases/download/v20260419-2215/short_v20260419-2215.mp4
+
+#dadjokes #dadjoke #comedy #shorts #funny</description>
+      <link>https://github.com/energeticcity/youtube-political-pipeline/releases/download/v20260419-2215/short_v20260419-2215.mp4</link>
+      <guid isPermaLink="false">https://github.com/energeticcity/youtube-political-pipeline/releases/download/v20260419-2215/short_v20260419-2215.mp4</guid>
+      <pubDate>Sun, 19 Apr 2026 22:16:37 +0000</pubDate>
+    </item>
     <item>
       <title>Dad Joke #2: Calendar Heist!</title>
       <description>Did you hear about the two thieves who stole a calendar?
