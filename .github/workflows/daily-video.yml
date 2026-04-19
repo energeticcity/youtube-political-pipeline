@@ -1,27 +1,18 @@
-name: Daily Political Video Pipeline
+name: Daily Dad Joke Pipeline
 
 on:
   schedule:
-    # Run twice daily
+    # Two dad jokes a day
     - cron: '0 14 * * *'   # 10am ET / 7am PT
     - cron: '0 22 * * *'   # 6pm ET / 3pm PT
   workflow_dispatch:
-    inputs:
-      custom_topic:
-        description: 'Custom topic to generate a video about (leave blank for auto RSS)'
-        required: false
-        default: ''
-      custom_category:
-        description: 'Pexels background category (congress, economy, military, election, justice, international, default)'
-        required: false
-        default: 'default'
 
 permissions:
   contents: write
   issues: write
 
 jobs:
-  generate-video:
+  generate-dad-joke:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -46,12 +37,12 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          ELEVENLABS_VOICE_ID: ${{ secrets.ELEVENLABS_VOICE_ID }}
+          DID_API_KEY: ${{ secrets.DID_API_KEY }}
+          DAD_PHOTO_URL: ${{ secrets.DAD_PHOTO_URL }}
           YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
           YOUTUBE_CHANNEL_ID: ${{ secrets.YOUTUBE_CHANNEL_ID }}
-          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
           GITHUB_TOKEN: ${{ github.token }}
-          CUSTOM_TOPIC: ${{ github.event.inputs.custom_topic }}
-          CUSTOM_CATEGORY: ${{ github.event.inputs.custom_category }}
         run: python pipeline.py

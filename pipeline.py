@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
 """
-YouTube Political Channel Daily Pipeline
-Fetches trending political news, generates a video script, renders it, and uploads to YouTube.
+Daily Dad Joke Pipeline
+Fetches a clean dad joke, generates voiceover via ElevenLabs, animates a dad avatar
+via D-ID, renders intro/outro cards + captions, and publishes to YouTube + RSS feed
+(which Publer reads to auto-post to TikTok and Instagram).
 """
 
 import os
 import re
 import sys
+import time
 import json
+import random
+import base64
 import requests
 import tempfile
 from pathlib import Path
@@ -16,94 +21,35 @@ from pathlib import Path
 
 GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 ELEVENLABS_API_KEY = os.environ["ELEVENLABS_API_KEY"]
+DID_API_KEY = os.environ["DID_API_KEY"]
+
+DAD_PHOTO_URL = os.environ.get(
+    "DAD_PHOTO_URL",
+    f"https://raw.githubusercontent.com/energeticcity/youtube-political-pipeline/main/dad_avatar.jpg",
+)
+
 YOUTUBE_CLIENT_ID = os.environ.get("YOUTUBE_CLIENT_ID", "")
 YOUTUBE_CLIENT_SECRET = os.environ.get("YOUTUBE_CLIENT_SECRET", "")
 YOUTUBE_REFRESH_TOKEN = os.environ.get("YOUTUBE_REFRESH_TOKEN", "")
-YOUTUBE_CHANNEL_ID = os.environ.get("YOUTUBE_CHANNEL_ID", "UCWlSqBKvWmBcdLSPo7WL3PA")
-PEXELS_API_KEY = os.environ.get("PEXELS_API_KEY", "")
+YOUTUBE_CHANNEL_ID = os.environ.get("YOUTUBE_CHANNEL_ID", "")
 
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
-GITHUB_REPO = "energeticcity/youtube-political-pipeline"
+GITHUB_REPO = os.environ.get("GITHUB_REPO", "energeticcity/youtube-political-pipeline")
 
-
-ELEVENLABS_VOICE_ID = "EkK5I93UQWFDigLMpZcX"
-
+ELEVENLABS_VOICE_ID = os.environ.get("ELEVENLABS_VOICE_ID", "EkK5I93UQWFDigLMpZcX")
 GEMINI_MODEL = "gemini-2.0-flash"
 
-# Pexels search terms by category — used to find relevant stock footage
-PEXELS_SEARCH_TERMS = {
-    "congress": "government building capitol",
-    "economy": "stock market finance city",
-    "military": "military defense national security",
-    "election": "voting election democracy",
-    "justice": "courthouse law legal scales",
-    "international": "world globe diplomacy flags",
-    "default": "american flag washington politics",
-}
 
+def log(msg: str):
+    print(f"[pipeline] {msg}", flush=True)
 
-def fetch_pexels_backgrounds(category: str, topic: str, count: int = 3) -> list[str]:
-    """Search Pexels for topic-relevant stock video. Returns list of video URLs."""
-    if not PEXELS_API_KEY:
-        log("  WARNING: No PEXELS_API_KEY set, using fallback dark background")
-        return []
-
-    # Try topic-specific search first, fall back to category keywords
-    search_queries = [
-        topic.split(":")[0][:40],  # First part of topic headline
-        PEXELS_SEARCH_TERMS.get(category, PEXELS_SEARCH_TERMS["default"]),
-    ]
-
-    videos = []
-    for query in search_queries:
-        if len(videos) >= count:
-            break
-        try:
-            log(f"  Searching Pexels: '{query}'...")
-            resp = requests.get(
-                "https://api.pexels.com/videos/search",
-                params={
-                    "query": query,
-                    "per_page": 10,
-                    "orientation": "landscape",
-                    "size": "medium",
-                },
-                headers={"Authorization": PEXELS_API_KEY},
-                timeout=15,
-            )
-            resp.raise_for_status()
-            results = resp.json().get("videos", [])
-
-            for vid in results:
-                if len(videos) >= count:
-                    break
-                # Pick the HD file (720p or closest)
-                files = sorted(
-                    vid.get("video_files", []),
-                    key=lambda f: abs(f.get("height", 0) - 720),
-                )
-                for vf in files:
-                    if vf.get("width", 0) >= 1280 and vf.get("file_type") == "video/mp4":
-                        videos.append(vf["link"])
-                        log(f"  Found: {vf.get('width')}x{vf.get('height')} ({vid.get('duration', '?')}s)")
-                        break
-        except Exception as e:
-            log(f"  Pexels search failed for '{query}': {e}")
-
-    log(f"  Got {len(videos)} background videos from Pexels")
-    return videos
-
-
-# ── Helpers ───────────────────────────────────────────────────────────────────
 
 def extract_tag(text: str, tag: str) -> str:
-    """Extract content between XML-style tags."""
     m = re.search(rf"<{tag}>(.*?)</{tag}>", text, re.DOTALL)
     return m.group(1).strip() if m else ""
 
 
 def call_llm(system: str, user_message: str, max_tokens: int = 512) -> str:
-    """Call the Google Gemini API and return the text response."""
     resp = requests.post(
         f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent",
         params={"key": GEMINI_API_KEY},
@@ -113,7 +59,7 @@ def call_llm(system: str, user_message: str, max_tokens: int = 512) -> str:
             "contents": [{"role": "user", "parts": [{"text": user_message}]}],
             "generationConfig": {
                 "maxOutputTokens": max_tokens,
-                "temperature": 0.7,
+                "temperature": 0.9,
             },
         },
         timeout=60,
@@ -125,212 +71,141 @@ def call_llm(system: str, user_message: str, max_tokens: int = 512) -> str:
     return data["candidates"][0]["content"]["parts"][0]["text"]
 
 
-def log(msg: str):
-    print(f"[pipeline] {msg}", flush=True)
+# ── Step 1: Fetch a dad joke ──────────────────────────────────────────────────
+
+JOKE_BLOCKLIST = {
+    "sex", "porn", "drug", "kill", "death", "fuck", "shit", "rape",
+    "racist", "nazi", "suicide", "abortion", "gun", "shoot",
+}
 
 
-# ── Step 1: Fetch Google News RSS ─────────────────────────────────────────────
+def fetch_dad_joke() -> dict:
+    """Pick a clean joke from r/dadjokes; fall back to Gemini if nothing suitable."""
+    log("Fetching dad joke from r/dadjokes...")
 
-def fetch_rss() -> str:
-    from datetime import datetime, timezone, timedelta
-    from email.utils import parsedate_to_datetime
-    log("Fetching Google News RSS...")
-    headlines = []
+    try:
+        resp = requests.get(
+            "https://www.reddit.com/r/dadjokes/top.json",
+            params={"t": "day", "limit": 25},
+            headers={"User-Agent": "DadJokePipeline/1.0 (by /u/anonymous)"},
+            timeout=15,
+        )
+        resp.raise_for_status()
+        posts = resp.json().get("data", {}).get("children", [])
 
-    # Use 'when:12h' to restrict to the last 12 hours for maximum freshness
-    queries = [
-        "US politics breaking news when:12h",
-        "congress senate president white house when:12h",
-        "Trump Biden executive order when:12h",
-        "US political news today when:12h",
-    ]
+        for post in posts:
+            d = post.get("data", {})
+            if d.get("over_18") or d.get("stickied") or d.get("locked"):
+                continue
+            title = (d.get("title") or "").strip()
+            body = (d.get("selftext") or "").strip()
 
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=14)  # 14h grace period
+            full = f"{title} {body}".lower()
+            if any(bad in full for bad in JOKE_BLOCKLIST):
+                continue
+            if len(title) > 200 or len(body) > 300:
+                continue
+            if not title:
+                continue
 
-    for query in queries:
-        try:
-            resp = requests.get(
-                "https://news.google.com/rss/search",
-                params={"q": query, "hl": "en-US", "gl": "US", "ceid": "US:en"},
-                headers={"User-Agent": "Mozilla/5.0 (compatible; RSS reader)"},
-                timeout=15,
-            )
-            resp.raise_for_status()
-            # Parse RSS and filter by pubDate to ensure freshness
-            raw = resp.text
-            items = re.findall(r'<item>(.*?)</item>', raw, re.DOTALL)
-            fresh_items = []
-            for item in items:
-                title_m = re.search(r'<title>(.*?)</title>', item)
-                pub_m = re.search(r'<pubDate>(.*?)</pubDate>', item)
-                if not title_m:
-                    continue
-                title = title_m.group(1).strip()
-                # Check pubDate if available
-                if pub_m:
-                    try:
-                        pub_dt = parsedate_to_datetime(pub_m.group(1))
-                        if pub_dt < cutoff:
-                            continue  # Skip stale articles
-                    except Exception:
-                        pass
-                fresh_items.append(title)
-            headlines.extend(fresh_items[:10])  # Top 10 per query
-        except Exception as e:
-            log(f"  RSS query '{query}' failed: {e}")
+            if body:
+                log(f"  Picked Reddit joke (score {d.get('score', 0)})")
+                return {"setup": title, "punchline": body, "source": "reddit"}
+            if "..." in title:
+                parts = title.split("...", 1)
+                if len(parts) == 2 and parts[1].strip():
+                    log(f"  Picked Reddit joke (inline, score {d.get('score', 0)})")
+                    return {
+                        "setup": parts[0].strip() + "...",
+                        "punchline": parts[1].strip(),
+                        "source": "reddit",
+                    }
 
-    # Deduplicate while preserving order
-    seen = set()
-    unique = []
-    for h in headlines:
-        h_lower = h.lower().strip()
-        if h_lower not in seen:
-            seen.add(h_lower)
-            unique.append(h)
-
-    text = "\n".join(f"- {h}" for h in unique)
-    log(f"  Got {len(unique)} fresh headlines from RSS")
-    return text
-
-
-# ── Step 2: Pick a topic ──────────────────────────────────────────────────────
-
-def pick_topic(rss_text: str) -> dict:
-    import random
-    from datetime import datetime, timezone
-    log("Asking Gemini to pick a topic...")
-
-    today_str = datetime.now(timezone.utc).strftime("%B %d, %Y")
-
-    # Add randomization to avoid always picking the same story
-    seed_word = random.choice(["surprising", "controversial", "impactful", "urgent", "explosive", "developing"])
+        log("  No suitable Reddit joke found, falling back to Gemini")
+    except Exception as e:
+        log(f"  Reddit fetch failed: {e}, falling back to Gemini")
 
     result = call_llm(
-        system="You are a YouTube political news selector. You MUST pick a story directly from the headlines provided. Respond ONLY with the exact XML format. No other text.",
-        user_message=f"""TODAY is {today_str}. Here are the LATEST political news headlines from the last 12 hours:
-
-{rss_text}
-
----
-CRITICAL RULES:
-1. Pick the single most {seed_word} story from the headlines above. It MUST be from the last 12 hours.
-2. You MUST select from the ACTUAL headlines above. Do NOT invent or generalize topics.
-3. The topic MUST name a specific person, event, bill, vote, action, or announcement from the headlines.
-4. ABSOLUTELY DO NOT pick generic/evergreen topics like "25th Amendment explained", "how government works", "political polarization", etc.
-5. ABSOLUTELY DO NOT pick topics about ongoing situations unless there is a NEW development in the last 12 hours.
-6. Prefer stories about specific NEW actions: votes, speeches, executive orders, indictments, rulings, announcements, deals, conflicts.
-7. Your <TOPIC> should closely match or paraphrase an actual headline from above — NOT a broad summary.
-
-Also assign a background video category:
-- congress: Senate, House, legislation, bills, congressional hearings
-- economy: debt, inflation, GDP, spending, markets, taxes, budget
-- military: defense, war, troops, weapons, veterans, national security
-- election: campaigns, primaries, voting, polls, candidates
-- justice: courts, crime, law enforcement, Supreme Court, legal
-- international: foreign policy, diplomacy, trade deals, allies, UN
-- default: use for immigration, healthcare, energy, or any other topic
+        system="You are a dad telling clean, family-friendly dad jokes. Output ONLY the requested format.",
+        user_message="""Write one original dad joke. The setup should end with a question or "...". The punchline must be a groan-worthy pun. Keep both lines short.
 
 Respond ONLY:
-<TOPIC>specific headline/topic from the news above</TOPIC>
-<ANGLE>your unique take or angle on this story</ANGLE>
-<BGCATEGORY>one of: congress|economy|military|election|justice|international|default</BGCATEGORY>""",
-    )
-    topic = extract_tag(result, "TOPIC")
-    angle = extract_tag(result, "ANGLE")
-    bgcat = extract_tag(result, "BGCATEGORY").lower()
-    if bgcat not in PEXELS_SEARCH_TERMS:
-        bgcat = "default"
-    log(f"  Topic: {topic}")
-    log(f"  Angle: {angle}")
-    log(f"  Category: {bgcat}")
-    return {"topic": topic, "angle": angle, "bgcategory": bgcat}
-
-
-# ── Step 3: Write script ──────────────────────────────────────────────────────
-
-def write_script(topic_data: dict) -> dict:
-    log("Asking Claude to write a script...")
-    result = call_llm(
-        system="You are a YouTube political content creator writing scripts for text-to-speech voiceover. Your scripts must sound completely natural when spoken aloud. Output ONLY the exact format requested. No extra commentary.",
-        user_message=f"""Write a 300-400 word YouTube script for spoken delivery on this topic.
-Topic: {topic_data['topic']}.
-Angle: {topic_data['angle']}.
-
-CRITICAL - This script will be read by a text-to-speech voice. Write it EXACTLY as someone would speak it out loud:
-- Use short punchy sentences. Ten words max each.
-- Use natural contractions: it's, don't, can't, we're, they've, that's
-- Speak directly to the viewer using 'you' often
-- Vary the rhythm - mix short bursts with slightly longer sentences
-- Use casual connecting words: Look, Here's the thing, Now, But, And
-- NO formal language. NO complex sentences. NO academic phrasing.
-- Hook must grab in the first 5 words
-- Add a dramatic pause with '...' where emphasis matters
-- End with an urgent conversational call-to-action
-
-Also write 4 key on-screen talking points (each max 8 words, punchy fact or claim).
-
-Respond ONLY in this exact format with no other text:
-<SCRIPT>
-[your full spoken script]
-</SCRIPT>
-<POINT1>[talking point 1 - max 8 words]</POINT1>
-<POINT2>[talking point 2 - max 8 words]</POINT2>
-<POINT3>[talking point 3 - max 8 words]</POINT3>
-<POINT4>[talking point 4 - max 8 words]</POINT4>""",
-        max_tokens=2048,
+<SETUP>[the setup line, max 100 chars]</SETUP>
+<PUNCHLINE>[the punchline, max 100 chars]</PUNCHLINE>""",
+        max_tokens=200,
     )
     return {
-        "script": extract_tag(result, "SCRIPT"),
-        "point1": extract_tag(result, "POINT1"),
-        "point2": extract_tag(result, "POINT2"),
-        "point3": extract_tag(result, "POINT3"),
-        "point4": extract_tag(result, "POINT4"),
+        "setup": extract_tag(result, "SETUP"),
+        "punchline": extract_tag(result, "PUNCHLINE"),
+        "source": "gemini",
     }
 
 
-# ── Step 4: Generate YouTube metadata ─────────────────────────────────────────
+# ── Step 2: Build the spoken script ───────────────────────────────────────────
 
-def generate_metadata(topic_data: dict, script_excerpt: str) -> dict:
-    log("Asking Claude for YouTube metadata...")
-    result = call_llm(
-        system="You are a YouTube SEO expert for a political news channel called The Political Lens. Generate metadata optimized for TODAY's trending searches. Respond ONLY in the exact XML format. No other text.",
-        user_message=f"""Generate YouTube metadata for this TIMELY political news video.
-Topic: {topic_data['topic']}
-Angle: {topic_data['angle']}
-Script excerpt: {script_excerpt[:400]}
+CATCHPHRASES = [
+    "Alright, dad joke incoming.",
+    "You ready for this one?",
+    "Got one for ya.",
+    "Alright, here's one.",
+    "Buckle up, this is a good one.",
+    "Okay, hear me out.",
+    "Joke o'clock, let's go.",
+]
 
-SEO RULES FOR TIMELY CONTENT:
-- Title MUST include the specific person, place, bill, or event name
-- Title should feel like it was written TODAY about a specific thing
-- Primary keyword in the FIRST 30 characters of the title
-- Tags MUST mix: (a) specific names/events, (b) broad political searches, (c) 'explained' / 'what happened' / 'breaking' variants
-- Include the year 2026 in tags for recency signals
-- First tag must be exact target keyword
 
-DESCRIPTION MUST INCLUDE (in order):
-1. A compelling 2-sentence hook at the very top
-2. "In today's analysis:" followed by 4 bullet points (key talking points)
-3. Timestamps: 0:00 Intro, 0:15 Point 1, etc.
-4. Call to action: Subscribe + bell notification reminder
-5. This EXACT disclosure at the end: "This video uses AI-assisted voiceover and script writing. All topics and editorial direction are selected by The Political Lens team."
-6. 3-5 hashtags (#politics #news #[topic-specific])
+def write_script(joke: dict, episode: int) -> dict:
+    """Construct the TTS script: catchphrase hook → setup → beat → punchline → CTA."""
+    setup = joke["setup"].rstrip("?.!").strip()
+    punchline = joke["punchline"].strip()
+    catchphrase = random.choice(CATCHPHRASES)
 
-Output ONLY in this exact format:
-<YTITLE>[Specific, click-worthy title 50-60 chars]</YTITLE>
-<YDESCRIPTION>[Full YouTube description with all elements above]</YDESCRIPTION>
-<YTAGS>[15-20 comma-separated tags, max 500 chars total]</YTAGS>
-<YTHUMB>[EXACTLY 2-3 ALL CAPS words for thumbnail text]</YTHUMB>""",
-        max_tokens=1200,
+    script = (
+        f"{catchphrase}.. {setup}... ... ... {punchline}. "
+        f"Two dad jokes every day, follow for more!"
     )
     return {
-        "title": extract_tag(result, "YTITLE"),
-        "description": extract_tag(result, "YDESCRIPTION"),
-        "tags": extract_tag(result, "YTAGS"),
-        "thumb_text": extract_tag(result, "YTHUMB"),
+        "script": script,
+        "setup": joke["setup"],
+        "punchline": joke["punchline"],
+        "catchphrase": catchphrase,
+        "episode": episode,
     }
 
 
-# ── Step 5: ElevenLabs TTS ────────────────────────────────────────────────────
+# ── Step 3: YouTube metadata ──────────────────────────────────────────────────
+
+def generate_metadata(joke: dict, episode: int) -> dict:
+    log("Generating YouTube metadata...")
+    result = call_llm(
+        system="You are a YouTube SEO writer for the channel 'Dad Joke Fix' — a daily dad joke channel. Output ONLY the requested XML format.",
+        user_message=f"""Generate metadata for Dad Joke Fix episode #{episode}.
+
+Setup: {joke['setup']}
+Punchline: {joke['punchline']}
+
+Rules:
+- Title: MUST start with "Dad Joke #{episode}:". Then a short hook based on the setup. DO NOT spoil the punchline. Total under 60 chars.
+- Description: include the joke text, then "Follow @dadjokefix for 2 dad jokes every day!", then 5 hashtags including #dadjokes #shorts #dadjokefix.
+- Tags: dadjokes, dadjoke, dadjokefix, comedy, shorts, funny, jokes, family, plus 3 specific to this joke.
+- Thumb text: 2-3 ALL CAPS words teasing the joke without spoiling.
+
+Respond ONLY:
+<TITLE>[under 60 chars]</TITLE>
+<DESCRIPTION>[joke + cta + hashtags]</DESCRIPTION>
+<TAGS>[comma-separated tags]</TAGS>
+<THUMB>[2-3 ALL CAPS words]</THUMB>""",
+        max_tokens=600,
+    )
+    return {
+        "title": extract_tag(result, "TITLE"),
+        "description": extract_tag(result, "DESCRIPTION"),
+        "tags": extract_tag(result, "TAGS"),
+        "thumb_text": extract_tag(result, "THUMB"),
+    }
+
+
+# ── Step 4: ElevenLabs TTS ────────────────────────────────────────────────────
 
 def generate_tts(script: str) -> bytes:
     log("Generating TTS audio via ElevenLabs...")
@@ -346,9 +221,9 @@ def generate_tts(script: str) -> bytes:
             "text": script,
             "model_id": "eleven_turbo_v2_5",
             "voice_settings": {
-                "stability": 0.4,
+                "stability": 0.45,
                 "similarity_boost": 0.8,
-                "style": 0.3,
+                "style": 0.4,
                 "use_speaker_boost": True,
             },
         },
@@ -359,90 +234,180 @@ def generate_tts(script: str) -> bytes:
     return resp.content
 
 
+# ── Episode counter (stored in repo as state.json) ────────────────────────────
 
+def get_and_increment_episode_count() -> int:
+    """Read state.json from the repo, increment episode counter, push back. Returns new count."""
+    if not GITHUB_TOKEN:
+        log("Episode counter skipped (no GITHUB_TOKEN); using fallback 1")
+        return 1
 
-# ── Step 7: Render video locally with FFmpeg ─────────────────────────────────
+    headers = {
+        "Authorization": f"token {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github+json",
+    }
+    state_path = "state.json"
 
-def render_video_local(audio_path: str, topic_data: dict, script_data: dict, output_dir: str) -> str:
-    """Render video using the custom Pillow + FFmpeg renderer."""
-    from video_renderer import render_video as _render_video
-
-    log("Rendering video locally with FFmpeg...")
-    bgcat = topic_data["bgcategory"]
-
-    # Fetch background videos from Pexels based on topic
-    bg_videos = fetch_pexels_backgrounds(bgcat, topic_data["topic"])
-
-    talking_points = [
-        script_data["point1"],
-        script_data["point2"],
-        script_data["point3"],
-        script_data["point4"],
-    ]
-
-    video_path = os.path.join(output_dir, "output_video.mp4")
-    _render_video(
-        headline=topic_data["topic"],
-        talking_points=talking_points,
-        category=bgcat,
-        bg_video_urls=bg_videos,
-        audio_path=audio_path,
-        output_path=video_path,
+    resp = requests.get(
+        f"https://api.github.com/repos/{GITHUB_REPO}/contents/{state_path}",
+        headers=headers, timeout=15,
     )
-    log(f"  Video rendered: {video_path}")
-    return video_path
 
+    existing_sha = None
+    state = {"episode": 0}
+    if resp.status_code == 200:
+        existing_sha = resp.json()["sha"]
+        try:
+            state = json.loads(base64.b64decode(resp.json()["content"]).decode("utf-8"))
+        except Exception:
+            state = {"episode": 0}
 
-# ── Step 8: Render thumbnail locally with Pillow ─────────────────────────────
+    state["episode"] = int(state.get("episode", 0)) + 1
+    new_count = state["episode"]
+    log(f"  Episode #{new_count}")
 
-def render_thumbnail_local(topic_data: dict, metadata: dict, output_dir: str) -> str:
-    """Render thumbnail using the custom Pillow renderer."""
-    from video_renderer import render_thumbnail as _render_thumbnail
+    push_data = {
+        "message": f"Bump episode counter to #{new_count}",
+        "content": base64.b64encode(json.dumps(state, indent=2).encode()).decode(),
+    }
+    if existing_sha:
+        push_data["sha"] = existing_sha
 
-    log("Rendering thumbnail locally with Pillow...")
-    thumb_path = os.path.join(output_dir, "thumbnail.jpg")
-    _render_thumbnail(
-        thumb_text=metadata["thumb_text"],
-        category=topic_data["bgcategory"],
-        output_path=thumb_path,
+    put_resp = requests.put(
+        f"https://api.github.com/repos/{GITHUB_REPO}/contents/{state_path}",
+        headers=headers, json=push_data, timeout=30,
     )
-    log(f"  Thumbnail rendered: {thumb_path}")
-    return thumb_path
+    put_resp.raise_for_status()
+    return new_count
 
 
-# ── Step 9: Render YouTube Short ───────────────────────────────────────────────
+# ── Step 5: Host audio on GitHub Release for D-ID to fetch ────────────────────
 
-def render_short(video_path: str, audio_path: str, topic_data: dict, script_data: dict, output_dir: str) -> str:
-    """Create a 9:16 vertical Short from the same content, max 60 seconds."""
-    from video_renderer import render_short as _render_short
+def upload_to_github_release(
+    file_path: str, tag_name: str, filename: str, content_type: str
+) -> str:
+    """Upload any asset to a GitHub Release (creates the release if needed)."""
+    if not GITHUB_TOKEN:
+        raise RuntimeError("GITHUB_TOKEN required to host assets")
 
-    log("Rendering YouTube Short (9:16 vertical)...")
-    short_path = os.path.join(output_dir, "short_video.mp4")
+    headers = {
+        "Authorization": f"token {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github+json",
+    }
 
-    bgcat = topic_data["bgcategory"]
-    bg_videos = fetch_pexels_backgrounds(bgcat, topic_data["topic"], count=1)
-
-    talking_points = [
-        script_data["point1"],
-        script_data["point2"],
-    ]
-
-    _render_short(
-        headline=topic_data["topic"],
-        talking_points=talking_points,
-        category=bgcat,
-        bg_video_urls=bg_videos,
-        audio_path=audio_path,
-        output_path=short_path,
+    release_data = {
+        "tag_name": tag_name,
+        "name": f"Dad Joke {tag_name}",
+        "body": "Auto-generated dad joke video assets.",
+        "draft": False,
+        "prerelease": False,
+    }
+    resp = requests.post(
+        f"https://api.github.com/repos/{GITHUB_REPO}/releases",
+        headers=headers, json=release_data, timeout=30,
     )
-    log(f"  Short rendered: {short_path}")
-    return short_path
+    if resp.status_code not in (201, 422):
+        resp.raise_for_status()
+
+    if resp.status_code == 422:
+        resp = requests.get(
+            f"https://api.github.com/repos/{GITHUB_REPO}/releases/tags/{tag_name}",
+            headers=headers, timeout=15,
+        )
+        resp.raise_for_status()
+
+    release = resp.json()
+    upload_url = release["upload_url"].replace("{?name,label}", "")
+
+    with open(file_path, "rb") as f:
+        data = f.read()
+
+    log(f"  Uploading {filename} ({len(data) / 1024:.0f} KB) to release {tag_name}...")
+    asset_resp = requests.post(
+        f"{upload_url}?name={filename}",
+        headers={
+            "Authorization": f"token {GITHUB_TOKEN}",
+            "Content-Type": content_type,
+        },
+        data=data,
+        timeout=300,
+    )
+    if asset_resp.status_code == 422:
+        # Asset with this name already exists in the release; fetch its URL
+        for asset in release.get("assets", []):
+            if asset.get("name") == filename:
+                return asset["browser_download_url"]
+        asset_resp.raise_for_status()
+    asset_resp.raise_for_status()
+    return asset_resp.json()["browser_download_url"]
 
 
-# ── Step 10: Upload to YouTube ─────────────────────────────────────────────────
+# ── Step 6: D-ID avatar generation ────────────────────────────────────────────
+
+def generate_avatar_video(audio_url: str, output_path: str) -> str:
+    """Animate the dad photo lip-syncing to the given audio URL. Returns local path to MP4."""
+    log("Generating talking dad avatar via D-ID...")
+
+    # D-ID API keys from the dashboard are already base64(email:secret); use Basic auth.
+    auth_header = f"Basic {DID_API_KEY}"
+
+    create_resp = requests.post(
+        "https://api.d-id.com/talks",
+        headers={
+            "Authorization": auth_header,
+            "Content-Type": "application/json",
+        },
+        json={
+            "source_url": DAD_PHOTO_URL,
+            "script": {
+                "type": "audio",
+                "audio_url": audio_url,
+            },
+            "config": {
+                "stitch": True,
+                "result_format": "mp4",
+            },
+        },
+        timeout=30,
+    )
+    if create_resp.status_code not in (200, 201):
+        log(f"  D-ID create error {create_resp.status_code}: {create_resp.text[:500]}")
+    create_resp.raise_for_status()
+    talk_id = create_resp.json()["id"]
+    log(f"  Talk created: {talk_id}, polling for completion...")
+
+    for attempt in range(60):  # up to ~5 minutes
+        time.sleep(5)
+        status_resp = requests.get(
+            f"https://api.d-id.com/talks/{talk_id}",
+            headers={"Authorization": auth_header},
+            timeout=15,
+        )
+        status_resp.raise_for_status()
+        data = status_resp.json()
+        status = data.get("status")
+
+        if status == "done":
+            result_url = data["result_url"]
+            log(f"  D-ID render done, downloading {result_url}...")
+            video_resp = requests.get(result_url, timeout=120)
+            video_resp.raise_for_status()
+            with open(output_path, "wb") as f:
+                f.write(video_resp.content)
+            log(f"  Avatar saved: {output_path} ({len(video_resp.content) / 1024:.0f} KB)")
+            return output_path
+        if status == "error" or status == "rejected":
+            raise RuntimeError(f"D-ID failed: {data.get('error') or data}")
+
+        if attempt % 4 == 0:
+            log(f"  D-ID status: {status}")
+
+    raise TimeoutError("D-ID render timed out after 5 minutes")
+
+
+# ── Step 7: YouTube upload ────────────────────────────────────────────────────
 
 def get_youtube_access_token() -> str:
-    """Exchange refresh token for a fresh access token."""
     resp = requests.post(
         "https://oauth2.googleapis.com/token",
         data={
@@ -457,22 +422,24 @@ def get_youtube_access_token() -> str:
     return resp.json()["access_token"]
 
 
-def upload_to_youtube(video_path: str, thumbnail_path: str, metadata: dict):
+def upload_short_to_youtube(short_path: str, thumbnail_path: str, metadata: dict) -> str:
     if not YOUTUBE_REFRESH_TOKEN:
         log("YouTube upload skipped (no refresh token configured)")
-        log(f"  Video: {video_path}")
-        log(f"  Thumbnail: {thumbnail_path}")
-        log(f"  Title: {metadata['title']}")
-        return
+        return ""
 
-    log("Uploading to YouTube...")
+    log("Uploading dad joke Short to YouTube...")
     access_token = get_youtube_access_token()
 
-    # Parse tags
     tags = [t.strip() for t in metadata["tags"].split(",") if t.strip()][:15]
+    if "shorts" not in [t.lower() for t in tags]:
+        tags.append("shorts")
 
-    # Upload video using resumable upload
-    log("  Starting YouTube resumable upload...")
+    short_title = metadata["title"]
+    if "#shorts" not in short_title.lower():
+        short_title = f"{short_title} #Shorts"
+    if len(short_title) > 100:
+        short_title = short_title[:100]
+
     init_resp = requests.post(
         "https://www.googleapis.com/upload/youtube/v3/videos",
         params={"uploadType": "resumable", "part": "snippet,status"},
@@ -482,10 +449,10 @@ def upload_to_youtube(video_path: str, thumbnail_path: str, metadata: dict):
         },
         json={
             "snippet": {
-                "title": metadata["title"],
+                "title": short_title,
                 "description": metadata["description"],
                 "tags": tags,
-                "categoryId": "25",  # News & Politics
+                "categoryId": "23",  # Comedy
             },
             "status": {
                 "privacyStatus": "public",
@@ -499,11 +466,10 @@ def upload_to_youtube(video_path: str, thumbnail_path: str, metadata: dict):
     init_resp.raise_for_status()
     upload_url = init_resp.headers["Location"]
 
-    # Upload the actual video data
-    with open(video_path, "rb") as f:
+    with open(short_path, "rb") as f:
         video_data = f.read()
 
-    log(f"  Uploading {len(video_data) / (1024*1024):.1f} MB video...")
+    log(f"  Uploading {len(video_data) / (1024 * 1024):.1f} MB...")
     upload_resp = requests.put(
         upload_url,
         headers={
@@ -515,174 +481,36 @@ def upload_to_youtube(video_path: str, thumbnail_path: str, metadata: dict):
         timeout=600,
     )
     upload_resp.raise_for_status()
-    video_id = upload_resp.json()["id"]
-    log(f"  Video uploaded: https://youtube.com/watch?v={video_id}")
-
-    # Set thumbnail (requires verified channel; skip gracefully if forbidden)
-    log("  Setting thumbnail...")
-    try:
-        with open(thumbnail_path, "rb") as f:
-            thumb_data = f.read()
-
-        thumb_resp = requests.post(
-            "https://www.googleapis.com/upload/youtube/v3/thumbnails/set",
-            params={"videoId": video_id},
-            headers={
-                "Authorization": f"Bearer {access_token}",
-                "Content-Type": "image/jpeg",
-            },
-            data=thumb_data,
-            timeout=60,
-        )
-        thumb_resp.raise_for_status()
-        log("  Thumbnail set!")
-    except Exception as e:
-        log(f"  WARNING: Thumbnail upload failed (channel may need verification): {e}")
-        log("  Video was uploaded successfully — thumbnail can be set manually.")
-    log(f"  Done! https://youtube.com/watch?v={video_id}")
-    return video_id
-
-
-def upload_short_to_youtube(short_path: str, metadata: dict):
-    """Upload a YouTube Short (vertical video, ≤60s)."""
-    if not YOUTUBE_REFRESH_TOKEN:
-        log("YouTube Short upload skipped (no refresh token)")
-        return
-
-    if not os.path.exists(short_path):
-        log("YouTube Short upload skipped (no short video found)")
-        return
-
-    log("Uploading YouTube Short...")
-    access_token = get_youtube_access_token()
-
-    tags = [t.strip() for t in metadata["tags"].split(",") if t.strip()][:15]
-    tags.append("shorts")
-
-    # Shorts title: prepend #Shorts for discoverability
-    short_title = metadata["title"]
-    if len(short_title) > 90:
-        short_title = short_title[:87] + "..."
-    short_title = short_title + " #Shorts"
-    if len(short_title) > 100:
-        short_title = short_title[:100]
-
-    short_desc = (
-        f"{metadata['title']}\n\n"
-        f"Watch the full analysis on our channel!\n\n"
-        f"#politics #news #shorts #politicalnews\n\n"
-        f"AI-generated political analysis. Not affiliated with any political party."
-    )
-
-    init_resp = requests.post(
-        "https://www.googleapis.com/upload/youtube/v3/videos",
-        params={"uploadType": "resumable", "part": "snippet,status"},
-        headers={
-            "Authorization": f"Bearer {access_token}",
-            "Content-Type": "application/json",
-        },
-        json={
-            "snippet": {
-                "title": short_title,
-                "description": short_desc,
-                "tags": tags,
-                "categoryId": "25",
-            },
-            "status": {
-                "privacyStatus": "public",
-                "selfDeclaredMadeForKids": False,
-            },
-        },
-        timeout=30,
-    )
-    if init_resp.status_code != 200:
-        log(f"  YouTube Short API error {init_resp.status_code}: {init_resp.text[:500]}")
-    init_resp.raise_for_status()
-    upload_url = init_resp.headers["Location"]
-
-    with open(short_path, "rb") as f:
-        video_data = f.read()
-
-    log(f"  Uploading {len(video_data) / (1024*1024):.1f} MB short...")
-    upload_resp = requests.put(
-        upload_url,
-        headers={
-            "Authorization": f"Bearer {access_token}",
-            "Content-Type": "video/mp4",
-            "Content-Length": str(len(video_data)),
-        },
-        data=video_data,
-        timeout=300,
-    )
-    upload_resp.raise_for_status()
     short_id = upload_resp.json()["id"]
-    log(f"  Short uploaded: https://youtube.com/shorts/{short_id}")
+    log(f"  Uploaded: https://youtube.com/shorts/{short_id}")
+
+    # Optional thumbnail upload
+    if thumbnail_path and os.path.exists(thumbnail_path):
+        try:
+            with open(thumbnail_path, "rb") as f:
+                thumb_data = f.read()
+            thumb_resp = requests.post(
+                "https://www.googleapis.com/upload/youtube/v3/thumbnails/set",
+                params={"videoId": short_id},
+                headers={
+                    "Authorization": f"Bearer {access_token}",
+                    "Content-Type": "image/jpeg",
+                },
+                data=thumb_data,
+                timeout=60,
+            )
+            thumb_resp.raise_for_status()
+            log("  Thumbnail set!")
+        except Exception as e:
+            log(f"  WARNING: Thumbnail upload failed: {e}")
+
     return short_id
 
 
-# ── Step 11: Upload Short to GitHub Release & Update RSS Feed ─────────────────
+# ── Step 8: RSS feed update (Publer reads this) ───────────────────────────────
 
-def upload_short_to_github_release(short_path: str, tag_name: str) -> str:
-    """Upload the Short MP4 as a GitHub Release asset. Returns the public download URL."""
-    if not GITHUB_TOKEN:
-        log("GitHub Release upload skipped (no GITHUB_TOKEN)")
-        return ""
-
-    log("Uploading Short to GitHub Release...")
-    headers = {
-        "Authorization": f"token {GITHUB_TOKEN}",
-        "Accept": "application/vnd.github+json",
-    }
-
-    # Create release
-    release_data = {
-        "tag_name": tag_name,
-        "name": f"Short {tag_name}",
-        "body": "Auto-generated Short video for cross-platform distribution.",
-        "draft": False,
-        "prerelease": False,
-    }
-    resp = requests.post(
-        f"https://api.github.com/repos/{GITHUB_REPO}/releases",
-        headers=headers, json=release_data, timeout=30,
-    )
-    if resp.status_code not in (201, 422):
-        resp.raise_for_status()
-
-    if resp.status_code == 422:
-        # Release with this tag may already exist — get it
-        resp = requests.get(
-            f"https://api.github.com/repos/{GITHUB_REPO}/releases/tags/{tag_name}",
-            headers=headers, timeout=15,
-        )
-        resp.raise_for_status()
-
-    release = resp.json()
-    upload_url = release["upload_url"].replace("{?name,label}", "")
-
-    # Upload the MP4 asset
-    filename = f"short_{tag_name}.mp4"
-    with open(short_path, "rb") as f:
-        video_data = f.read()
-
-    log(f"  Uploading {len(video_data) / (1024*1024):.1f} MB to release {tag_name}...")
-    asset_resp = requests.post(
-        f"{upload_url}?name={filename}",
-        headers={
-            "Authorization": f"token {GITHUB_TOKEN}",
-            "Content-Type": "application/octet-stream",
-        },
-        data=video_data,
-        timeout=300,
-    )
-    asset_resp.raise_for_status()
-    download_url = asset_resp.json()["browser_download_url"]
-    log(f"  Short available at: {download_url}")
-    return download_url
-
-
-def update_rss_feed(video_url: str, metadata: dict, thumbnail_url: str = "", youtube_short_id: str = ""):
-    """Update the RSS feed XML in the repo with the new Short video entry."""
+def update_rss_feed(video_url: str, metadata: dict, joke: dict, youtube_short_id: str = ""):
+    """Update feed.xml in the repo with the new dad joke entry. Publer auto-posts from this."""
     if not GITHUB_TOKEN:
         log("RSS feed update skipped (no GITHUB_TOKEN)")
         return
@@ -697,7 +525,6 @@ def update_rss_feed(video_url: str, metadata: dict, thumbnail_url: str = "", you
         "Accept": "application/vnd.github+json",
     }
 
-    # Fetch existing feed.xml (or start fresh)
     feed_path = "feed.xml"
     existing_sha = None
     existing_xml = None
@@ -710,60 +537,54 @@ def update_rss_feed(video_url: str, metadata: dict, thumbnail_url: str = "", you
         existing_sha = resp.json()["sha"]
         existing_xml = base64.b64decode(resp.json()["content"]).decode("utf-8")
 
-    # Parse or create feed
     now = datetime.now(timezone.utc).strftime("%a, %d %b %Y %H:%M:%S +0000")
 
+    channel = None
     if existing_xml:
         try:
             root = ET.fromstring(existing_xml)
             channel = root.find("channel")
+            # If the existing feed is from the political pipeline, rebuild it for dad jokes
+            existing_title = channel.find("title").text if channel is not None and channel.find("title") is not None else ""
+            if "Political" in existing_title:
+                log("  Existing feed is political; rebuilding for dad jokes")
+                channel = None
         except ET.ParseError:
             channel = None
-    else:
-        channel = None
 
     if channel is None:
-        # Build fresh RSS feed
         root = ET.Element("rss", version="2.0", attrib={
             "xmlns:media": "http://search.yahoo.com/mrss/",
             "xmlns:atom": "http://www.w3.org/2005/Atom",
         })
         channel = ET.SubElement(root, "channel")
-        ET.SubElement(channel, "title").text = "The Political Lens - Shorts"
+        ET.SubElement(channel, "title").text = "Two Dad Jokes Daily"
         ET.SubElement(channel, "link").text = f"https://github.com/{GITHUB_REPO}"
-        ET.SubElement(channel, "description").text = "Daily AI-powered political analysis shorts for TikTok and Instagram"
+        ET.SubElement(channel, "description").text = "Two fresh dad jokes every day, delivered by an animated dad. For TikTok and Instagram Reels."
         ET.SubElement(channel, "language").text = "en-us"
 
-    # Update lastBuildDate
     last_build = channel.find("lastBuildDate")
     if last_build is None:
         last_build = ET.SubElement(channel, "lastBuildDate")
     last_build.text = now
 
-    # Add new item at the top (after channel metadata)
     item = ET.Element("item")
-    ET.SubElement(item, "title").text = metadata.get("title", "Political Lens Short")
+    ET.SubElement(item, "title").text = metadata.get("title", "Dad Joke")
 
-    # Build a concise description with video download link
-    # Keep it short to avoid bloating the feed
-    desc_parts = []
-    full_desc = metadata.get("description", "")
-    # Take just the first 2 sentences of the description
-    sentences = full_desc.split(".")
-    short_desc = ". ".join(sentences[:2]).strip()
-    if short_desc and not short_desc.endswith("."):
-        short_desc += "."
-    desc_parts.append(short_desc)
-
+    desc_parts = [
+        f"{joke['setup']}",
+        "",
+        f"{joke['punchline']}",
+        "",
+        "Follow for two dad jokes a day!",
+    ]
     if video_url:
         desc_parts.append(f"\nVideo: {video_url}")
     if youtube_short_id:
-        desc_parts.append(f"\nWatch: https://youtube.com/shorts/{youtube_short_id}")
-
-    desc_parts.append("\n#politics #news #politicalnews #shorts")
+        desc_parts.append(f"Watch: https://youtube.com/shorts/{youtube_short_id}")
+    desc_parts.append("\n#dadjokes #dadjoke #comedy #shorts #funny")
     ET.SubElement(item, "description").text = "\n".join(desc_parts)
 
-    # Link to YouTube Short if available
     if youtube_short_id:
         ET.SubElement(item, "link").text = f"https://youtube.com/shorts/{youtube_short_id}"
         ET.SubElement(item, "guid", isPermaLink="true").text = f"https://youtube.com/shorts/{youtube_short_id}"
@@ -773,11 +594,6 @@ def update_rss_feed(video_url: str, metadata: dict, thumbnail_url: str = "", you
 
     ET.SubElement(item, "pubDate").text = now
 
-    # NOTE: No <enclosure> or media:content tags — these cause dlvr.it
-    # to try downloading the full MP4, exceeding their 15MB feed size limit.
-    # The video download URL is included in the description text instead.
-
-    # Insert item after channel metadata (before other items)
     items = channel.findall("item")
     if items:
         idx = list(channel).index(items[0])
@@ -785,18 +601,15 @@ def update_rss_feed(video_url: str, metadata: dict, thumbnail_url: str = "", you
     else:
         channel.append(item)
 
-    # Keep only last 20 items
     all_items = channel.findall("item")
     for old_item in all_items[20:]:
         channel.remove(old_item)
 
-    # Serialize
     ET.indent(root, space="  ")
     xml_str = '<?xml version="1.0" encoding="UTF-8"?>\n' + ET.tostring(root, encoding="unicode")
 
-    # Push to GitHub
     push_data = {
-        "message": f"Update RSS feed: {metadata.get('title', 'new short')}",
+        "message": f"Add dad joke: {metadata.get('title', 'new joke')}",
         "content": base64.b64encode(xml_str.encode()).decode(),
     }
     if existing_sha:
@@ -810,181 +623,91 @@ def update_rss_feed(video_url: str, metadata: dict, thumbnail_url: str = "", you
     log(f"  RSS feed updated: https://raw.githubusercontent.com/{GITHUB_REPO}/main/feed.xml")
 
 
-# ── Step 12: Notification via GitHub Issue for manual cross-posting ───────────
-
-def send_email_notification(metadata: dict, short_download_url: str = None):
-    """Create a GitHub Issue with video details. GitHub sends an email notification automatically."""
-    if not GITHUB_TOKEN:
-        log("Notification skipped (no GITHUB_TOKEN)")
-        return
-
-    log("Creating GitHub Issue notification...")
-    try:
-        title = metadata.get("title", "New Political Lens Video")
-        description = metadata.get("description", "")
-        tags = metadata.get("tags", "")
-
-        body_parts = [
-            "## New Video Ready for Cross-Posting",
-            "",
-        ]
-
-        if short_download_url:
-            body_parts.extend([
-                f"**[Download Short Video]({short_download_url})**",
-                "",
-            ])
-
-        body_parts.extend([
-            "### Video Title",
-            f"{title}",
-            "",
-            "### Description",
-            f"{description}",
-            "",
-            "### Tags",
-            f"{tags}",
-            "",
-        ])
-
-        if short_download_url:
-            body_parts.extend([
-                "---",
-                "### Instagram Caption (copy/paste)",
-                "```",
-                f"{title}",
-                "",
-                "Watch the full analysis on YouTube: The Political Lens",
-                "",
-                "#politics #news #politicalnews #shorts #politicalanalysis #breakingnews",
-                "```",
-                "",
-                "### TikTok Caption (copy/paste)",
-                "```",
-                f"{title} #politics #news #politicalnews #fyp #foryou",
-                "```",
-            ])
-
-        body = "\n".join(body_parts)
-
-        resp = requests.post(
-            f"https://api.github.com/repos/{GITHUB_REPO}/issues",
-            headers={
-                "Authorization": f"token {GITHUB_TOKEN}",
-                "Accept": "application/vnd.github.v3+json",
-            },
-            json={
-                "title": f"📹 New Video: {title}",
-                "body": body,
-                "labels": ["cross-post"],
-            },
-            timeout=30,
-        )
-        resp.raise_for_status()
-        issue_url = resp.json().get("html_url", "")
-        log(f"  Notification issue created: {issue_url}")
-
-    except Exception as e:
-        log(f"  WARNING: Notification failed: {e}")
-
-
-# ── Main Pipeline ──────────────────────────────────────────────────────────────
+# ── Main pipeline ─────────────────────────────────────────────────────────────
 
 def main():
     log("=" * 60)
-    log("YouTube Political Channel Daily Pipeline")
+    log("Daily Dad Joke Pipeline")
     log("=" * 60)
 
-    # Create output directory for this run
-    output_dir = tempfile.mkdtemp(prefix="pipeline_")
+    output_dir = tempfile.mkdtemp(prefix="dadjoke_")
     log(f"Output dir: {output_dir}")
 
-    # Check for custom topic override via environment variable
-    custom_topic = os.environ.get("CUSTOM_TOPIC", "").strip()
+    from datetime import datetime, timezone
+    tag = datetime.now(timezone.utc).strftime("v%Y%m%d-%H%M")
 
-    if custom_topic:
-        log(f"Using custom topic: {custom_topic}")
-        # Determine category from topic
-        custom_category = os.environ.get("CUSTOM_CATEGORY", "default").strip().lower()
-        if custom_category not in PEXELS_SEARCH_TERMS:
-            custom_category = "default"
-        topic_data = {
-            "topic": custom_topic,
-            "angle": f"Breaking analysis of: {custom_topic}",
-            "bgcategory": custom_category,
-        }
-    else:
-        # Step 1: Fetch RSS
-        rss_text = fetch_rss()
+    # 1. Joke
+    joke = fetch_dad_joke()
+    if not joke.get("setup") or not joke.get("punchline"):
+        raise RuntimeError(f"Failed to get a usable joke: {joke}")
+    log(f"  Setup:     {joke['setup']}")
+    log(f"  Punchline: {joke['punchline']}")
 
-        # Step 2: Pick topic
-        topic_data = pick_topic(rss_text)
+    # 2. Episode counter
+    episode = get_and_increment_episode_count()
 
-    # Step 3: Write script
-    script_data = write_script(topic_data)
-    log(f"  Script length: {len(script_data['script'])} chars")
+    # 3. Script
+    script_data = write_script(joke, episode)
+    log(f"  Script ({len(script_data['script'])} chars): {script_data['script']}")
 
-    # Step 4: Generate YouTube metadata
-    metadata = generate_metadata(topic_data, script_data["script"])
+    # 4. Metadata
+    metadata = generate_metadata(joke, episode)
     log(f"  Title: {metadata['title']}")
 
-    # Step 5: Generate TTS
+    # 4. TTS
     audio_data = generate_tts(script_data["script"])
-
-    # Save audio to disk for local rendering
     audio_path = os.path.join(output_dir, "voiceover.mp3")
     with open(audio_path, "wb") as f:
         f.write(audio_data)
-    log(f"  Audio saved: {audio_path} ({len(audio_data)} bytes)")
 
-    # Step 6: Render thumbnail locally
-    thumbnail_path = render_thumbnail_local(topic_data, metadata, output_dir)
+    # 5. Host audio so D-ID can fetch it
+    audio_url = upload_to_github_release(
+        audio_path, tag, f"audio_{tag}.mp3", "audio/mpeg"
+    )
 
-    # Step 7: Render video locally (this is the longest step)
-    video_path = render_video_local(audio_path, topic_data, script_data, output_dir)
+    # 6. D-ID avatar
+    avatar_path = os.path.join(output_dir, "avatar.mp4")
+    generate_avatar_video(audio_url, avatar_path)
 
-    # Step 8: Upload main video to YouTube
+    # 7. Render final Short with intro/outro/captions
+    from dad_video_renderer import render_dad_short, render_thumbnail
+    short_path = os.path.join(output_dir, "dad_short.mp4")
+    render_dad_short(
+        avatar_path=avatar_path,
+        joke=joke,
+        episode=episode,
+        catchphrase=script_data["catchphrase"],
+        output_path=short_path,
+    )
+
+    thumb_path = os.path.join(output_dir, "thumbnail.jpg")
+    render_thumbnail(
+        thumb_text=metadata["thumb_text"],
+        joke=joke,
+        episode=episode,
+        output_path=thumb_path,
+    )
+
+    # 8. Upload to YouTube as a Short
+    short_id = ""
     try:
-        upload_to_youtube(video_path, thumbnail_path, metadata)
+        short_id = upload_short_to_youtube(short_path, thumb_path, metadata)
     except Exception as e:
-        log(f"  WARNING: YouTube main video upload failed: {e}")
-        log("  Continuing with Short rendering and cross-platform uploads...")
+        log(f"  WARNING: YouTube upload failed: {e}")
 
-    # Step 9: Render YouTube Short
-    short_path = None
-    short_id = None
+    # 9. Upload final video to GitHub Release + update RSS for Publer
     try:
-        short_path = render_short(video_path, audio_path, topic_data, script_data, output_dir)
+        video_url = upload_to_github_release(
+            short_path, tag, f"short_{tag}.mp4", "video/mp4"
+        )
+        update_rss_feed(
+            video_url=video_url,
+            metadata=metadata,
+            joke=joke,
+            youtube_short_id=short_id,
+        )
     except Exception as e:
-        log(f"  WARNING: Short rendering failed: {e}")
-
-    # Step 10: Upload Short to YouTube
-    if short_path:
-        try:
-            short_id = upload_short_to_youtube(short_path, metadata)
-        except Exception as e:
-            log(f"  WARNING: YouTube Short upload failed: {e}")
-
-    # Step 11: Upload Short to GitHub Release for backup/RSS access
-    if short_path:
-        try:
-            from datetime import datetime, timezone
-            tag = datetime.now(timezone.utc).strftime("v%Y%m%d-%H%M")
-            video_download_url = upload_short_to_github_release(short_path, tag)
-            update_rss_feed(
-                video_url=video_download_url,
-                metadata=metadata,
-                youtube_short_id=short_id or "",
-            )
-        except Exception as e:
-            log(f"  WARNING: GitHub Release/RSS update failed: {e}")
-
-    # Step 12: Email notification with links for manual cross-posting
-    try:
-        short_download_url = video_download_url if short_path else None
-    except NameError:
-        short_download_url = None
-    send_email_notification(metadata, short_download_url)
+        log(f"  WARNING: GitHub Release / RSS update failed: {e}")
 
     log("=" * 60)
     log("Pipeline complete!")
