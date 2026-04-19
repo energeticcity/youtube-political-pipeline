@@ -75,52 +75,56 @@ JOKE_BLOCKLIST = {
 }
 
 
+def split_joke(joke_text: str) -> tuple[str, str]:
+    """Split a one-string joke into (setup, punchline) using heuristics."""
+    text = joke_text.strip()
+    # Q/A format: split on first '?'
+    if "?" in text:
+        idx = text.index("?") + 1
+        setup = text[:idx].strip()
+        punchline = text[idx:].strip()
+        if setup and punchline and len(punchline) > 3:
+            return setup, punchline
+    # Statement/punchline: split on first '. '
+    if ". " in text:
+        first, rest = text.split(". ", 1)
+        if len(rest.strip()) > 5:
+            return first.strip() + ".", rest.strip()
+    return text, ""
+
+
 def fetch_dad_joke() -> dict:
-    """Pick a clean joke from r/dadjokes; fall back to Gemini if nothing suitable."""
-    log("Fetching dad joke from r/dadjokes...")
+    """Pull a clean joke from icanhazdadjoke.com; Gemini fallback if needed."""
+    log("Fetching dad joke from icanhazdadjoke.com...")
 
-    try:
-        resp = requests.get(
-            "https://www.reddit.com/r/dadjokes/top.json",
-            params={"t": "day", "limit": 25},
-            headers={"User-Agent": "DadJokePipeline/1.0 (by /u/anonymous)"},
-            timeout=15,
-        )
-        resp.raise_for_status()
-        posts = resp.json().get("data", {}).get("children", [])
+    headers = {
+        "Accept": "application/json",
+        "User-Agent": "DadJokeFix (https://github.com/energeticcity/youtube-political-pipeline)",
+    }
 
-        for post in posts:
-            d = post.get("data", {})
-            if d.get("over_18") or d.get("stickied") or d.get("locked"):
-                continue
-            title = (d.get("title") or "").strip()
-            body = (d.get("selftext") or "").strip()
+    for attempt in range(5):
+        try:
+            resp = requests.get(
+                "https://icanhazdadjoke.com/",
+                headers=headers,
+                timeout=15,
+            )
+            resp.raise_for_status()
+            joke_text = (resp.json().get("joke") or "").strip()
 
-            full = f"{title} {body}".lower()
-            if any(bad in full for bad in JOKE_BLOCKLIST):
+            if not joke_text or len(joke_text) > 280:
                 continue
-            if len(title) > 200 or len(body) > 300:
-                continue
-            if not title:
+            if any(bad in joke_text.lower() for bad in JOKE_BLOCKLIST):
                 continue
 
-            if body:
-                log(f"  Picked Reddit joke (score {d.get('score', 0)})")
-                return {"setup": title, "punchline": body, "source": "reddit"}
-            if "..." in title:
-                parts = title.split("...", 1)
-                if len(parts) == 2 and parts[1].strip():
-                    log(f"  Picked Reddit joke (inline, score {d.get('score', 0)})")
-                    return {
-                        "setup": parts[0].strip() + "...",
-                        "punchline": parts[1].strip(),
-                        "source": "reddit",
-                    }
+            setup, punchline = split_joke(joke_text)
+            if setup and punchline:
+                log(f"  Picked joke from icanhazdadjoke (attempt {attempt + 1})")
+                return {"setup": setup, "punchline": punchline, "source": "icanhazdadjoke"}
+        except Exception as e:
+            log(f"  icanhazdadjoke attempt {attempt + 1} failed: {e}")
 
-        log("  No suitable Reddit joke found, falling back to Gemini")
-    except Exception as e:
-        log(f"  Reddit fetch failed: {e}, falling back to Gemini")
-
+    log("  No cleanly-splittable joke found, falling back to Gemini")
     result = call_llm(
         system="You are a dad telling clean, family-friendly dad jokes. Output ONLY the requested format.",
         user_message="""Write one original dad joke. The setup should end with a question or "...". The punchline must be a groan-worthy pun. Keep both lines short.
