@@ -219,12 +219,12 @@ def generate_tts(script: str) -> bytes:
         },
         json={
             "text": script,
-            "model_id": "eleven_turbo_v2_5",
+            "model_id": "eleven_multilingual_v2",
             "voice_settings": {
-                "stability": 0.45,
-                "similarity_boost": 0.8,
-                "style": 0.4,
-                "use_speaker_boost": True,
+                "stability": 0.6,
+                "similarity_boost": 0.75,
+                "style": 0.15,
+                "use_speaker_boost": False,
             },
         },
         timeout=120,
