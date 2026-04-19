@@ -4,4 +4,6 @@ __pycache__/
 *.mp3
 *.jpg
 !fonts/
+!brand/**
+!dad_avatar.jpg
 output_*/
