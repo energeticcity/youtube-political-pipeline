@@ -18,13 +18,14 @@ from PIL import Image, ImageDraw, ImageFont
 
 SHORT_W, SHORT_H = 1080, 1920
 OUTRO_DURATION = 1.0
-PAUSE_PADDING = 0.5  # seconds the setup caption stays up after setup audio ends
 
 BG_COLOR = (26, 26, 46)        # dark navy
 ACCENT_COLOR = (255, 195, 70)  # warm dad-joke yellow
 TEXT_COLOR = (255, 255, 255)
 
 FONTS_DIR = Path(__file__).parent / "fonts"
+SFX_DIR = Path(__file__).parent / "sfx"
+RIMSHOT_PATH = SFX_DIR / "rimshot.wav"
 
 
 def log(msg: str):
@@ -153,14 +154,18 @@ def render_outro_card(output_path: str):
 
 
 def render_caption_overlay(text: str, output_path: str, style: str = "setup"):
-    """Transparent PNG with caption text in a colored box at the top of the screen.
+    """Transparent PNG with caption text in a styled box.
 
-    style: 'setup' = black box / white text; 'punchline' = yellow box / black text.
+    style:
+      'setup'     = top, black box / white text
+      'punchline' = top, yellow box / black text + glow
+      'bait'      = middle, yellow text on dark navy box (comment-bait during pause)
     """
     img = Image.new("RGBA", (SHORT_W, SHORT_H), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
 
-    font = find_font(78, "ExtraBold")
+    font_size = 92 if style == "bait" else 78
+    font = find_font(font_size, "ExtraBold")
 
     box_x = 50
     box_w = SHORT_W - 100
@@ -171,12 +176,14 @@ def render_caption_overlay(text: str, output_path: str, style: str = "setup"):
     text_h = line_h * len(lines)
     box_h = text_h + inner_pad * 2
 
-    box_y = 140
-
-    if style == "punchline":
+    if style == "bait":
+        box_y = (SHORT_H - box_h) // 2
+        box_fill = (*BG_COLOR, 235)
+        text_fill = ACCENT_COLOR
+    elif style == "punchline":
+        box_y = 140
         box_fill = (*ACCENT_COLOR, 250)
         text_fill = (20, 20, 30)
-        # subtle glow border for the punchline reveal
         glow_layer = Image.new("RGBA", (SHORT_W, SHORT_H), (0, 0, 0, 0))
         glow_draw = ImageDraw.Draw(glow_layer)
         glow_draw.rounded_rectangle(
@@ -185,6 +192,7 @@ def render_caption_overlay(text: str, output_path: str, style: str = "setup"):
         )
         img = Image.alpha_composite(img, glow_layer)
     else:
+        box_y = 140
         box_fill = (0, 0, 0, 210)
         text_fill = TEXT_COLOR
 
@@ -241,22 +249,29 @@ def render_episode_counter_overlay(episode: int, output_path: str):
     img.save(output_path, "PNG")
 
 
-def estimate_setup_end_time(joke: dict, avatar_duration: float, catchphrase: str = "") -> float:
-    """Estimate when the setup audio finishes within the avatar video.
+def estimate_timeline(joke: dict, avatar_duration: float, catchphrase: str = "") -> dict:
+    """Estimate spoken-section timestamps within the avatar video.
 
     Audio shape: catchphrase + setup + pause + punchline + cta.
+    Returns: {setup_end, punchline_start, punchline_end} in seconds.
     """
     catchphrase_chars = max(len(catchphrase), 1)
     setup_chars = max(len(joke["setup"]), 1)
+    pause_chars = 8           # the "... ... ..." between setup and punchline
     punchline_chars = max(len(joke["punchline"]), 1)
-    cta_chars = 40  # "Two dad jokes every day, follow for more!"
-    pause_chars = 8  # the "... ... ..." between setup and punchline
+    cta_chars = 40            # "Two dad jokes every day, follow for more!"
 
     total = catchphrase_chars + setup_chars + pause_chars + punchline_chars + cta_chars
-    pre_punchline = catchphrase_chars + setup_chars + pause_chars / 2
 
-    setup_end = avatar_duration * (pre_punchline / total) + PAUSE_PADDING
-    return min(max(setup_end, 1.5), avatar_duration - 1.5)
+    setup_end = avatar_duration * (catchphrase_chars + setup_chars) / total
+    punchline_start = avatar_duration * (catchphrase_chars + setup_chars + pause_chars) / total
+    punchline_end = avatar_duration * (catchphrase_chars + setup_chars + pause_chars + punchline_chars) / total
+
+    return {
+        "setup_end": setup_end,
+        "punchline_start": punchline_start,
+        "punchline_end": punchline_end,
+    }
 
 
 def render_dad_short(
@@ -266,25 +281,46 @@ def render_dad_short(
     episode: int = 1,
     catchphrase: str = "",
 ) -> str:
-    """Compose avatar + captions + episode badge + outro into a 1080x1920 MP4."""
+    """Compose avatar + captions + episode badge + comment-bait + rim-shot SFX + outro."""
     log("Rendering dad joke Short...")
 
     avatar_dur = get_video_duration(avatar_path)
-    setup_end = estimate_setup_end_time(joke, avatar_dur, catchphrase)
-    log(f"  Avatar duration: {avatar_dur:.2f}s, setup ends at {setup_end:.2f}s, episode #{episode}")
+    timeline = estimate_timeline(joke, avatar_dur, catchphrase)
+    setup_end = timeline["setup_end"]
+    punchline_start = timeline["punchline_start"]
+    punchline_end = timeline["punchline_end"]
+    log(
+        f"  Avatar {avatar_dur:.2f}s | setup ends {setup_end:.2f}s | "
+        f"punchline {punchline_start:.2f}s-{punchline_end:.2f}s | episode #{episode}"
+    )
 
     work_dir = tempfile.mkdtemp(prefix="dadrender_")
     outro_png = os.path.join(work_dir, "outro.png")
     setup_png = os.path.join(work_dir, "setup_caption.png")
     punch_png = os.path.join(work_dir, "punch_caption.png")
+    pause_png = os.path.join(work_dir, "pause_caption.png")
     counter_png = os.path.join(work_dir, "counter.png")
 
     render_outro_card(outro_png)
     render_caption_overlay(joke["setup"], setup_png, style="setup")
     render_caption_overlay(joke["punchline"], punch_png, style="punchline")
+    render_caption_overlay("GUESS THE PUNCHLINE", pause_png, style="bait")
     render_episode_counter_overlay(episode, counter_png)
 
     bg_hex = f"0x{BG_COLOR[0]:02x}{BG_COLOR[1]:02x}{BG_COLOR[2]:02x}"
+
+    # Caption windows
+    setup_show_until = setup_end + 0.1            # tiny overlap into pause for readability
+    bait_show_from = setup_end + 0.1
+    bait_show_until = punchline_start - 0.05
+    punch_show_from = punchline_start
+
+    # Rim-shot fires right as the punchline lands (small offset for comedic timing)
+    rimshot_at_ms = int(max(0, punchline_end - 0.05) * 1000)
+
+    have_rimshot = RIMSHOT_PATH.exists()
+    if not have_rimshot:
+        log(f"  WARNING: rim-shot SFX not found at {RIMSHOT_PATH}, skipping")
 
     # Inputs:
     #  [0] avatar MP4 (with audio)
@@ -292,17 +328,33 @@ def render_dad_short(
     #  [2] setup caption PNG
     #  [3] punchline caption PNG
     #  [4] episode counter PNG
-    #  [5] silent audio for outro
-    filter_complex = (
+    #  [5] pause/bait caption PNG
+    #  [6] silent audio for outro
+    #  [7] rim shot WAV (only if exists)
+    filter_video = (
         f"[0:v]scale={SHORT_W}:{SHORT_H}:force_original_aspect_ratio=decrease,"
         f"pad={SHORT_W}:{SHORT_H}:(ow-iw)/2:(oh-ih)/2:color={bg_hex},"
         f"setsar=1,format=yuv420p[av_padded];"
-        f"[av_padded][2:v]overlay=0:0:enable='between(t,0,{setup_end:.3f})'[av1];"
-        f"[av1][3:v]overlay=0:0:enable='between(t,{setup_end:.3f},{avatar_dur:.3f})'[av2];"
-        f"[av2][4:v]overlay=0:0[av_with_counter];"
+        f"[av_padded][2:v]overlay=0:0:enable='between(t,0,{setup_show_until:.3f})'[av1];"
+        f"[av1][5:v]overlay=0:0:enable='between(t,{bait_show_from:.3f},{bait_show_until:.3f})'[av2];"
+        f"[av2][3:v]overlay=0:0:enable='between(t,{punch_show_from:.3f},{avatar_dur:.3f})'[av3];"
+        f"[av3][4:v]overlay=0:0[av_with_counter];"
         f"[1:v]scale={SHORT_W}:{SHORT_H},setsar=1,format=yuv420p[outro_v];"
-        f"[0:a]aformat=sample_rates=44100:channel_layouts=stereo[av_a];"
-        f"[av_with_counter][av_a][outro_v][5:a]concat=n=2:v=1:a=1[outv][outa]"
+    )
+
+    if have_rimshot:
+        filter_audio = (
+            f"[7:a]adelay={rimshot_at_ms}|{rimshot_at_ms},aformat=sample_rates=44100:channel_layouts=stereo,volume=0.9[rim_d];"
+            f"[0:a][rim_d]amix=inputs=2:duration=first:dropout_transition=0:normalize=0,"
+            f"aformat=sample_rates=44100:channel_layouts=stereo[av_a];"
+        )
+    else:
+        filter_audio = "[0:a]aformat=sample_rates=44100:channel_layouts=stereo[av_a];"
+
+    filter_complex = (
+        filter_video
+        + filter_audio
+        + "[av_with_counter][av_a][outro_v][6:a]concat=n=2:v=1:a=1[outv][outa]"
     )
 
     cmd = [
@@ -312,8 +364,13 @@ def render_dad_short(
         "-i", setup_png,
         "-i", punch_png,
         "-i", counter_png,
+        "-i", pause_png,
         "-f", "lavfi", "-t", str(OUTRO_DURATION),
         "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
+    ]
+    if have_rimshot:
+        cmd += ["-i", str(RIMSHOT_PATH)]
+    cmd += [
         "-filter_complex", filter_complex,
         "-map", "[outv]", "-map", "[outa]",
         "-c:v", "libx264", "-preset", "fast", "-crf", "23",
