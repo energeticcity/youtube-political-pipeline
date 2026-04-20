@@ -197,13 +197,21 @@ def write_script(joke: dict, episode: int, segment: dict) -> dict:
 
     Targets ~9-12s total audio so the final Short lands near the 10s retention sweet spot.
     """
-    setup = joke["setup"].rstrip("?.!").strip()
+    # Preserve original punctuation — "?" gives the setup rising intonation.
+    # Only strip if the joke has no ending mark at all.
+    setup = joke["setup"].strip()
+    if not setup.endswith(("?", ".", "!")):
+        setup += "."
     punchline = joke["punchline"].strip()
+    if not punchline.endswith(("?", ".", "!")):
+        punchline += "."
+
     # Use the segment hook 70% of the time (brand reinforcement), random hook 30% (variety)
     catchphrase = segment["hook"] if random.random() < 0.7 else random.choice(CATCHPHRASES)
 
-    # Tight timing: pause before punchline, then room for rim shot before CTA.
-    script = f"{catchphrase} {setup}... .. {punchline}... Follow for more!"
+    # Em dash before setup cues ElevenLabs to land the catchphrase with punch.
+    # Ellipses create suspense pauses without losing the setup's ? intonation.
+    script = f"{catchphrase} — {setup} ... {punchline} ... Follow for more!"
     return {
         "script": script,
         "setup": joke["setup"],
@@ -299,10 +307,15 @@ def generate_tts(script: str) -> bytes:
             "text": script,
             "model_id": "eleven_multilingual_v2",
             "voice_settings": {
-                "stability": 0.6,
-                "similarity_boost": 0.75,
-                "style": 0.15,
-                "use_speaker_boost": False,
+                # More expressive comedy delivery:
+                # - lower stability = more natural variation in pitch/rhythm
+                # - higher style = puts personality/attitude into delivery
+                # - speaker_boost gives presence without the old noise issue
+                #   (denoise step catches any residual hiss downstream)
+                "stability": 0.35,
+                "similarity_boost": 0.8,
+                "style": 0.5,
+                "use_speaker_boost": True,
             },
         },
         timeout=120,
