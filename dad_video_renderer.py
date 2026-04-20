@@ -299,21 +299,15 @@ def render_dad_short(
     outro_png = os.path.join(work_dir, "outro.png")
     setup_png = os.path.join(work_dir, "setup_caption.png")
     punch_png = os.path.join(work_dir, "punch_caption.png")
-    pause_png = os.path.join(work_dir, "pause_caption.png")
     counter_png = os.path.join(work_dir, "counter.png")
 
     render_outro_card(outro_png)
     render_caption_overlay(joke["setup"], setup_png, style="setup")
     render_caption_overlay(joke["punchline"], punch_png, style="punchline")
-    render_caption_overlay("GUESS THE PUNCHLINE", pause_png, style="bait")
     render_episode_counter_overlay(episode, counter_png)
-
-    bg_hex = f"0x{BG_COLOR[0]:02x}{BG_COLOR[1]:02x}{BG_COLOR[2]:02x}"
 
     # Caption windows
     setup_show_until = setup_end + 0.1            # tiny overlap into pause for readability
-    bait_show_from = setup_end + 0.1
-    bait_show_until = punchline_start - 0.05
     punch_show_from = punchline_start
 
     # Rim-shot fires right as the punchline lands (small offset for comedic timing)
@@ -329,25 +323,31 @@ def render_dad_short(
     #  [2] setup caption PNG
     #  [3] punchline caption PNG
     #  [4] episode counter PNG
-    #  [5] pause/bait caption PNG
-    #  [6] silent audio for outro
-    #  [7] rim shot WAV (only if exists)
+    #  [5] silent audio for outro
+    #  [6] rim shot WAV (only if exists)
+    #
+    # Blurred-self background: split the avatar, scale one copy to fill the
+    # full 9:16 frame with a heavy blur + slight dim — fills the dead space
+    # above/below the square avatar with motion and ambient colour pulled from
+    # the face itself. Much more alive than a flat navy pad.
     filter_video = (
-        f"[0:v]scale={SHORT_W}:{SHORT_H}:force_original_aspect_ratio=decrease,"
-        f"pad={SHORT_W}:{SHORT_H}:(ow-iw)/2:(oh-ih)/2:color={bg_hex},"
-        f"setsar=1,format=yuv420p[av_padded];"
+        f"[0:v]split=2[fg_src][bg_src];"
+        f"[bg_src]scale={SHORT_W}:{SHORT_H}:force_original_aspect_ratio=increase,"
+        f"crop={SHORT_W}:{SHORT_H},boxblur=25:2,eq=brightness=-0.12:saturation=0.75,setsar=1[bg];"
+        f"[fg_src]scale={SHORT_W}:{SHORT_W}:force_original_aspect_ratio=decrease,setsar=1[fg];"
+        f"[bg][fg]overlay=(W-w)/2:(H-h)/2:format=auto,format=yuv420p[av_padded];"
         f"[av_padded][2:v]overlay=0:0:enable='between(t,0,{setup_show_until:.3f})'[av1];"
-        f"[av1][5:v]overlay=0:0:enable='between(t,{bait_show_from:.3f},{bait_show_until:.3f})'[av2];"
-        f"[av2][3:v]overlay=0:0:enable='between(t,{punch_show_from:.3f},{avatar_dur:.3f})'[av3];"
-        f"[av3][4:v]overlay=0:0[av_with_counter];"
+        f"[av1][3:v]overlay=0:0:enable='between(t,{punch_show_from:.3f},{avatar_dur:.3f})'[av2];"
+        f"[av2][4:v]overlay=0:0[av_with_counter];"
         f"[1:v]scale={SHORT_W}:{SHORT_H},setsar=1,format=yuv420p[outro_v];"
     )
 
     if have_rimshot:
         # Voice stays at unity gain, rim shot sits under it at ~0.45, then a soft
         # limiter after the mix prevents any clipping when the two signals combine.
+        # Input [6] = rim shot.
         filter_audio = (
-            f"[7:a]adelay={rimshot_at_ms}|{rimshot_at_ms},"
+            f"[6:a]adelay={rimshot_at_ms}|{rimshot_at_ms},"
             f"aformat=sample_rates=44100:channel_layouts=stereo,volume=0.45[rim_d];"
             f"[0:a][rim_d]amix=inputs=2:duration=first:dropout_transition=0:normalize=0,"
             f"alimiter=limit=0.95:attack=3:release=50,"
@@ -359,7 +359,7 @@ def render_dad_short(
     filter_complex = (
         filter_video
         + filter_audio
-        + "[av_with_counter][av_a][outro_v][6:a]concat=n=2:v=1:a=1[outv][outa]"
+        + "[av_with_counter][av_a][outro_v][5:a]concat=n=2:v=1:a=1[outv][outa]"
     )
 
     cmd = [
@@ -369,7 +369,6 @@ def render_dad_short(
         "-i", setup_png,
         "-i", punch_png,
         "-i", counter_png,
-        "-i", pause_png,
         "-f", "lavfi", "-t", str(OUTRO_DURATION),
         "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
     ]

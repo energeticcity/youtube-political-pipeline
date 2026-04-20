@@ -159,13 +159,14 @@ Respond ONLY:
 # ── Weekly segment routing (day-of-week themed) ───────────────────────────────
 
 WEEKLY_SEGMENTS = {
-    0: {"name": "Monday Morning Groans", "hook": "Monday groan incoming.", "tag": "mondaygroans"},
-    1: {"name": "Punsday Tuesday",       "hook": "Happy Punsday.",          "tag": "punsday"},
-    2: {"name": "Midweek Dad Joke",      "hook": "Midweek joke.",           "tag": "midweekdadjoke"},
-    3: {"name": "Throwback Thursday",    "hook": "Throwback joke.",         "tag": "throwbackthursday"},
-    4: {"name": "Joke Court Friday",     "hook": "Case closed.",            "tag": "jokecourt"},
-    5: {"name": "Weekend Wild Card",     "hook": "Weekend joke.",           "tag": "weekendjoke"},
-    6: {"name": "Sunday Funday",         "hook": "One for the Sunday scroll.", "tag": "sundayfunday"},
+    # Hooks use "!" for energy — ElevenLabs reads exclamation marks with more punch
+    0: {"name": "Monday Morning Groans", "hook": "Monday groan incoming!",      "tag": "mondaygroans"},
+    1: {"name": "Punsday Tuesday",       "hook": "Happy Punsday!",              "tag": "punsday"},
+    2: {"name": "Midweek Dad Joke",      "hook": "Midweek joke, let's go!",     "tag": "midweekdadjoke"},
+    3: {"name": "Throwback Thursday",    "hook": "Throwback joke incoming!",    "tag": "throwbackthursday"},
+    4: {"name": "Joke Court Friday",     "hook": "Case closed!",                "tag": "jokecourt"},
+    5: {"name": "Weekend Wild Card",     "hook": "Weekend joke, buckle up!",    "tag": "weekendjoke"},
+    6: {"name": "Sunday Funday",         "hook": "One for the Sunday scroll!",  "tag": "sundayfunday"},
 }
 
 
@@ -307,14 +308,14 @@ def generate_tts(script: str) -> bytes:
             "text": script,
             "model_id": "eleven_multilingual_v2",
             "voice_settings": {
-                # More expressive comedy delivery:
-                # - lower stability = more natural variation in pitch/rhythm
-                # - higher style = puts personality/attitude into delivery
+                # Pushed for maximum comedy liveliness:
+                # - stability 0.25 lets pitch/rhythm move a lot (near the limit)
+                # - style 0.65 amps attitude/energy
                 # - speaker_boost gives presence without the old noise issue
-                #   (denoise step catches any residual hiss downstream)
-                "stability": 0.35,
+                #   (gentle afftdn denoise downstream handles residual hiss)
+                "stability": 0.25,
                 "similarity_boost": 0.8,
-                "style": 0.5,
+                "style": 0.65,
                 "use_speaker_boost": True,
             },
         },
