@@ -202,8 +202,8 @@ def write_script(joke: dict, episode: int, segment: dict) -> dict:
     # Use the segment hook 70% of the time (brand reinforcement), random hook 30% (variety)
     catchphrase = segment["hook"] if random.random() < 0.7 else random.choice(CATCHPHRASES)
 
-    # Tight timing: one ellipsis for pre-punchline beat, short CTA
-    script = f"{catchphrase} {setup}... .. {punchline}. Follow for more!"
+    # Tight timing: pause before punchline, then room for rim shot before CTA.
+    script = f"{catchphrase} {setup}... .. {punchline}... Follow for more!"
     return {
         "script": script,
         "setup": joke["setup"],
@@ -313,14 +313,15 @@ def generate_tts(script: str) -> bytes:
 
 
 def denoise_audio(input_path: str, output_path: str) -> str:
-    """Apply FFT denoising + highpass + gentle compression to clean up TTS hiss."""
+    """Gentle noise reduction — highpass + light FFT denoise. No compressor
+    (previously caused pumping/robotic artifacts on vocals)."""
     import subprocess
     log("Denoising TTS audio...")
     subprocess.run(
         [
             "ffmpeg", "-y", "-loglevel", "error",
             "-i", input_path,
-            "-af", "afftdn=nf=-25:nr=12:nt=w,highpass=f=80,acompressor=threshold=-22dB:ratio=2:attack=20:release=200",
+            "-af", "highpass=f=80,afftdn=nf=-28:nr=6:nt=w",
             "-ar", "44100",
             "-b:a", "192k",
             output_path,

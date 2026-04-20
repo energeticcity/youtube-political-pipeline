@@ -257,11 +257,12 @@ def estimate_timeline(joke: dict, avatar_duration: float, catchphrase: str = "")
     """
     catchphrase_chars = max(len(catchphrase), 1)
     setup_chars = max(len(joke["setup"]), 1)
-    pause_chars = 5           # the "... .." beat between setup and punchline
+    pause_chars = 5           # "... .." beat between setup and punchline
     punchline_chars = max(len(joke["punchline"]), 1)
+    post_punchline_pause = 3  # "..." gap before CTA (lets rim shot play)
     cta_chars = 18            # "Follow for more!"
 
-    total = catchphrase_chars + setup_chars + pause_chars + punchline_chars + cta_chars
+    total = catchphrase_chars + setup_chars + pause_chars + punchline_chars + post_punchline_pause + cta_chars
 
     setup_end = avatar_duration * (catchphrase_chars + setup_chars) / total
     punchline_start = avatar_duration * (catchphrase_chars + setup_chars + pause_chars) / total
@@ -343,9 +344,13 @@ def render_dad_short(
     )
 
     if have_rimshot:
+        # Voice stays at unity gain, rim shot sits under it at ~0.45, then a soft
+        # limiter after the mix prevents any clipping when the two signals combine.
         filter_audio = (
-            f"[7:a]adelay={rimshot_at_ms}|{rimshot_at_ms},aformat=sample_rates=44100:channel_layouts=stereo,volume=0.9[rim_d];"
+            f"[7:a]adelay={rimshot_at_ms}|{rimshot_at_ms},"
+            f"aformat=sample_rates=44100:channel_layouts=stereo,volume=0.45[rim_d];"
             f"[0:a][rim_d]amix=inputs=2:duration=first:dropout_transition=0:normalize=0,"
+            f"alimiter=limit=0.95:attack=3:release=50,"
             f"aformat=sample_rates=44100:channel_layouts=stereo[av_a];"
         )
     else:
