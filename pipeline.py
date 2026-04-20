@@ -216,11 +216,40 @@ def write_script(joke: dict, episode: int, segment: dict) -> dict:
 
 # ── Step 3: YouTube metadata ──────────────────────────────────────────────────
 
+def _template_metadata(joke: dict, episode: int, segment: dict) -> dict:
+    """Template-based metadata — used when Gemini is unavailable/quota exhausted."""
+    # Hook teaser from setup — first 4 words, stripped
+    words = joke["setup"].strip().rstrip("?.!").split()
+    teaser = " ".join(words[:4]) + ("..." if len(words) > 4 else "")
+    title = f"{segment['name']} #{episode}: {teaser}"
+    if len(title) > 95:
+        title = title[:92] + "..."
+
+    description = (
+        f"{joke['setup']}\n\n{joke['punchline']}\n\n"
+        f"Follow @dadjokefix for 2 dad jokes every day!\n\n"
+        f"#dadjokes #dadjoke #dadjokefix #shorts #{segment['tag']}"
+    )
+    tags = ",".join([
+        "dadjokes", "dadjoke", "dadjokefix", segment["tag"],
+        "comedy", "shorts", "funny", "jokes", "family",
+    ])
+
+    # Thumb text: 2 uppercase words from the setup (non-stopwords)
+    stopwords = {"the", "a", "an", "is", "was", "why", "what", "where", "when", "who", "how",
+                 "did", "do", "does", "to", "of", "in", "on", "at", "for"}
+    candidates = [w.strip("?.!,").upper() for w in words if w.lower() not in stopwords and w.strip("?.!,").isalpha()]
+    thumb = " ".join(candidates[:2]) if len(candidates) >= 2 else "DAD JOKE"
+
+    return {"title": title, "description": description, "tags": tags, "thumb_text": thumb}
+
+
 def generate_metadata(joke: dict, episode: int, segment: dict) -> dict:
     log("Generating YouTube metadata...")
-    result = call_llm(
-        system="You are a YouTube SEO writer for the channel 'Dad Joke Fix' — a daily dad joke channel. Output ONLY the requested XML format.",
-        user_message=f"""Generate metadata for Dad Joke Fix episode #{episode} — segment: {segment['name']}.
+    try:
+        result = call_llm(
+            system="You are a YouTube SEO writer for the channel 'Dad Joke Fix' — a daily dad joke channel. Output ONLY the requested XML format.",
+            user_message=f"""Generate metadata for Dad Joke Fix episode #{episode} — segment: {segment['name']}.
 
 Setup: {joke['setup']}
 Punchline: {joke['punchline']}
@@ -236,14 +265,22 @@ Respond ONLY:
 <DESCRIPTION>[joke + cta + hashtags]</DESCRIPTION>
 <TAGS>[comma-separated tags]</TAGS>
 <THUMB>[2-3 ALL CAPS words]</THUMB>""",
-        max_tokens=600,
-    )
-    return {
-        "title": extract_tag(result, "TITLE"),
-        "description": extract_tag(result, "DESCRIPTION"),
-        "tags": extract_tag(result, "TAGS"),
-        "thumb_text": extract_tag(result, "THUMB"),
-    }
+            max_tokens=600,
+        )
+        meta = {
+            "title": extract_tag(result, "TITLE"),
+            "description": extract_tag(result, "DESCRIPTION"),
+            "tags": extract_tag(result, "TAGS"),
+            "thumb_text": extract_tag(result, "THUMB"),
+        }
+        # Guard against empty LLM output — fall back to template if any field is blank
+        if not all(meta.values()):
+            log("  LLM returned blank field(s); using template metadata")
+            return _template_metadata(joke, episode, segment)
+        return meta
+    except Exception as e:
+        log(f"  Metadata LLM failed ({e}); using template metadata")
+        return _template_metadata(joke, episode, segment)
 
 
 # ── Step 4: ElevenLabs TTS ────────────────────────────────────────────────────
