@@ -1,11 +1,9 @@
 name: Daily Dad Joke Pipeline
 
 on:
-  # Schedule disabled until HeyGen + voice ID are configured.
-  # Re-enable by uncommenting once all secrets are set.
-  # schedule:
-  #   - cron: '0 14 * * *'   # 10am ET / 7am PT
-  #   - cron: '0 22 * * *'   # 6pm ET / 3pm PT
+  schedule:
+    - cron: '0 14 * * *'   # 10am ET / 7am PT
+    - cron: '0 22 * * *'   # 6pm ET / 3pm PT
   workflow_dispatch:
 
 permissions:
