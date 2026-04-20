@@ -257,9 +257,9 @@ def estimate_timeline(joke: dict, avatar_duration: float, catchphrase: str = "")
     """
     catchphrase_chars = max(len(catchphrase), 1)
     setup_chars = max(len(joke["setup"]), 1)
-    pause_chars = 8           # the "... ... ..." between setup and punchline
+    pause_chars = 5           # the "... .." beat between setup and punchline
     punchline_chars = max(len(joke["punchline"]), 1)
-    cta_chars = 40            # "Two dad jokes every day, follow for more!"
+    cta_chars = 18            # "Follow for more!"
 
     total = catchphrase_chars + setup_chars + pause_chars + punchline_chars + cta_chars
 

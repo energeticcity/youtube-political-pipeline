@@ -141,53 +141,79 @@ Respond ONLY:
     }
 
 
+# ── Weekly segment routing (day-of-week themed) ───────────────────────────────
+
+WEEKLY_SEGMENTS = {
+    0: {"name": "Monday Morning Groans", "hook": "Monday groan incoming.", "tag": "mondaygroans"},
+    1: {"name": "Punsday Tuesday",       "hook": "Happy Punsday.",          "tag": "punsday"},
+    2: {"name": "Midweek Dad Joke",      "hook": "Midweek joke.",           "tag": "midweekdadjoke"},
+    3: {"name": "Throwback Thursday",    "hook": "Throwback joke.",         "tag": "throwbackthursday"},
+    4: {"name": "Joke Court Friday",     "hook": "Case closed.",            "tag": "jokecourt"},
+    5: {"name": "Weekend Wild Card",     "hook": "Weekend joke.",           "tag": "weekendjoke"},
+    6: {"name": "Sunday Funday",         "hook": "One for the Sunday scroll.", "tag": "sundayfunday"},
+}
+
+
+def get_current_segment() -> dict:
+    """Return the segment dict for today's day of week (UTC)."""
+    from datetime import datetime, timezone
+    dow = datetime.now(timezone.utc).weekday()
+    seg = WEEKLY_SEGMENTS[dow]
+    log(f"  Segment: {seg['name']}")
+    return seg
+
+
 # ── Step 2: Build the spoken script ───────────────────────────────────────────
 
+# Fallback catchphrases for when segment hook feels awkward with a joke.
 CATCHPHRASES = [
-    "Alright, dad joke incoming.",
-    "You ready for this one?",
-    "Got one for ya.",
-    "Alright, here's one.",
-    "Buckle up, this is a good one.",
-    "Okay, hear me out.",
-    "Joke o'clock, let's go.",
+    "Alright.",
+    "Get this.",
+    "Ready?",
+    "Hear me out.",
+    "Check this.",
+    "Listen up.",
+    "Joke time.",
 ]
 
 
-def write_script(joke: dict, episode: int) -> dict:
-    """Construct the TTS script: catchphrase hook → setup → beat → punchline → CTA."""
+def write_script(joke: dict, episode: int, segment: dict) -> dict:
+    """Short, snappy script: hook → setup → tight pause → punchline → one-word CTA.
+
+    Targets ~9-12s total audio so the final Short lands near the 10s retention sweet spot.
+    """
     setup = joke["setup"].rstrip("?.!").strip()
     punchline = joke["punchline"].strip()
-    catchphrase = random.choice(CATCHPHRASES)
+    # Use the segment hook 70% of the time (brand reinforcement), random hook 30% (variety)
+    catchphrase = segment["hook"] if random.random() < 0.7 else random.choice(CATCHPHRASES)
 
-    script = (
-        f"{catchphrase}.. {setup}... ... ... {punchline}. "
-        f"Two dad jokes every day, follow for more!"
-    )
+    # Tight timing: one ellipsis for pre-punchline beat, short CTA
+    script = f"{catchphrase} {setup}... .. {punchline}. Follow for more!"
     return {
         "script": script,
         "setup": joke["setup"],
         "punchline": joke["punchline"],
         "catchphrase": catchphrase,
         "episode": episode,
+        "segment": segment,
     }
 
 
 # ── Step 3: YouTube metadata ──────────────────────────────────────────────────
 
-def generate_metadata(joke: dict, episode: int) -> dict:
+def generate_metadata(joke: dict, episode: int, segment: dict) -> dict:
     log("Generating YouTube metadata...")
     result = call_llm(
         system="You are a YouTube SEO writer for the channel 'Dad Joke Fix' — a daily dad joke channel. Output ONLY the requested XML format.",
-        user_message=f"""Generate metadata for Dad Joke Fix episode #{episode}.
+        user_message=f"""Generate metadata for Dad Joke Fix episode #{episode} — segment: {segment['name']}.
 
 Setup: {joke['setup']}
 Punchline: {joke['punchline']}
 
 Rules:
-- Title: MUST start with "Dad Joke #{episode}:". Then a short hook based on the setup. DO NOT spoil the punchline. Total under 60 chars.
-- Description: include the joke text, then "Follow @dadjokefix for 2 dad jokes every day!", then 5 hashtags including #dadjokes #shorts #dadjokefix.
-- Tags: dadjokes, dadjoke, dadjokefix, comedy, shorts, funny, jokes, family, plus 3 specific to this joke.
+- Title: MUST start with "{segment['name']} #{episode}:". Then a short hook based on the setup. DO NOT spoil the punchline. Total under 70 chars.
+- Description: include the joke text, then "Follow @dadjokefix for 2 dad jokes every day!", then 5 hashtags including #dadjokes #shorts #dadjokefix and #{segment['tag']}.
+- Tags: dadjokes, dadjoke, dadjokefix, {segment['tag']}, comedy, shorts, funny, jokes, family, plus 3 specific to this joke.
 - Thumb text: 2-3 ALL CAPS words teasing the joke without spoiling.
 
 Respond ONLY:
@@ -816,15 +842,16 @@ def main():
     log(f"  Setup:     {joke['setup']}")
     log(f"  Punchline: {joke['punchline']}")
 
-    # 2. Episode counter
+    # 2. Episode counter + today's segment
     episode = get_and_increment_episode_count()
+    segment = get_current_segment()
 
     # 3. Script
-    script_data = write_script(joke, episode)
+    script_data = write_script(joke, episode, segment)
     log(f"  Script ({len(script_data['script'])} chars): {script_data['script']}")
 
     # 4. Metadata
-    metadata = generate_metadata(joke, episode)
+    metadata = generate_metadata(joke, episode, segment)
     log(f"  Title: {metadata['title']}")
 
     # 4. TTS
