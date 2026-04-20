@@ -46,25 +46,40 @@ def extract_tag(text: str, tag: str) -> str:
 
 
 def call_llm(system: str, user_message: str, max_tokens: int = 512) -> str:
-    resp = requests.post(
-        f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent",
-        params={"key": GEMINI_API_KEY},
-        headers={"content-type": "application/json"},
-        json={
-            "systemInstruction": {"parts": [{"text": system}]},
-            "contents": [{"role": "user", "parts": [{"text": user_message}]}],
-            "generationConfig": {
-                "maxOutputTokens": max_tokens,
-                "temperature": 0.9,
+    """Call Gemini with retry on 429 (per-minute rate limit) and 503 (overload)."""
+    last_err = None
+    for attempt in range(4):
+        resp = requests.post(
+            f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent",
+            params={"key": GEMINI_API_KEY},
+            headers={"content-type": "application/json"},
+            json={
+                "systemInstruction": {"parts": [{"text": system}]},
+                "contents": [{"role": "user", "parts": [{"text": user_message}]}],
+                "generationConfig": {
+                    "maxOutputTokens": max_tokens,
+                    "temperature": 0.9,
+                },
             },
-        },
-        timeout=60,
-    )
-    if resp.status_code != 200:
-        log(f"  Gemini API error {resp.status_code}: {resp.text[:500]}")
-    resp.raise_for_status()
-    data = resp.json()
-    return data["candidates"][0]["content"]["parts"][0]["text"]
+            timeout=60,
+        )
+        if resp.status_code in (429, 503):
+            wait = 15 * (attempt + 1)  # 15, 30, 45, 60 sec
+            log(f"  Gemini {resp.status_code}, retrying in {wait}s (attempt {attempt + 1}/4)...")
+            time.sleep(wait)
+            last_err = resp
+            continue
+        if resp.status_code != 200:
+            log(f"  Gemini API error {resp.status_code}: {resp.text[:500]}")
+        resp.raise_for_status()
+        data = resp.json()
+        return data["candidates"][0]["content"]["parts"][0]["text"]
+
+    # Exhausted retries
+    if last_err is not None:
+        log(f"  Gemini exhausted retries: {last_err.status_code} {last_err.text[:300]}")
+        last_err.raise_for_status()
+    raise RuntimeError("Gemini call failed with no response")
 
 
 # ── Step 1: Fetch a dad joke ──────────────────────────────────────────────────
