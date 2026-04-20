@@ -745,10 +745,12 @@ def notify_for_tiktok(video_url: str, joke: dict, metadata: dict, episode: int):
             f"#dadjokes #dadjoke #dadjokefix #comedy #fyp #foryou #funny #jokes"
         )
         title = metadata.get("title") or f"Dad Joke #{episode}"
-        # Build player-page URL with video filename + title + caption encoded in hash
+        # Build player-page URL with video filename + title + caption encoded in hash.
+        # Hosted on GitHub Pages (jsDelivr serves .html as text/plain which doesn't render).
         video_filename = video_url.rsplit("/", 1)[-1]
+        owner, repo = GITHUB_REPO.split("/", 1)
         player_url = (
-            f"https://cdn.jsdelivr.net/gh/{GITHUB_REPO}@main/play.html"
+            f"https://{owner}.github.io/{repo}/play.html"
             f"#v={quote(video_filename, safe='')}"
             f"&t={quote(title, safe='')}"
             f"&c={quote(caption, safe='')}"
