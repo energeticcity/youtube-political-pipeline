@@ -1,0 +1,54 @@
+name: Rerun Failed Video
+
+on:
+  workflow_dispatch:
+    inputs:
+      setup:
+        description: 'Joke setup'
+        required: true
+      punchline:
+        description: 'Joke punchline'
+        required: true
+      episode:
+        description: 'Episode number'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  rerun:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Rerun
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          ELEVENLABS_VOICE_ID: ${{ secrets.ELEVENLABS_VOICE_ID }}
+          ELEVENLABS_MODEL_ID: ${{ secrets.ELEVENLABS_MODEL_ID }}
+          HEYGEN_API_KEY: ${{ secrets.HEYGEN_API_KEY }}
+          HEYGEN_AVATAR_ID: ${{ secrets.HEYGEN_AVATAR_ID }}
+          HEYGEN_AVATAR_IDS_EXTRA: ${{ secrets.HEYGEN_AVATAR_IDS_EXTRA }}
+          GITHUB_TOKEN: ${{ github.token }}
+          RERUN_SETUP: ${{ github.event.inputs.setup }}
+          RERUN_PUNCHLINE: ${{ github.event.inputs.punchline }}
+          RERUN_EPISODE: ${{ github.event.inputs.episode }}
+        run: python rerun.py
