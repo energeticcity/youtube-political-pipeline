@@ -1,0 +1,50 @@
+name: Repost Existing Video
+
+on:
+  workflow_dispatch:
+    inputs:
+      video_url:
+        description: 'Public MP4 URL to repost (e.g. https://cdn.jsdelivr.net/gh/.../short_*.mp4)'
+        required: true
+      caption:
+        description: 'Caption/description (goes to all platforms)'
+        required: true
+      title:
+        description: 'Title (used for YouTube; defaults to first 60 chars of caption)'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  repost:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Repost
+        env:
+          # pipeline.py module requires these to import, even though repost only uses Post for Me.
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          HEYGEN_API_KEY: ${{ secrets.HEYGEN_API_KEY }}
+          HEYGEN_AVATAR_ID: ${{ secrets.HEYGEN_AVATAR_ID }}
+          POSTFORME_API_KEY: ${{ secrets.POSTFORME_API_KEY }}
+          POSTFORME_TIKTOK_ACCOUNT_ID: ${{ secrets.POSTFORME_TIKTOK_ACCOUNT_ID }}
+          GITHUB_TOKEN: ${{ github.token }}
+          VIDEO_URL: ${{ github.event.inputs.video_url }}
+          CAPTION: ${{ github.event.inputs.caption }}
+          TITLE: ${{ github.event.inputs.title }}
+        run: python repost.py

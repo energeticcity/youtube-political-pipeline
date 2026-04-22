@@ -823,13 +823,12 @@ def update_rss_feed(video_url: str, metadata: dict, joke: dict, youtube_short_id
     log(f"  RSS feed updated: https://raw.githubusercontent.com/{GITHUB_REPO}/main/feed.xml")
 
 
-# ── TikTok auto-post via Post for Me API ──────────────────────────────────────
+# ── Multi-platform auto-post via Post for Me API ──────────────────────────────
 
-def _find_tiktok_account_id() -> str:
-    """Query Post for Me for the user's connected TikTok account. Cached via env
-    var POSTFORME_TIKTOK_ACCOUNT_ID if the user set it explicitly."""
-    if POSTFORME_TIKTOK_ACCOUNT_ID:
-        return POSTFORME_TIKTOK_ACCOUNT_ID
+def _find_social_accounts() -> dict[str, str]:
+    """Return a {platform: account_id} map for all connected Post for Me accounts."""
+    if not POSTFORME_API_KEY:
+        return {}
     resp = requests.get(
         "https://api.postforme.dev/v1/social-accounts",
         headers={"Authorization": f"Bearer {POSTFORME_API_KEY}"},
@@ -838,26 +837,57 @@ def _find_tiktok_account_id() -> str:
     resp.raise_for_status()
     payload = resp.json()
     accounts = payload if isinstance(payload, list) else (payload.get("data") or payload.get("items") or [])
+    result: dict[str, str] = {}
     for acct in accounts:
         provider = (acct.get("platform") or acct.get("provider") or "").lower()
-        if provider == "tiktok":
-            return acct.get("id") or acct.get("account_id") or ""
-    return ""
+        acct_id = acct.get("id") or acct.get("account_id") or ""
+        if provider and acct_id and provider not in result:
+            result[provider] = acct_id
+    # Allow explicit override for TikTok (kept for backward compat).
+    if POSTFORME_TIKTOK_ACCOUNT_ID:
+        result["tiktok"] = POSTFORME_TIKTOK_ACCOUNT_ID
+    return result
 
 
-def post_to_tiktok_via_postforme(video_url: str, caption: str) -> str:
-    """Auto-post the video to TikTok via Post for Me. Returns the post ID, or ''.
-    Skipped if POSTFORME_API_KEY is not configured."""
+def post_via_postforme(video_url: str, caption: str, title: str) -> tuple[str, list[str]]:
+    """Post the video to every connected social account via Post for Me.
+
+    Returns (post_id, list_of_target_platforms). If the initial API call fails
+    or no accounts are connected, returns ('', []) — caller should fall back
+    to the GitHub Issue notification.
+    """
     if not POSTFORME_API_KEY:
         log("Post for Me skipped (no POSTFORME_API_KEY set)")
-        return ""
+        return "", []
 
-    log("Posting to TikTok via Post for Me...")
+    log("Posting via Post for Me (all connected platforms)...")
     try:
-        account_id = _find_tiktok_account_id()
-        if not account_id:
-            log("  WARNING: no TikTok account connected in Post for Me dashboard")
-            return ""
+        accounts = _find_social_accounts()
+        if not accounts:
+            log("  WARNING: no social accounts connected in Post for Me dashboard")
+            return "", []
+        log(f"  Connected platforms: {sorted(accounts.keys())}")
+
+        platform_configurations = {}
+        if "tiktok" in accounts:
+            platform_configurations["tiktok"] = {
+                "privacy_status": "public",
+                "allow_comment": True,
+                "allow_duet": True,
+                "allow_stitch": True,
+                "is_ai_generated": True,
+            }
+        if "instagram" in accounts:
+            platform_configurations["instagram"] = {
+                "placement": "reels",
+                "share_to_feed": True,
+            }
+        if "youtube" in accounts:
+            platform_configurations["youtube"] = {
+                "title": title[:100],
+                "privacy_status": "public",
+                "made_for_kids": False,
+            }
 
         resp = requests.post(
             "https://api.postforme.dev/v1/social-posts",
@@ -867,17 +897,9 @@ def post_to_tiktok_via_postforme(video_url: str, caption: str) -> str:
             },
             json={
                 "caption": caption,
-                "social_accounts": [account_id],
+                "social_accounts": list(accounts.values()),
                 "media": [{"url": video_url}],
-                "platform_configurations": {
-                    "tiktok": {
-                        "privacy_status": "public",
-                        "allow_comment": True,
-                        "allow_duet": True,
-                        "allow_stitch": True,
-                        "is_ai_generated": True,
-                    }
-                },
+                "platform_configurations": platform_configurations,
             },
             timeout=30,
         )
@@ -885,11 +907,12 @@ def post_to_tiktok_via_postforme(video_url: str, caption: str) -> str:
             log(f"  Post for Me error {resp.status_code}: {resp.text[:400]}")
         resp.raise_for_status()
         post_id = resp.json().get("id", "")
-        log(f"  Post queued at Post for Me (id={post_id})")
-        return post_id
+        targets = sorted(accounts.keys())
+        log(f"  Post queued (id={post_id}) → {targets}")
+        return post_id, targets
     except Exception as e:
         log(f"  WARNING: Post for Me upload failed: {e}")
-        return ""
+        return "", []
 
 
 # ── TikTok manual-upload notification (fallback) ──────────────────────────────
@@ -1051,16 +1074,16 @@ def main():
     except Exception as e:
         log(f"  WARNING: Video repo upload / RSS update failed: {e}")
 
-    # 10. TikTok auto-post via Post for Me (primary). Fall back to a GitHub
-    # Issue notification for manual upload if auto-post is unavailable/fails.
-    tiktok_post_id = ""
+    # 10. Auto-post to every connected platform via Post for Me.
+    # Fall back to a GitHub Issue notification only if the API call itself
+    # fails or no accounts are connected.
     if video_url:
-        tiktok_caption = (
+        caption = (
             f"{joke['setup']} {joke['punchline']} "
             f"#dadjokes #dadjoke #dadjokefix #comedy #fyp #foryou #funny #jokes"
         )
-        tiktok_post_id = post_to_tiktok_via_postforme(video_url, tiktok_caption)
-        if not tiktok_post_id:
+        post_id, targets = post_via_postforme(video_url, caption, metadata.get("title", ""))
+        if not post_id:
             notify_for_tiktok(video_url, joke, metadata, episode)
 
     log("=" * 60)
