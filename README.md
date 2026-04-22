@@ -22,7 +22,7 @@ The previous political-news version of this pipeline lives on the [`political-ar
 | `HEYGEN_API_KEY` | Talking-avatar video generation |
 | `HEYGEN_AVATAR_ID` | The default Photo Avatar ID for Hank in HeyGen |
 | `HEYGEN_AVATAR_IDS_EXTRA` | (Optional) Comma-separated additional Photo Avatar IDs for expression variety — e.g. `id_surprised,id_facepalm,id_smirk`. Pipeline picks one per joke. |
-| `ELEVENLABS_MODEL_ID` | (Optional) Override ElevenLabs model. Defaults to `eleven_v3` (expressive). Set to `eleven_multilingual_v2` to fall back if v3 is unavailable for your voice. |
+| `ELEVENLABS_MODEL_ID` | (Optional) Override ElevenLabs model. Defaults to `eleven_multilingual_v2` (proven, available on all plans). Set to `eleven_v3` to opt into the expressive alpha model — requires v3 access on your account; check ElevenLabs dashboard. |
 | `YOUTUBE_CLIENT_ID` | YouTube OAuth |
 | `YOUTUBE_CLIENT_SECRET` | YouTube OAuth |
 | `YOUTUBE_REFRESH_TOKEN` | YouTube OAuth |

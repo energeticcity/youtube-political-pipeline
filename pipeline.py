@@ -308,12 +308,17 @@ Respond ONLY:
 
 def generate_tts(script: str) -> bytes:
     log("Generating TTS audio via ElevenLabs...")
-    # If we're NOT on v3, the [expression] tags would be read literally
-    # ("pauses", "grinning"). Strip them in that case.
-    model_id = os.environ.get("ELEVENLABS_MODEL_ID", "eleven_v3")
+    # GitHub Actions passes unset secrets as empty strings (not absent), so
+    # `or` covers both empty and unset. Default to the proven multilingual_v2;
+    # set ELEVENLABS_MODEL_ID=eleven_v3 in secrets to opt into the expressive
+    # alpha model (requires v3 access on your account).
+    model_id = os.environ.get("ELEVENLABS_MODEL_ID") or "eleven_multilingual_v2"
     if model_id != "eleven_v3":
+        # Older models would read [pauses], [grinning] etc. literally — strip them.
         script = re.sub(r"\[[^\]]+\]\s*", "", script)
-        log(f"  Stripped expression tags (model {model_id} doesn't support them)")
+        log(f"  Using model {model_id} (expression tags stripped)")
+    else:
+        log(f"  Using model {model_id} (expression tags kept)")
     resp = requests.post(
         f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVENLABS_VOICE_ID}",
         params={"output_format": "mp3_44100_128"},
@@ -324,11 +329,7 @@ def generate_tts(script: str) -> bytes:
         },
         json={
             "text": script,
-            # eleven_v3 is their expressive comedy-oriented model (released
-            # late 2025). Interprets inline [laughs] [pauses] [grinning]
-            # style tags. If your voice doesn't support v3 yet, fall back
-            # to multilingual_v2 by setting ELEVENLABS_MODEL_ID env var.
-            "model_id": os.environ.get("ELEVENLABS_MODEL_ID", "eleven_v3"),
+            "model_id": model_id,
             "voice_settings": {
                 "stability": 0.25,
                 "similarity_boost": 0.8,
