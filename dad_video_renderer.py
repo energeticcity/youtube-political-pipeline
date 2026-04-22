@@ -326,17 +326,25 @@ def render_dad_short(
     #  [5] silent audio for outro
     #  [6] rim shot WAV (only if exists)
     #
-    # Blurred-self background: split the avatar, scale one copy to fill the
-    # full 9:16 frame with a heavy blur + slight dim — fills the dead space
-    # above/below the square avatar with motion and ambient colour pulled from
-    # the face itself. Much more alive than a flat navy pad.
+    # Full-screen avatar: HeyGen returns a square ~1024x1024 video. Scale to
+    # 1920 height (becomes 1920x1920 since aspect-preserved), then crop the
+    # sides to land at 1080x1920. Hank now fills the entire 9:16 frame.
+    #
+    # Ken Burns zoom: a gentle 1.0 → ~1.05 zoom over the duration adds motion
+    # without distracting from the joke. Implemented via scale with a time
+    # expression then a re-center crop.
+    #
+    # Punchline emphasis: an extra 4% zoom snap kicks in at punchline_start
+    # and holds, drawing the eye when the joke lands.
     filter_video = (
-        f"[0:v]split=2[fg_src][bg_src];"
-        f"[bg_src]scale={SHORT_W}:{SHORT_H}:force_original_aspect_ratio=increase,"
-        f"crop={SHORT_W}:{SHORT_H},boxblur=25:2,eq=brightness=-0.12:saturation=0.75,setsar=1[bg];"
-        f"[fg_src]scale={SHORT_W}:{SHORT_W}:force_original_aspect_ratio=decrease,setsar=1[fg];"
-        f"[bg][fg]overlay=(W-w)/2:(H-h)/2:format=auto,format=yuv420p[av_padded];"
-        f"[av_padded][2:v]overlay=0:0:enable='between(t,0,{setup_show_until:.3f})'[av1];"
+        # Step 1: crop the square HeyGen output to fill 9:16
+        f"[0:v]scale=-2:{SHORT_H},crop={SHORT_W}:{SHORT_H},setsar=1[av_full];"
+        # Step 2: slow Ken Burns + punchline zoom snap, then crop back to fixed size
+        f"[av_full]scale="
+        f"w='{SHORT_W}*(1+t*0.004+if(gte(t\\,{punch_show_from:.3f})\\,0.04\\,0))'"
+        f":h=-2:eval=frame,"
+        f"crop={SHORT_W}:{SHORT_H},setsar=1,format=yuv420p[av_kb];"
+        f"[av_kb][2:v]overlay=0:0:enable='between(t,0,{setup_show_until:.3f})'[av1];"
         f"[av1][3:v]overlay=0:0:enable='between(t,{punch_show_from:.3f},{avatar_dur:.3f})'[av2];"
         f"[av2][4:v]overlay=0:0[av_with_counter];"
         f"[1:v]scale={SHORT_W}:{SHORT_H},setsar=1,format=yuv420p[outro_v];"
