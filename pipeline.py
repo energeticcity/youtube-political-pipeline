@@ -347,13 +347,23 @@ def denoise_audio(input_path: str, output_path: str) -> str:
     return output_path
 
 
-# ── Episode counter (stored in repo as state.json) ────────────────────────────
+# ── Episode counter + monthly HeyGen budget tracking (stored in state.json) ───
 
-def get_and_increment_episode_count() -> int:
-    """Read state.json from the repo, increment episode counter, push back. Returns new count."""
+# HeyGen budget: $25/mo at $0.25 per video = 100 videos/mo
+HEYGEN_MONTHLY_BUDGET_VIDEOS = 100
+HEYGEN_WARNING_THRESHOLD = 80     # alert when crossing 80% used
+HEYGEN_COST_PER_VIDEO = 0.25      # USD
+
+
+def get_and_increment_state() -> dict:
+    """Read state.json from the repo, increment episode + monthly counters, push back.
+    Returns the full state dict including {episode, month, monthly_count, warned_80}."""
     if not GITHUB_TOKEN:
-        log("Episode counter skipped (no GITHUB_TOKEN); using fallback 1")
-        return 1
+        log("State counter skipped (no GITHUB_TOKEN); using fallback")
+        return {"episode": 1, "month": "", "monthly_count": 1, "warned_80": False}
+
+    from datetime import datetime, timezone
+    current_month = datetime.now(timezone.utc).strftime("%Y-%m")
 
     headers = {
         "Authorization": f"token {GITHUB_TOKEN}",
@@ -367,20 +377,29 @@ def get_and_increment_episode_count() -> int:
     )
 
     existing_sha = None
-    state = {"episode": 0}
+    state: dict = {"episode": 0, "month": "", "monthly_count": 0, "warned_80": False}
     if resp.status_code == 200:
         existing_sha = resp.json()["sha"]
         try:
-            state = json.loads(base64.b64decode(resp.json()["content"]).decode("utf-8"))
+            state = {**state, **json.loads(base64.b64decode(resp.json()["content"]).decode("utf-8"))}
         except Exception:
-            state = {"episode": 0}
+            pass
+
+    # Reset monthly counter at the start of a new month
+    if state.get("month") != current_month:
+        log(f"  New month {current_month} — resetting monthly counter (was {state.get('monthly_count', 0)})")
+        state["month"] = current_month
+        state["monthly_count"] = 0
+        state["warned_80"] = False
 
     state["episode"] = int(state.get("episode", 0)) + 1
-    new_count = state["episode"]
-    log(f"  Episode #{new_count}")
+    state["monthly_count"] = int(state.get("monthly_count", 0)) + 1
+
+    log(f"  Episode #{state['episode']} | This month: {state['monthly_count']}/{HEYGEN_MONTHLY_BUDGET_VIDEOS} "
+        f"(~${state['monthly_count'] * HEYGEN_COST_PER_VIDEO:.2f} of $25 HeyGen budget)")
 
     push_data = {
-        "message": f"Bump episode counter to #{new_count}",
+        "message": f"Bump counters: episode #{state['episode']}, monthly {state['monthly_count']}/{HEYGEN_MONTHLY_BUDGET_VIDEOS}",
         "content": base64.b64encode(json.dumps(state, indent=2).encode()).decode(),
     }
     if existing_sha:
@@ -391,7 +410,94 @@ def get_and_increment_episode_count() -> int:
         headers=headers, json=push_data, timeout=30,
     )
     put_resp.raise_for_status()
-    return new_count
+    return state
+
+
+def check_budget_alerts(state: dict):
+    """Create GitHub Issue alerts at 80% (soft warning) and 100% (hard cap).
+    Returns True if rendering should proceed, False if at hard cap."""
+    monthly = int(state.get("monthly_count", 0))
+
+    if monthly >= HEYGEN_MONTHLY_BUDGET_VIDEOS:
+        # Hard cap — create issue, halt rendering
+        log(f"  HARD CAP HIT: {monthly}/{HEYGEN_MONTHLY_BUDGET_VIDEOS} videos this month")
+        _create_budget_issue(
+            title=f"🚨 HeyGen monthly budget exhausted ({monthly}/{HEYGEN_MONTHLY_BUDGET_VIDEOS})",
+            body=(
+                f"## HeyGen monthly budget hit\n\n"
+                f"This month's count: **{monthly} videos** (~${monthly * HEYGEN_COST_PER_VIDEO:.2f} of $25 budget)\n\n"
+                f"Pipeline rendering is halted until {state.get('month', '?')} ends OR you top up HeyGen credits.\n\n"
+                f"### To unblock immediately\n"
+                f"- Top up HeyGen credits in dashboard, OR\n"
+                f"- Edit `state.json` in this repo to lower `monthly_count` (manual override)"
+            ),
+        )
+        return False
+
+    if monthly >= HEYGEN_WARNING_THRESHOLD and not state.get("warned_80"):
+        # Soft warning at 80% — only fires once per month
+        log(f"  WARNING THRESHOLD: {monthly}/{HEYGEN_MONTHLY_BUDGET_VIDEOS} (80%)")
+        _create_budget_issue(
+            title=f"⚠️ HeyGen budget at {monthly}/{HEYGEN_MONTHLY_BUDGET_VIDEOS} ({monthly}% of monthly cap)",
+            body=(
+                f"## HeyGen monthly budget at {monthly}%\n\n"
+                f"Used **{monthly} of {HEYGEN_MONTHLY_BUDGET_VIDEOS}** videos this month "
+                f"(~${monthly * HEYGEN_COST_PER_VIDEO:.2f} of $25).\n\n"
+                f"At current 2/day cadence, you have **~{(HEYGEN_MONTHLY_BUDGET_VIDEOS - monthly) // 2} days** "
+                f"of runway before hitting the cap.\n\n"
+                f"### Options\n"
+                f"- Top up HeyGen credits if you want to keep posting through month end\n"
+                f"- Or accept the pause until next month resets"
+            ),
+        )
+        # Mark warning as sent to avoid duplicate alerts
+        state["warned_80"] = True
+        _save_state(state)
+    return True
+
+
+def _create_budget_issue(title: str, body: str):
+    if not GITHUB_TOKEN:
+        return
+    try:
+        requests.post(
+            f"https://api.github.com/repos/{GITHUB_REPO}/issues",
+            headers={
+                "Authorization": f"token {GITHUB_TOKEN}",
+                "Accept": "application/vnd.github+json",
+            },
+            json={"title": title, "body": body, "labels": ["budget-alert"]},
+            timeout=30,
+        )
+    except Exception as e:
+        log(f"  WARNING: budget alert issue failed: {e}")
+
+
+def _save_state(state: dict):
+    """Save state.json after marking warning_80 etc."""
+    if not GITHUB_TOKEN:
+        return
+    headers = {
+        "Authorization": f"token {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github+json",
+    }
+    resp = requests.get(
+        f"https://api.github.com/repos/{GITHUB_REPO}/contents/state.json",
+        headers=headers, timeout=15,
+    )
+    if resp.status_code != 200:
+        return
+    sha = resp.json()["sha"]
+    requests.put(
+        f"https://api.github.com/repos/{GITHUB_REPO}/contents/state.json",
+        headers=headers,
+        json={
+            "message": "Mark budget warning sent",
+            "content": base64.b64encode(json.dumps(state, indent=2).encode()).decode(),
+            "sha": sha,
+        },
+        timeout=30,
+    )
 
 
 # ── Step 5: Host audio on GitHub Release for HeyGen to fetch ──────────────────
@@ -1003,8 +1109,12 @@ def main():
     log(f"  Setup:     {joke['setup']}")
     log(f"  Punchline: {joke['punchline']}")
 
-    # 2. Episode counter + today's segment
-    episode = get_and_increment_episode_count()
+    # 2. Episode counter + monthly HeyGen budget tracking + today's segment
+    state = get_and_increment_state()
+    episode = state["episode"]
+    if not check_budget_alerts(state):
+        log("Halting: monthly HeyGen budget exhausted (see GitHub Issues for alert).")
+        return
     segment = get_current_segment()
 
     # 3. Script
