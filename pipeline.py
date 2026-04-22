@@ -23,6 +23,8 @@ GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 ELEVENLABS_API_KEY = os.environ["ELEVENLABS_API_KEY"]
 HEYGEN_API_KEY = os.environ["HEYGEN_API_KEY"]
 HEYGEN_AVATAR_ID = os.environ["HEYGEN_AVATAR_ID"]
+POSTFORME_API_KEY = os.environ.get("POSTFORME_API_KEY", "")
+POSTFORME_TIKTOK_ACCOUNT_ID = os.environ.get("POSTFORME_TIKTOK_ACCOUNT_ID", "")
 
 YOUTUBE_CLIENT_ID = os.environ.get("YOUTUBE_CLIENT_ID", "")
 YOUTUBE_CLIENT_SECRET = os.environ.get("YOUTUBE_CLIENT_SECRET", "")
@@ -821,7 +823,76 @@ def update_rss_feed(video_url: str, metadata: dict, joke: dict, youtube_short_id
     log(f"  RSS feed updated: https://raw.githubusercontent.com/{GITHUB_REPO}/main/feed.xml")
 
 
-# ── TikTok manual-upload notification ─────────────────────────────────────────
+# ── TikTok auto-post via Post for Me API ──────────────────────────────────────
+
+def _find_tiktok_account_id() -> str:
+    """Query Post for Me for the user's connected TikTok account. Cached via env
+    var POSTFORME_TIKTOK_ACCOUNT_ID if the user set it explicitly."""
+    if POSTFORME_TIKTOK_ACCOUNT_ID:
+        return POSTFORME_TIKTOK_ACCOUNT_ID
+    resp = requests.get(
+        "https://api.postforme.dev/v1/social-accounts",
+        headers={"Authorization": f"Bearer {POSTFORME_API_KEY}"},
+        timeout=15,
+    )
+    resp.raise_for_status()
+    payload = resp.json()
+    accounts = payload if isinstance(payload, list) else (payload.get("data") or payload.get("items") or [])
+    for acct in accounts:
+        provider = (acct.get("platform") or acct.get("provider") or "").lower()
+        if provider == "tiktok":
+            return acct.get("id") or acct.get("account_id") or ""
+    return ""
+
+
+def post_to_tiktok_via_postforme(video_url: str, caption: str) -> str:
+    """Auto-post the video to TikTok via Post for Me. Returns the post ID, or ''.
+    Skipped if POSTFORME_API_KEY is not configured."""
+    if not POSTFORME_API_KEY:
+        log("Post for Me skipped (no POSTFORME_API_KEY set)")
+        return ""
+
+    log("Posting to TikTok via Post for Me...")
+    try:
+        account_id = _find_tiktok_account_id()
+        if not account_id:
+            log("  WARNING: no TikTok account connected in Post for Me dashboard")
+            return ""
+
+        resp = requests.post(
+            "https://api.postforme.dev/v1/social-posts",
+            headers={
+                "Authorization": f"Bearer {POSTFORME_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "caption": caption,
+                "social_accounts": [account_id],
+                "media": [{"url": video_url}],
+                "platform_configurations": {
+                    "tiktok": {
+                        "privacy_status": "public",
+                        "allow_comment": True,
+                        "allow_duet": True,
+                        "allow_stitch": True,
+                        "is_ai_generated": True,
+                    }
+                },
+            },
+            timeout=30,
+        )
+        if resp.status_code not in (200, 201):
+            log(f"  Post for Me error {resp.status_code}: {resp.text[:400]}")
+        resp.raise_for_status()
+        post_id = resp.json().get("id", "")
+        log(f"  Post queued at Post for Me (id={post_id})")
+        return post_id
+    except Exception as e:
+        log(f"  WARNING: Post for Me upload failed: {e}")
+        return ""
+
+
+# ── TikTok manual-upload notification (fallback) ──────────────────────────────
 
 def notify_for_tiktok(video_url: str, joke: dict, metadata: dict, episode: int):
     """Create a GitHub Issue with the video link + ready-to-paste TikTok caption.
@@ -980,9 +1051,17 @@ def main():
     except Exception as e:
         log(f"  WARNING: Video repo upload / RSS update failed: {e}")
 
-    # 10. TikTok manual-upload notification
+    # 10. TikTok auto-post via Post for Me (primary). Fall back to a GitHub
+    # Issue notification for manual upload if auto-post is unavailable/fails.
+    tiktok_post_id = ""
     if video_url:
-        notify_for_tiktok(video_url, joke, metadata, episode)
+        tiktok_caption = (
+            f"{joke['setup']} {joke['punchline']} "
+            f"#dadjokes #dadjoke #dadjokefix #comedy #fyp #foryou #funny #jokes"
+        )
+        tiktok_post_id = post_to_tiktok_via_postforme(video_url, tiktok_caption)
+        if not tiktok_post_id:
+            notify_for_tiktok(video_url, joke, metadata, episode)
 
     log("=" * 60)
     log("Pipeline complete!")

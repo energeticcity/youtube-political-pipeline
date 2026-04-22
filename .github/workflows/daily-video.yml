@@ -40,6 +40,8 @@ jobs:
           ELEVENLABS_VOICE_ID: ${{ secrets.ELEVENLABS_VOICE_ID }}
           HEYGEN_API_KEY: ${{ secrets.HEYGEN_API_KEY }}
           HEYGEN_AVATAR_ID: ${{ secrets.HEYGEN_AVATAR_ID }}
+          POSTFORME_API_KEY: ${{ secrets.POSTFORME_API_KEY }}
+          POSTFORME_TIKTOK_ACCOUNT_ID: ${{ secrets.POSTFORME_TIKTOK_ACCOUNT_ID }}
           YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
