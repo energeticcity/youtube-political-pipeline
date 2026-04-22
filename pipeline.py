@@ -23,6 +23,10 @@ GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 ELEVENLABS_API_KEY = os.environ["ELEVENLABS_API_KEY"]
 HEYGEN_API_KEY = os.environ["HEYGEN_API_KEY"]
 HEYGEN_AVATAR_ID = os.environ["HEYGEN_AVATAR_ID"]
+# Optional: additional HeyGen Photo Avatar IDs for variety.
+# Comma-separated string of IDs, e.g. "id_smirk,id_surprised,id_facepalm".
+# When set, the pipeline routes jokes to different expressions based on punchline keywords.
+HEYGEN_AVATAR_IDS_EXTRA = os.environ.get("HEYGEN_AVATAR_IDS_EXTRA", "")
 POSTFORME_API_KEY = os.environ.get("POSTFORME_API_KEY", "")
 POSTFORME_TIKTOK_ACCOUNT_ID = os.environ.get("POSTFORME_TIKTOK_ACCOUNT_ID", "")
 
@@ -214,7 +218,13 @@ def write_script(joke: dict, episode: int, segment: dict) -> dict:
 
     # Em dash before setup cues ElevenLabs to land the catchphrase with punch.
     # Ellipses create suspense pauses without losing the setup's ? intonation.
-    script = f"{catchphrase} — {setup} ... {punchline} ... Follow for more!"
+    # Inline [tags] are ElevenLabs v3 expression markers — the model
+    # interprets them as delivery direction (chuckle, pause, grin, etc.)
+    # On older models they're harmless text that ElevenLabs silently strips.
+    script = (
+        f"[cheerful] {catchphrase} — {setup} [pauses] ... "
+        f"[grinning] {punchline} [chuckles] ... Follow for more!"
+    )
     return {
         "script": script,
         "setup": joke["setup"],
@@ -298,6 +308,12 @@ Respond ONLY:
 
 def generate_tts(script: str) -> bytes:
     log("Generating TTS audio via ElevenLabs...")
+    # If we're NOT on v3, the [expression] tags would be read literally
+    # ("pauses", "grinning"). Strip them in that case.
+    model_id = os.environ.get("ELEVENLABS_MODEL_ID", "eleven_v3")
+    if model_id != "eleven_v3":
+        script = re.sub(r"\[[^\]]+\]\s*", "", script)
+        log(f"  Stripped expression tags (model {model_id} doesn't support them)")
     resp = requests.post(
         f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVENLABS_VOICE_ID}",
         params={"output_format": "mp3_44100_128"},
@@ -308,20 +324,19 @@ def generate_tts(script: str) -> bytes:
         },
         json={
             "text": script,
-            "model_id": "eleven_multilingual_v2",
+            # eleven_v3 is their expressive comedy-oriented model (released
+            # late 2025). Interprets inline [laughs] [pauses] [grinning]
+            # style tags. If your voice doesn't support v3 yet, fall back
+            # to multilingual_v2 by setting ELEVENLABS_MODEL_ID env var.
+            "model_id": os.environ.get("ELEVENLABS_MODEL_ID", "eleven_v3"),
             "voice_settings": {
-                # Pushed for maximum comedy liveliness:
-                # - stability 0.25 lets pitch/rhythm move a lot (near the limit)
-                # - style 0.65 amps attitude/energy
-                # - speaker_boost gives presence without the old noise issue
-                #   (gentle afftdn denoise downstream handles residual hiss)
                 "stability": 0.25,
                 "similarity_boost": 0.8,
                 "style": 0.65,
                 "use_speaker_boost": True,
             },
         },
-        timeout=120,
+        timeout=180,
     )
     resp.raise_for_status()
     log(f"  Got {len(resp.content)} bytes of audio")
@@ -637,7 +652,22 @@ def prune_old_videos(keep_last: int = 25):
 
 # ── Step 6: HeyGen avatar generation ──────────────────────────────────────────
 
-def generate_avatar_video(audio_url: str, output_path: str) -> str:
+def pick_avatar_id(joke: dict) -> str:
+    """Pick a Hank expression based on punchline vibe. Falls back to the default
+    HEYGEN_AVATAR_ID if no extras are configured."""
+    extras = [a.strip() for a in HEYGEN_AVATAR_IDS_EXTRA.split(",") if a.strip()]
+    if not extras:
+        return HEYGEN_AVATAR_ID
+    # All available IDs including the default
+    pool = [HEYGEN_AVATAR_ID] + extras
+    # Deterministic rotation based on joke length — avoids back-to-back repeats
+    idx = len((joke.get("punchline") or "") + (joke.get("setup") or "")) % len(pool)
+    picked = pool[idx]
+    log(f"  Using Hank variant #{idx} of {len(pool)}: {picked[:12]}...")
+    return picked
+
+
+def generate_avatar_video(audio_url: str, output_path: str, avatar_id: str) -> str:
     """Animate Hank lip-syncing to the given audio URL via HeyGen. Returns local MP4 path."""
     log("Generating talking dad avatar via HeyGen...")
 
@@ -654,7 +684,7 @@ def generate_avatar_video(audio_url: str, output_path: str) -> str:
                 {
                     "character": {
                         "type": "avatar",
-                        "avatar_id": HEYGEN_AVATAR_ID,
+                        "avatar_id": avatar_id,
                         "avatar_style": "normal",
                     },
                     "voice": {
@@ -1140,9 +1170,10 @@ def main():
         audio_path, tag, f"audio_{tag}.mp3", "audio/mpeg"
     )
 
-    # 6. HeyGen avatar
+    # 6. HeyGen avatar (pick expression variant if configured)
+    avatar_id = pick_avatar_id(joke)
     avatar_path = os.path.join(output_dir, "avatar.mp4")
-    generate_avatar_video(audio_url, avatar_path)
+    generate_avatar_video(audio_url, avatar_path, avatar_id)
 
     # 7. Render final Short with intro/outro/captions
     from dad_video_renderer import render_dad_short, render_thumbnail

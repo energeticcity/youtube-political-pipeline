@@ -26,6 +26,8 @@ TEXT_COLOR = (255, 255, 255)
 FONTS_DIR = Path(__file__).parent / "fonts"
 SFX_DIR = Path(__file__).parent / "sfx"
 RIMSHOT_PATH = SFX_DIR / "rimshot.wav"
+GROAN_PATH = SFX_DIR / "groan.wav"
+LAUGH_PATH = SFX_DIR / "laugh.wav"
 
 
 def log(msg: str):
@@ -310,10 +312,15 @@ def render_dad_short(
     setup_show_until = setup_end + 0.1            # tiny overlap into pause for readability
     punch_show_from = punchline_start
 
-    # Rim-shot fires right as the punchline lands (small offset for comedic timing)
+    # Rim-shot fires right as the punchline lands (small offset for comedic timing).
+    # Groan + laugh layer in 0.3s after the rim shot — perceived professionalism jump.
     rimshot_at_ms = int(max(0, punchline_end - 0.05) * 1000)
+    groan_at_ms = rimshot_at_ms + 300
+    laugh_at_ms = rimshot_at_ms + 400   # overlaps slightly with groan — feels like a real audience
 
     have_rimshot = RIMSHOT_PATH.exists()
+    have_groan = GROAN_PATH.exists()
+    have_laugh = LAUGH_PATH.exists()
     if not have_rimshot:
         log(f"  WARNING: rim-shot SFX not found at {RIMSHOT_PATH}, skipping")
 
@@ -350,16 +357,40 @@ def render_dad_short(
         f"[1:v]scale={SHORT_W}:{SHORT_H},setsar=1,format=yuv420p[outro_v];"
     )
 
+    # Audio mix: layer reaction SFX on top of the HeyGen voice track.
+    # Each SFX sits well under the voice so the joke never gets drowned out.
+    # Indexing of SFX inputs is dynamic based on which files exist:
+    #   base inputs end at [5] (silent audio for outro)
+    #   [6] = rim shot (if present)
+    #   [7] = groan     (if rim shot + groan both present)
+    #   [8] = laugh     (if all three present; otherwise index shifts)
+    audio_layers = []
+    next_input = 6
     if have_rimshot:
-        # Voice stays at unity gain, rim shot sits under it at ~0.45, then a soft
-        # limiter after the mix prevents any clipping when the two signals combine.
-        # Input [6] = rim shot.
+        audio_layers.append((next_input, rimshot_at_ms, 0.45, "rim"))
+        next_input += 1
+    if have_groan:
+        audio_layers.append((next_input, groan_at_ms, 0.22, "grn"))
+        next_input += 1
+    if have_laugh:
+        audio_layers.append((next_input, laugh_at_ms, 0.18, "lgh"))
+        next_input += 1
+
+    if audio_layers:
+        parts = []
+        mix_inputs = ["0:a"]
+        for idx, delay_ms, vol, tag in audio_layers:
+            parts.append(
+                f"[{idx}:a]adelay={delay_ms}|{delay_ms},"
+                f"aformat=sample_rates=44100:channel_layouts=stereo,volume={vol}[{tag}_d];"
+            )
+            mix_inputs.append(f"{tag}_d")
+        amix_str = "".join(f"[{m}]" for m in mix_inputs)
         filter_audio = (
-            f"[6:a]adelay={rimshot_at_ms}|{rimshot_at_ms},"
-            f"aformat=sample_rates=44100:channel_layouts=stereo,volume=0.45[rim_d];"
-            f"[0:a][rim_d]amix=inputs=2:duration=first:dropout_transition=0:normalize=0,"
-            f"alimiter=limit=0.95:attack=3:release=50,"
-            f"aformat=sample_rates=44100:channel_layouts=stereo[av_a];"
+            "".join(parts)
+            + f"{amix_str}amix=inputs={len(mix_inputs)}:duration=first:dropout_transition=0:normalize=0,"
+            + "alimiter=limit=0.95:attack=3:release=50,"
+            + "aformat=sample_rates=44100:channel_layouts=stereo[av_a];"
         )
     else:
         filter_audio = "[0:a]aformat=sample_rates=44100:channel_layouts=stereo[av_a];"
@@ -382,6 +413,10 @@ def render_dad_short(
     ]
     if have_rimshot:
         cmd += ["-i", str(RIMSHOT_PATH)]
+    if have_groan:
+        cmd += ["-i", str(GROAN_PATH)]
+    if have_laugh:
+        cmd += ["-i", str(LAUGH_PATH)]
     cmd += [
         "-filter_complex", filter_complex,
         "-map", "[outv]", "-map", "[outa]",

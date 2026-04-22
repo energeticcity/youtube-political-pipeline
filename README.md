@@ -20,7 +20,9 @@ The previous political-news version of this pipeline lives on the [`political-ar
 | `ELEVENLABS_API_KEY` | TTS voiceover |
 | `ELEVENLABS_VOICE_ID` | Voice ID for the "dad" voice (e.g. `XmUeU0FRyne67Dy7UaT4`) |
 | `HEYGEN_API_KEY` | Talking-avatar video generation |
-| `HEYGEN_AVATAR_ID` | The Photo Avatar ID for Hank in HeyGen |
+| `HEYGEN_AVATAR_ID` | The default Photo Avatar ID for Hank in HeyGen |
+| `HEYGEN_AVATAR_IDS_EXTRA` | (Optional) Comma-separated additional Photo Avatar IDs for expression variety — e.g. `id_surprised,id_facepalm,id_smirk`. Pipeline picks one per joke. |
+| `ELEVENLABS_MODEL_ID` | (Optional) Override ElevenLabs model. Defaults to `eleven_v3` (expressive). Set to `eleven_multilingual_v2` to fall back if v3 is unavailable for your voice. |
 | `YOUTUBE_CLIENT_ID` | YouTube OAuth |
 | `YOUTUBE_CLIENT_SECRET` | YouTube OAuth |
 | `YOUTUBE_REFRESH_TOKEN` | YouTube OAuth |
@@ -34,6 +36,22 @@ The previous political-news version of this pipeline lives on the [`political-ar
 4. **Pick a dad voice on ElevenLabs.** Browse the voice library for a warm middle-aged male voice. Set `ELEVENLABS_VOICE_ID`.
 5. **Set up Make.com for Instagram + YouTube auto-posting** — see [MAKE_SETUP.md](MAKE_SETUP.md) for detailed step-by-step instructions. Free tier covers both platforms. Replaces both Publer and the in-pipeline YouTube OAuth.
 6. **TikTok = manual upload.** Each pipeline run creates a GitHub Issue ("📱 TikTok upload ready") with a phone-friendly download link and a copyable caption. Open the issue email on your phone, save the video, upload to TikTok, add a trending sound. ~30 sec per video.
+
+## Adding extra Hank expressions (optional, makes videos more lively)
+
+Out of the box the pipeline uses one Hank photo for every video. For variety, you can create additional HeyGen Photo Avatars with different expressions and the pipeline will rotate between them automatically.
+
+1. Generate 2–4 new Hank photos in Midjourney. Use the same base prompt but change the expression. Suggested variants:
+   - **Surprised**: "...wide-eyed with a surprised open-mouth smile, eyebrows raised..."
+   - **Facepalm**: "...palm on forehead, eyes closed, wincing smile..."
+   - **Sly smirk**: "...one eyebrow raised, knowing half-smirk, eyes looking slightly off camera..."
+   - **Laughing**: "...head tilted back mid-laugh, eyes crinkled shut..."
+
+2. For each photo: HeyGen dashboard → **Avatars** → **Create Avatar** → **Photo Avatar** → upload → note the avatar ID.
+
+3. Add GitHub Secret `HEYGEN_AVATAR_IDS_EXTRA` as a comma-separated list, e.g. `a8d7e2f...,b9c3a1d...,c4e6d2f...`. The default `HEYGEN_AVATAR_ID` stays as-is.
+
+4. Next pipeline run picks one of (default + extras) per video based on joke text. No duplicate renders back-to-back.
 
 ## Schedule
 
