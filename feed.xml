@@ -5,7 +5,23 @@
     <link>https://github.com/energeticcity/youtube-political-pipeline</link>
     <description>Two fresh dad jokes every day, delivered by an animated dad. For TikTok and Instagram Reels.</description>
     <language>en-us</language>
-    <lastBuildDate>Fri, 01 May 2026 23:06:32 +0000</lastBuildDate>
+    <lastBuildDate>Sat, 02 May 2026 14:58:24 +0000</lastBuildDate>
+    <item>
+      <title>Weekend Wild Card #36: Feeling the Heat?</title>
+      <description>Why is it always hot in the corner of a room?
+
+Because a corner is 90 degrees.
+
+Follow for two dad jokes a day!
+
+Video: https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260502-1456.mp4
+
+#dadjokes #dadjoke #comedy #shorts #funny</description>
+      <link>https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260502-1456.mp4</link>
+      <guid isPermaLink="false">https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260502-1456.mp4</guid>
+      <pubDate>Sat, 02 May 2026 14:58:24 +0000</pubDate>
+      <enclosure url="https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260502-1456.mp4" type="video/mp4" length="0" />
+    </item>
     <item>
       <title>Joke Court Friday #35: Trees Behaving Badly?!</title>
       <description>Why do trees seem suspicious on sunny days?
@@ -310,22 +326,6 @@ Video: https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main
       <guid isPermaLink="false">https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260422-1326.mp4</guid>
       <pubDate>Wed, 22 Apr 2026 13:31:24 +0000</pubDate>
       <enclosure url="https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260422-1326.mp4" type="video/mp4" length="0" />
-    </item>
-    <item>
-      <title>Punsday Tuesday #12: Butter Rumors?!</title>
-      <description>Have you heard the rumor going around about butter?
-
-Never mind, I shouldn't spread it.
-
-Follow for two dad jokes a day!
-
-Video: https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260421-2256.mp4
-
-#dadjokes #dadjoke #comedy #shorts #funny</description>
-      <link>https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260421-2256.mp4</link>
-      <guid isPermaLink="false">https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260421-2256.mp4</guid>
-      <pubDate>Tue, 21 Apr 2026 22:58:24 +0000</pubDate>
-      <enclosure url="https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260421-2256.mp4" type="video/mp4" length="0" />
     </item>
   </channel>
 </rss>
