@@ -5,7 +5,23 @@
     <link>https://github.com/energeticcity/youtube-political-pipeline</link>
     <description>Two fresh dad jokes every day, delivered by an animated dad. For TikTok and Instagram Reels.</description>
     <language>en-us</language>
-    <lastBuildDate>Sun, 03 May 2026 14:58:19 +0000</lastBuildDate>
+    <lastBuildDate>Sun, 03 May 2026 23:02:21 +0000</lastBuildDate>
+    <item>
+      <title>Sunday Funday #39: What do trees get up to on sunny days?</title>
+      <description>Why do trees seem suspicious on sunny days?
+
+Dunno, they're just a bit shady.
+
+Follow for two dad jokes a day!
+
+Video: https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260503-2300.mp4
+
+#dadjokes #dadjoke #comedy #shorts #funny</description>
+      <link>https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260503-2300.mp4</link>
+      <guid isPermaLink="false">https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260503-2300.mp4</guid>
+      <pubDate>Sun, 03 May 2026 23:02:21 +0000</pubDate>
+      <enclosure url="https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260503-2300.mp4" type="video/mp4" length="0" />
+    </item>
     <item>
       <title>Sunday Funday #38: Factory on FIRE?!</title>
       <description>Did you hear about the bread factory burning down?
@@ -310,22 +326,6 @@ Video: https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main
       <guid isPermaLink="false">https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260423-1600.mp4</guid>
       <pubDate>Thu, 23 Apr 2026 16:04:04 +0000</pubDate>
       <enclosure url="https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260423-1600.mp4" type="video/mp4" length="0" />
-    </item>
-    <item>
-      <title>Midweek Dad Joke #16: What did he do next?!</title>
-      <description>My boss told me to have a good day.
-
-So I went home...
-
-Follow for two dad jokes a day!
-
-Video: https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260422-2302.mp4
-
-#dadjokes #dadjoke #comedy #shorts #funny</description>
-      <link>https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260422-2302.mp4</link>
-      <guid isPermaLink="false">https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260422-2302.mp4</guid>
-      <pubDate>Wed, 22 Apr 2026 23:04:39 +0000</pubDate>
-      <enclosure url="https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260422-2302.mp4" type="video/mp4" length="0" />
     </item>
   </channel>
 </rss>
