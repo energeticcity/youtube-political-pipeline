@@ -5,7 +5,23 @@
     <link>https://github.com/energeticcity/youtube-political-pipeline</link>
     <description>Two fresh dad jokes every day, delivered by an animated dad. For TikTok and Instagram Reels.</description>
     <language>en-us</language>
-    <lastBuildDate>Sun, 03 May 2026 23:02:21 +0000</lastBuildDate>
+    <lastBuildDate>Mon, 04 May 2026 23:09:54 +0000</lastBuildDate>
+    <item>
+      <title>Monday Morning Groans #41: Time to Accessorize?</title>
+      <description>I made a belt out of watches once...
+
+It was a waist of time.
+
+Follow for two dad jokes a day!
+
+Video: https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260504-2308.mp4
+
+#dadjokes #dadjoke #comedy #shorts #funny</description>
+      <link>https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260504-2308.mp4</link>
+      <guid isPermaLink="false">https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260504-2308.mp4</guid>
+      <pubDate>Mon, 04 May 2026 23:09:54 +0000</pubDate>
+      <enclosure url="https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260504-2308.mp4" type="video/mp4" length="0" />
+    </item>
     <item>
       <title>Sunday Funday #39: What do trees get up to on sunny days?</title>
       <description>Why do trees seem suspicious on sunny days?
@@ -310,22 +326,6 @@ Video: https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main
       <guid isPermaLink="false">https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260423-2302.mp4</guid>
       <pubDate>Thu, 23 Apr 2026 23:04:05 +0000</pubDate>
       <enclosure url="https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260423-2302.mp4" type="video/mp4" length="0" />
-    </item>
-    <item>
-      <title>Throwback Thursday #17: Where do fish keep...</title>
-      <description>Where do fish keep their money?
-
-In the riverbank
-
-Follow for two dad jokes a day!
-
-Video: https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260423-1600.mp4
-
-#dadjokes #dadjoke #comedy #shorts #funny</description>
-      <link>https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260423-1600.mp4</link>
-      <guid isPermaLink="false">https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260423-1600.mp4</guid>
-      <pubDate>Thu, 23 Apr 2026 16:04:04 +0000</pubDate>
-      <enclosure url="https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260423-1600.mp4" type="video/mp4" length="0" />
     </item>
   </channel>
 </rss>
