@@ -5,7 +5,23 @@
     <link>https://github.com/energeticcity/youtube-political-pipeline</link>
     <description>Two fresh dad jokes every day, delivered by an animated dad. For TikTok and Instagram Reels.</description>
     <language>en-us</language>
-    <lastBuildDate>Wed, 06 May 2026 16:07:41 +0000</lastBuildDate>
+    <lastBuildDate>Wed, 06 May 2026 23:06:14 +0000</lastBuildDate>
+    <item>
+      <title>Midweek Dad Joke #45: Fireworks and a Car Battery!</title>
+      <description>A police officer caught two kids playing with a firework and a car battery.
+
+He charged one and let the other one off.
+
+Follow for two dad jokes a day!
+
+Video: https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260506-2304.mp4
+
+#dadjokes #dadjoke #comedy #shorts #funny</description>
+      <link>https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260506-2304.mp4</link>
+      <guid isPermaLink="false">https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260506-2304.mp4</guid>
+      <pubDate>Wed, 06 May 2026 23:06:14 +0000</pubDate>
+      <enclosure url="https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260506-2304.mp4" type="video/mp4" length="0" />
+    </item>
     <item>
       <title>Midweek Dad Joke #44: That Took Awhile!</title>
       <description>I ate a clock yesterday.
@@ -309,23 +325,6 @@ Video: https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main
       <guid isPermaLink="false">https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260425-1452.mp4</guid>
       <pubDate>Sat, 25 Apr 2026 14:54:00 +0000</pubDate>
       <enclosure url="https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260425-1452.mp4" type="video/mp4" length="0" />
-    </item>
-    <item>
-      <title>Joke Court Friday #20: Disease Named After YOU?!</title>
-      <description>Doctor: Do you want to hear the good news or the bad news?
-
-Patient: Good news please.
-Doctor: we're naming a disease after you.
-
-Follow for two dad jokes a day!
-
-Video: https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260424-2256.mp4
-
-#dadjokes #dadjoke #comedy #shorts #funny</description>
-      <link>https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260424-2256.mp4</link>
-      <guid isPermaLink="false">https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260424-2256.mp4</guid>
-      <pubDate>Fri, 24 Apr 2026 22:58:18 +0000</pubDate>
-      <enclosure url="https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260424-2256.mp4" type="video/mp4" length="0" />
     </item>
   </channel>
 </rss>
