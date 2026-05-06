@@ -5,7 +5,23 @@
     <link>https://github.com/energeticcity/youtube-political-pipeline</link>
     <description>Two fresh dad jokes every day, delivered by an animated dad. For TikTok and Instagram Reels.</description>
     <language>en-us</language>
-    <lastBuildDate>Tue, 05 May 2026 23:10:02 +0000</lastBuildDate>
+    <lastBuildDate>Wed, 06 May 2026 16:07:41 +0000</lastBuildDate>
+    <item>
+      <title>Midweek Dad Joke #44: That Took Awhile!</title>
+      <description>I ate a clock yesterday.
+
+It was so time consuming.
+
+Follow for two dad jokes a day!
+
+Video: https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260506-1606.mp4
+
+#dadjokes #dadjoke #comedy #shorts #funny</description>
+      <link>https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260506-1606.mp4</link>
+      <guid isPermaLink="false">https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260506-1606.mp4</guid>
+      <pubDate>Wed, 06 May 2026 16:07:41 +0000</pubDate>
+      <enclosure url="https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260506-1606.mp4" type="video/mp4" length="0" />
+    </item>
     <item>
       <title>Punsday Tuesday #43: What a stylish number!</title>
       <description>What did the 0 say to the 8?
@@ -310,22 +326,6 @@ Video: https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main
       <guid isPermaLink="false">https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260424-2256.mp4</guid>
       <pubDate>Fri, 24 Apr 2026 22:58:18 +0000</pubDate>
       <enclosure url="https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260424-2256.mp4" type="video/mp4" length="0" />
-    </item>
-    <item>
-      <title>Joke Court Friday #19: I've got a joke...</title>
-      <description>I've got a joke about vegetables for you...
-
-but it's a bit corny.
-
-Follow for two dad jokes a day!
-
-Video: https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260424-1515.mp4
-
-#dadjokes #dadjoke #comedy #shorts #funny</description>
-      <link>https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260424-1515.mp4</link>
-      <guid isPermaLink="false">https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260424-1515.mp4</guid>
-      <pubDate>Fri, 24 Apr 2026 15:19:24 +0000</pubDate>
-      <enclosure url="https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260424-1515.mp4" type="video/mp4" length="0" />
     </item>
   </channel>
 </rss>
