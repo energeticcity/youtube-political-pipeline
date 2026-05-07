@@ -5,7 +5,23 @@
     <link>https://github.com/energeticcity/youtube-political-pipeline</link>
     <description>Two fresh dad jokes every day, delivered by an animated dad. For TikTok and Instagram Reels.</description>
     <language>en-us</language>
-    <lastBuildDate>Wed, 06 May 2026 23:06:14 +0000</lastBuildDate>
+    <lastBuildDate>Thu, 07 May 2026 16:12:07 +0000</lastBuildDate>
+    <item>
+      <title>Throwback Thursday #46: Darth Vader's Breakfast?</title>
+      <description>How does Darth Vader like his toast?
+
+On the dark side.
+
+Follow for two dad jokes a day!
+
+Video: https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260507-1609.mp4
+
+#dadjokes #dadjoke #comedy #shorts #funny</description>
+      <link>https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260507-1609.mp4</link>
+      <guid isPermaLink="false">https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260507-1609.mp4</guid>
+      <pubDate>Thu, 07 May 2026 16:12:07 +0000</pubDate>
+      <enclosure url="https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260507-1609.mp4" type="video/mp4" length="0" />
+    </item>
     <item>
       <title>Midweek Dad Joke #45: Fireworks and a Car Battery!</title>
       <description>A police officer caught two kids playing with a firework and a car battery.
@@ -309,22 +325,6 @@ Video: https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main
       <guid isPermaLink="false">https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260425-2254.mp4</guid>
       <pubDate>Sat, 25 Apr 2026 22:55:34 +0000</pubDate>
       <enclosure url="https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260425-2254.mp4" type="video/mp4" length="0" />
-    </item>
-    <item>
-      <title>Weekend Wild Card #21: Ghostly Garments?</title>
-      <description>What kind of pants do ghosts wear?
-
-Boo jeans.
-
-Follow for two dad jokes a day!
-
-Video: https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260425-1452.mp4
-
-#dadjokes #dadjoke #comedy #shorts #funny</description>
-      <link>https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260425-1452.mp4</link>
-      <guid isPermaLink="false">https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260425-1452.mp4</guid>
-      <pubDate>Sat, 25 Apr 2026 14:54:00 +0000</pubDate>
-      <enclosure url="https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260425-1452.mp4" type="video/mp4" length="0" />
     </item>
   </channel>
 </rss>
