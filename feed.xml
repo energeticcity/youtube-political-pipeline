@@ -5,7 +5,23 @@
     <link>https://github.com/energeticcity/youtube-political-pipeline</link>
     <description>Two fresh dad jokes every day, delivered by an animated dad. For TikTok and Instagram Reels.</description>
     <language>en-us</language>
-    <lastBuildDate>Fri, 08 May 2026 23:09:17 +0000</lastBuildDate>
+    <lastBuildDate>Sat, 09 May 2026 15:01:31 +0000</lastBuildDate>
+    <item>
+      <title>Weekend Wild Card #50: Cow Questions!</title>
+      <description>Why do cows not have toes?
+
+They lactose!
+
+Follow for two dad jokes a day!
+
+Video: https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260509-1500.mp4
+
+#dadjokes #dadjoke #comedy #shorts #funny</description>
+      <link>https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260509-1500.mp4</link>
+      <guid isPermaLink="false">https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260509-1500.mp4</guid>
+      <pubDate>Sat, 09 May 2026 15:01:31 +0000</pubDate>
+      <enclosure url="https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260509-1500.mp4" type="video/mp4" length="0" />
+    </item>
     <item>
       <title>Joke Court Friday #49: Darth Vader's Breakfast?</title>
       <description>How does Darth Vader like his toast?
@@ -309,22 +325,6 @@ Video: https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main
       <guid isPermaLink="false">https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260427-2307.mp4</guid>
       <pubDate>Mon, 27 Apr 2026 23:11:53 +0000</pubDate>
       <enclosure url="https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260427-2307.mp4" type="video/mp4" length="0" />
-    </item>
-    <item>
-      <title>Monday Morning Groans #25: My Computer Froze!</title>
-      <description>It was so cold yesterday my computer froze.
-
-My own fault though, I left too many windows open.
-
-Follow for two dad jokes a day!
-
-Video: https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260427-1553.mp4
-
-#dadjokes #dadjoke #comedy #shorts #funny</description>
-      <link>https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260427-1553.mp4</link>
-      <guid isPermaLink="false">https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260427-1553.mp4</guid>
-      <pubDate>Mon, 27 Apr 2026 15:56:38 +0000</pubDate>
-      <enclosure url="https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260427-1553.mp4" type="video/mp4" length="0" />
     </item>
   </channel>
 </rss>
