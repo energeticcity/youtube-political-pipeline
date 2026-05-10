@@ -28,6 +28,7 @@ SFX_DIR = Path(__file__).parent / "sfx"
 RIMSHOT_PATH = SFX_DIR / "rimshot.wav"
 GROAN_PATH = SFX_DIR / "groan.wav"
 LAUGH_PATH = SFX_DIR / "laugh.wav"
+AMBIENT_PATH = SFX_DIR / "ambient_bed.wav"
 
 
 def log(msg: str):
@@ -383,6 +384,7 @@ def render_dad_short(
     have_rimshot = RIMSHOT_PATH.exists()
     have_groan = GROAN_PATH.exists()
     have_laugh = LAUGH_PATH.exists()
+    have_ambient = AMBIENT_PATH.exists()
     if not have_rimshot:
         log(f"  WARNING: rim-shot SFX not found at {RIMSHOT_PATH}, skipping")
 
@@ -443,6 +445,10 @@ def render_dad_short(
     if have_laugh:
         audio_layers.append((next_input, laugh_at_ms, 0.18, "lgh"))
         next_input += 1
+    if have_ambient:
+        # Ambient pad starts at t=0, low volume — pure atmosphere under the voice.
+        audio_layers.append((next_input, 0, 0.16, "amb"))
+        next_input += 1
 
     if audio_layers:
         parts = []
@@ -487,6 +493,8 @@ def render_dad_short(
         cmd += ["-i", str(GROAN_PATH)]
     if have_laugh:
         cmd += ["-i", str(LAUGH_PATH)]
+    if have_ambient:
+        cmd += ["-i", str(AMBIENT_PATH)]
     cmd += [
         "-filter_complex", filter_complex,
         "-map", "[outv]", "-map", "[outa]",

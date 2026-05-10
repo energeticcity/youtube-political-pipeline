@@ -216,14 +216,22 @@ def write_script(joke: dict, episode: int, segment: dict) -> dict:
     # Use the segment hook 70% of the time (brand reinforcement), random hook 30% (variety)
     catchphrase = segment["hook"] if random.random() < 0.7 else random.choice(CATCHPHRASES)
 
-    # Em dash before setup cues ElevenLabs to land the catchphrase with punch.
-    # Ellipses create suspense pauses without losing the setup's ? intonation.
-    # Inline [tags] are ElevenLabs v3 expression markers — the model
-    # interprets them as delivery direction (chuckle, pause, grin, etc.)
-    # On older models they're harmless text that ElevenLabs silently strips.
+    # Em dash + ellipses give ElevenLabs natural prosody (rising tone, pauses).
+    # Inline [tags] are ElevenLabs v3 expression markers — the model interprets
+    # them as delivery direction. They're invisible on older models because we
+    # strip them in generate_tts() if the model isn't v3.
+    #
+    # The mix of pauses and breaths between sections is what gives it a real
+    # human cadence — the model adds tiny inhales between lines instead of
+    # robotic dead-silence.
     script = (
-        f"[cheerful] {catchphrase} — {setup} [pauses] ... "
-        f"[grinning] {punchline} [chuckles] ... Follow for more!"
+        f"[cheerful] {catchphrase} "
+        f"[short pause] — "
+        f"[curious] {setup} "
+        f"[pauses, smirking] ... "
+        f"[grinning] {punchline} "
+        f"[chuckles softly] ... "
+        f"[warmly] Follow for more!"
     )
     return {
         "script": script,
@@ -677,27 +685,50 @@ def generate_avatar_video(audio_url: str, output_path: str, avatar_id: str) -> s
         "Content-Type": "application/json",
     }
 
+    # Try talking_photo type first — it supports talking_style + expression
+    # which noticeably increase head/face motion and warmth. Fall back to the
+    # plain avatar type if our HEYGEN_AVATAR_ID was registered that way.
+    talking_style = os.environ.get("HEYGEN_TALKING_STYLE", "expressive")
+    expression = os.environ.get("HEYGEN_EXPRESSION", "happy")
+
+    payload_talking_photo = {
+        "video_inputs": [
+            {
+                "character": {
+                    "type": "talking_photo",
+                    "talking_photo_id": avatar_id,
+                    "talking_style": talking_style,
+                    "expression": expression,
+                },
+                "voice": {"type": "audio", "audio_url": audio_url},
+            }
+        ],
+        "dimension": {"width": 720, "height": 1280},
+    }
+    payload_avatar = {
+        "video_inputs": [
+            {
+                "character": {
+                    "type": "avatar",
+                    "avatar_id": avatar_id,
+                    "avatar_style": "normal",
+                },
+                "voice": {"type": "audio", "audio_url": audio_url},
+            }
+        ],
+        "dimension": {"width": 720, "height": 1280},
+    }
+
     create_resp = requests.post(
         "https://api.heygen.com/v2/video/generate",
-        headers=headers,
-        json={
-            "video_inputs": [
-                {
-                    "character": {
-                        "type": "avatar",
-                        "avatar_id": avatar_id,
-                        "avatar_style": "normal",
-                    },
-                    "voice": {
-                        "type": "audio",
-                        "audio_url": audio_url,
-                    },
-                }
-            ],
-            "dimension": {"width": 720, "height": 1280},
-        },
-        timeout=30,
+        headers=headers, json=payload_talking_photo, timeout=30,
     )
+    if create_resp.status_code == 400 and "not found" in create_resp.text.lower():
+        log("  talking_photo type failed; retrying as plain avatar...")
+        create_resp = requests.post(
+            "https://api.heygen.com/v2/video/generate",
+            headers=headers, json=payload_avatar, timeout=30,
+        )
     if create_resp.status_code != 200:
         log(f"  HeyGen create error {create_resp.status_code}: {create_resp.text[:500]}")
     create_resp.raise_for_status()
