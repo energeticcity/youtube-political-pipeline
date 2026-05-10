@@ -2,9 +2,11 @@ name: Daily Dad Joke Pipeline
 
 on:
   schedule:
-    # Off the top of the hour to dodge GitHub Actions queue congestion
-    - cron: '7 14 * * *'   # ~10:07am ET / 7:07am PT
-    - cron: '7 22 * * *'   # ~6:07pm ET / 3:07pm PT
+    # Three jokes a day, off the top of the hour to dodge GitHub queue congestion.
+    # Spreads across morning, lunch and evening US viewing windows.
+    - cron: '7 14 * * *'   # ~10:07am ET / 7:07am PT  (morning commute)
+    - cron: '7 18 * * *'   # ~2:07pm ET  / 11:07am PT (lunch / afternoon scroll)
+    - cron: '7 22 * * *'   # ~6:07pm ET  / 3:07pm PT  (after work / dinner)
   workflow_dispatch:
 
 permissions:

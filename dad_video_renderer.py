@@ -155,66 +155,124 @@ def render_outro_card(output_path: str):
     log(f"  Outro card: {output_path}")
 
 
+def _draw_stroked_text(draw, text, pos, font, fill, stroke_fill, stroke_w):
+    """Draw text with a thick outline — TikTok / MrBeast caption style."""
+    x, y = pos
+    # Pillow 9.2+ has stroke_width; fall back to manual offset stroking otherwise.
+    try:
+        draw.text(pos, text, font=font, fill=fill, stroke_width=stroke_w, stroke_fill=stroke_fill)
+    except TypeError:
+        for dx in range(-stroke_w, stroke_w + 1):
+            for dy in range(-stroke_w, stroke_w + 1):
+                if dx or dy:
+                    draw.text((x + dx, y + dy), text, font=font, fill=stroke_fill)
+        draw.text(pos, text, font=font, fill=fill)
+
+
 def render_caption_overlay(text: str, output_path: str, style: str = "setup"):
-    """Transparent PNG with caption text in a styled box.
+    """Transparent PNG with TikTok-style stroked text — no boxes, big bold,
+    thick black outline so it pops on any background.
 
     style:
-      'setup'     = top, black box / white text
-      'punchline' = top, yellow box / black text + glow
-      'bait'      = middle, yellow text on dark navy box (comment-bait during pause)
+      'setup'     = white text, black stroke (top of frame)
+      'punchline' = yellow text, black stroke (top of frame, slightly larger)
     """
     img = Image.new("RGBA", (SHORT_W, SHORT_H), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
 
-    font_size = 92 if style == "bait" else 78
-    font = find_font(font_size, "ExtraBold")
-
-    box_x = 50
-    box_w = SHORT_W - 100
-    inner_pad = 40
-
-    lines = wrap_text(draw, text, font, box_w - inner_pad * 2)
-    line_h = font.size + int(font.size * 0.2)
-    text_h = line_h * len(lines)
-    box_h = text_h + inner_pad * 2
-
-    if style == "bait":
-        box_y = (SHORT_H - box_h) // 2
-        box_fill = (*BG_COLOR, 235)
+    if style == "punchline":
+        font_size = 118
         text_fill = ACCENT_COLOR
-    elif style == "punchline":
-        box_y = 140
-        box_fill = (*ACCENT_COLOR, 250)
-        text_fill = (20, 20, 30)
-        glow_layer = Image.new("RGBA", (SHORT_W, SHORT_H), (0, 0, 0, 0))
-        glow_draw = ImageDraw.Draw(glow_layer)
-        glow_draw.rounded_rectangle(
-            [box_x - 8, box_y - 8, box_x + box_w + 8, box_y + box_h + 8],
-            radius=36, fill=(*ACCENT_COLOR, 80),
-        )
-        img = Image.alpha_composite(img, glow_layer)
+        stroke_w = 10
     else:
-        box_y = 140
-        box_fill = (0, 0, 0, 210)
+        font_size = 100
         text_fill = TEXT_COLOR
+        stroke_w = 9
+
+    font = find_font(font_size, "ExtraBold")
+    inner_w = SHORT_W - 80   # leaves 40px margin each side
+    lines = wrap_text(draw, text, font, inner_w)
+
+    line_spacing = int(font.size * 0.18)
+    line_heights = []
+    for line in lines:
+        bbox = draw.textbbox((0, 0), line, font=font)
+        line_heights.append(bbox[3] - bbox[1])
+    total_h = sum(line_heights) + line_spacing * (len(lines) - 1)
+
+    # Anchor near the top of the frame, below the platform UI safe area
+    cur_y = 200
+
+    for line, lh in zip(lines, line_heights):
+        bbox = draw.textbbox((0, 0), line, font=font)
+        line_w = bbox[2] - bbox[0]
+        line_x = (SHORT_W - line_w) // 2
+        _draw_stroked_text(draw, line, (line_x, cur_y), font, text_fill, (0, 0, 0), stroke_w)
+        cur_y += lh + line_spacing
+
+    img.save(output_path, "PNG")
+
+
+def render_hook_banner(output_path: str):
+    """First-1.2-second attention grabber. Bright pill-shape banner with hook text."""
+    img = Image.new("RGBA", (SHORT_W, SHORT_H), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+
+    text = "WAIT FOR IT"
+    font = find_font(80, "ExtraBold")
+    bbox = draw.textbbox((0, 0), text, font=font)
+    text_w = bbox[2] - bbox[0]
+    text_h = bbox[3] - bbox[1]
+    pad_x, pad_y = 50, 26
+
+    box_w = text_w + pad_x * 2
+    box_h = text_h + pad_y * 2
+    box_x = (SHORT_W - box_w) // 2
+    box_y = SHORT_H - box_h - 360   # bottom-third, well above platform UI
+
+    # Yellow pill with a slim navy outline
+    bg_layer = Image.new("RGBA", (SHORT_W, SHORT_H), (0, 0, 0, 0))
+    bg_draw = ImageDraw.Draw(bg_layer)
+    bg_draw.rounded_rectangle(
+        [box_x - 6, box_y - 6, box_x + box_w + 6, box_y + box_h + 6],
+        radius=box_h, fill=(*BG_COLOR, 230),
+    )
+    bg_draw.rounded_rectangle(
+        [box_x, box_y, box_x + box_w, box_y + box_h],
+        radius=box_h, fill=(*ACCENT_COLOR, 250),
+    )
+    img = Image.alpha_composite(img, bg_layer)
+    draw = ImageDraw.Draw(img)
+    draw.text((box_x + pad_x, box_y + pad_y - 6), text, font=font, fill=(20, 20, 30))
+
+    img.save(output_path, "PNG")
+
+
+def render_handle_watermark(output_path: str):
+    """Small persistent @dadjokefix handle bottom-left — brand watermark that
+    travels with screenshots and re-uploads."""
+    img = Image.new("RGBA", (SHORT_W, SHORT_H), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+
+    handle = "@dadjokefix"
+    font = find_font(38, "ExtraBold")
+    bbox = draw.textbbox((0, 0), handle, font=font)
+    text_w = bbox[2] - bbox[0]
+    text_h = bbox[3] - bbox[1]
+    pad_x, pad_y = 18, 10
+
+    box_x = 36
+    box_y = SHORT_H - 36 - text_h - pad_y * 2 - 40   # 40px above bottom platform UI
 
     bg_layer = Image.new("RGBA", (SHORT_W, SHORT_H), (0, 0, 0, 0))
     bg_draw = ImageDraw.Draw(bg_layer)
     bg_draw.rounded_rectangle(
-        [box_x, box_y, box_x + box_w, box_y + box_h],
-        radius=30,
-        fill=box_fill,
+        [box_x, box_y, box_x + text_w + pad_x * 2, box_y + text_h + pad_y * 2],
+        radius=12, fill=(0, 0, 0, 165),
     )
     img = Image.alpha_composite(img, bg_layer)
     draw = ImageDraw.Draw(img)
-
-    draw_text_block(
-        draw, text,
-        font=font,
-        box=(box_x + inner_pad, box_y + inner_pad, box_w - inner_pad * 2, text_h),
-        fill=text_fill,
-        shadow=False,
-    )
+    draw.text((box_x + pad_x, box_y + pad_y - 4), handle, font=font, fill=ACCENT_COLOR)
 
     img.save(output_path, "PNG")
 
@@ -302,11 +360,15 @@ def render_dad_short(
     setup_png = os.path.join(work_dir, "setup_caption.png")
     punch_png = os.path.join(work_dir, "punch_caption.png")
     counter_png = os.path.join(work_dir, "counter.png")
+    hook_png = os.path.join(work_dir, "hook_banner.png")
+    handle_png = os.path.join(work_dir, "handle_watermark.png")
 
     render_outro_card(outro_png)
     render_caption_overlay(joke["setup"], setup_png, style="setup")
     render_caption_overlay(joke["punchline"], punch_png, style="punchline")
     render_episode_counter_overlay(episode, counter_png)
+    render_hook_banner(hook_png)
+    render_handle_watermark(handle_png)
 
     # Caption windows
     setup_show_until = setup_end + 0.1            # tiny overlap into pause for readability
@@ -331,7 +393,9 @@ def render_dad_short(
     #  [3] punchline caption PNG
     #  [4] episode counter PNG
     #  [5] silent audio for outro
-    #  [6] rim shot WAV (only if exists)
+    #  [6] hook banner PNG ("WAIT FOR IT", first ~1.2s)
+    #  [7] handle watermark PNG (@dadjokefix, persistent)
+    #  [8+] reaction SFX (rim/groan/laugh) — indices shift based on what exists
     #
     # Full-screen avatar: HeyGen returns a square ~1024x1024 video. Scale to
     # 1920 height (becomes 1920x1920 since aspect-preserved), then crop the
@@ -354,6 +418,10 @@ def render_dad_short(
         f"[av_kb][2:v]overlay=0:0:enable='between(t,0,{setup_show_until:.3f})'[av1];"
         f"[av1][3:v]overlay=0:0:enable='between(t,{punch_show_from:.3f},{avatar_dur:.3f})'[av2];"
         f"[av2][4:v]overlay=0:0[av_with_counter];"
+        # Hook banner — first 1.4s only, kicks the FYP scroll
+        f"[av_with_counter][6:v]overlay=0:0:enable='between(t,0.15,1.4)'[av_with_hook];"
+        # Persistent @dadjokefix watermark for the entire video
+        f"[av_with_hook][7:v]overlay=0:0[av_with_brand];"
         f"[1:v]scale={SHORT_W}:{SHORT_H},setsar=1,format=yuv420p[outro_v];"
     )
 
@@ -365,7 +433,7 @@ def render_dad_short(
     #   [7] = groan     (if rim shot + groan both present)
     #   [8] = laugh     (if all three present; otherwise index shifts)
     audio_layers = []
-    next_input = 6
+    next_input = 8   # 0=avatar, 1=outro, 2=setup, 3=punch, 4=counter, 5=silent, 6=hook, 7=handle
     if have_rimshot:
         audio_layers.append((next_input, rimshot_at_ms, 0.45, "rim"))
         next_input += 1
@@ -398,7 +466,7 @@ def render_dad_short(
     filter_complex = (
         filter_video
         + filter_audio
-        + "[av_with_counter][av_a][outro_v][5:a]concat=n=2:v=1:a=1[outv][outa]"
+        + "[av_with_brand][av_a][outro_v][5:a]concat=n=2:v=1:a=1[outv][outa]"
     )
 
     cmd = [
@@ -410,6 +478,8 @@ def render_dad_short(
         "-i", counter_png,
         "-f", "lavfi", "-t", str(OUTRO_DURATION),
         "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
+        "-i", hook_png,        # [6]
+        "-i", handle_png,      # [7]
     ]
     if have_rimshot:
         cmd += ["-i", str(RIMSHOT_PATH)]
