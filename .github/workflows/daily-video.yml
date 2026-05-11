@@ -2,10 +2,11 @@ name: Daily Dad Joke Pipeline
 
 on:
   schedule:
-    # Three jokes a day, off the top of the hour to dodge GitHub queue congestion.
-    # Spreads across morning, lunch and evening US viewing windows.
+    # Two jokes a day, off the top of the hour to dodge GitHub queue congestion.
+    # Spreads across morning and evening US viewing windows. Dropped from 3/day
+    # because Avatar IV is ~2x the per-render cost vs plain Photo Avatar — at
+    # 3/day we'd blow through the $25 monthly HeyGen budget by mid-month.
     - cron: '7 14 * * *'   # ~10:07am ET / 7:07am PT  (morning commute)
-    - cron: '7 18 * * *'   # ~2:07pm ET  / 11:07am PT (lunch / afternoon scroll)
     - cron: '7 22 * * *'   # ~6:07pm ET  / 3:07pm PT  (after work / dinner)
   workflow_dispatch:
 
