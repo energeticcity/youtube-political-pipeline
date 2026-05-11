@@ -705,10 +705,10 @@ def generate_avatar_video(audio_url: str, output_path: str, avatar_id: str) -> s
     # plain avatar type if our HEYGEN_AVATAR_ID was registered that way.
     talking_style = os.environ.get("HEYGEN_TALKING_STYLE", "expressive")
     expression = os.environ.get("HEYGEN_EXPRESSION", "happy")
-    # Avatar IV is HeyGen's newer model that adds head sway, blinks, and subtle
-    # gestures from the same Photo Avatar source. Costs more per video (~1.5-2x),
-    # so off by default. Set HEYGEN_USE_AVATAR_IV=true to enable.
-    use_avatar_iv = os.environ.get("HEYGEN_USE_AVATAR_IV", "").lower() in ("1", "true", "yes")
+    # Avatar IV is HeyGen's newer model — adds head sway, natural blinks, and
+    # subtle gestures from the same Photo Avatar source. ON by default now;
+    # set HEYGEN_USE_AVATAR_IV=false to revert to the cheaper plain photo mode.
+    use_avatar_iv = os.environ.get("HEYGEN_USE_AVATAR_IV", "true").lower() in ("1", "true", "yes")
     motion_prompt = os.environ.get(
         "HEYGEN_MOTION_PROMPT",
         "A friendly dad delivers a joke. Natural blinks, subtle head movements, "
