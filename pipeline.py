@@ -728,14 +728,23 @@ def generate_avatar_video(audio_url: str, output_path: str, avatar_id: str) -> s
             character["keep_original_prompt"] = False
         log(f"  Avatar IV enabled with motion prompt ({len(motion_prompt)} chars)")
 
+    # Render at full Short resolution — HeyGen accepts 1080x1920 directly
+    # so the face is rendered at native res instead of being upscaled by our
+    # renderer. Sharper Hank, no extra cost (HeyGen prices on duration).
+    dimension = {"width": 1080, "height": 1920}
+
     payload_talking_photo = {
         "video_inputs": [
             {
                 "character": character,
                 "voice": {"type": "audio", "audio_url": audio_url},
+                # Clean brand-navy background. For Photo Avatars HeyGen will
+                # composite this BEHIND the source photo so the face stays.
+                # Hex matches our renderer's BG_COLOR.
+                "background": {"type": "color", "value": "#1A1A2E"},
             }
         ],
-        "dimension": {"width": 720, "height": 1280},
+        "dimension": dimension,
     }
     payload_avatar = {
         "video_inputs": [
@@ -746,9 +755,10 @@ def generate_avatar_video(audio_url: str, output_path: str, avatar_id: str) -> s
                     "avatar_style": "normal",
                 },
                 "voice": {"type": "audio", "audio_url": audio_url},
+                "background": {"type": "color", "value": "#1A1A2E"},
             }
         ],
-        "dimension": {"width": 720, "height": 1280},
+        "dimension": dimension,
     }
 
     create_resp = requests.post(
