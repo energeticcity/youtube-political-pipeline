@@ -388,13 +388,13 @@ def denoise_audio(input_path: str, output_path: str) -> str:
 
 # ── Episode counter + monthly HeyGen budget tracking (stored in state.json) ───
 
-# HeyGen budget: $25/mo. Avatar IV roughly doubles per-render cost vs plain
-# Photo Avatar — assume ~$0.50/video. $25 / $0.50 = 50 videos/mo cap.
-# At 2/day cadence (60/mo) we'll hit the 80% warning around day 21 and the
-# hard cap a couple of days later — that's intentional, gives us time to
-# decide between dropping cadence further or topping up credits.
-HEYGEN_MONTHLY_BUDGET_VIDEOS = 50
-HEYGEN_WARNING_THRESHOLD = 40     # alert when crossing 80% used
+# HeyGen budget: $50/mo (topped up from $25 to cover Avatar IV at 3/day).
+# At ~$0.50/video → 100 videos/mo cap. 3/day cadence is 90/mo, so we have
+# a 10-video buffer for retries and ad-hoc reruns.
+# If you change your HeyGen budget, update HEYGEN_MONTHLY_BUDGET_VIDEOS:
+#   $25 → 50,  $35 → 70,  $50 → 100,  $75 → 150
+HEYGEN_MONTHLY_BUDGET_VIDEOS = 100
+HEYGEN_WARNING_THRESHOLD = 80     # alert when crossing 80% used
 HEYGEN_COST_PER_VIDEO = 0.50      # USD with Avatar IV enabled
 
 
