@@ -29,6 +29,7 @@ HEYGEN_AVATAR_ID = os.environ["HEYGEN_AVATAR_ID"]
 HEYGEN_AVATAR_IDS_EXTRA = os.environ.get("HEYGEN_AVATAR_IDS_EXTRA", "")
 POSTFORME_API_KEY = os.environ.get("POSTFORME_API_KEY", "")
 POSTFORME_TIKTOK_ACCOUNT_ID = os.environ.get("POSTFORME_TIKTOK_ACCOUNT_ID", "")
+PEXELS_API_KEY = os.environ.get("PEXELS_API_KEY", "")
 
 YOUTUBE_CLIENT_ID = os.environ.get("YOUTUBE_CLIENT_ID", "")
 YOUTUBE_CLIENT_SECRET = os.environ.get("YOUTUBE_CLIENT_SECRET", "")
@@ -283,7 +284,7 @@ def _template_metadata(joke: dict, episode: int, segment: dict) -> dict:
     candidates = [w.strip("?.!,").upper() for w in words if w.lower() not in stopwords and w.strip("?.!,").isalpha()]
     thumb = " ".join(candidates[:2]) if len(candidates) >= 2 else "DAD JOKE"
 
-    return {"title": title, "description": description, "tags": tags, "thumb_text": thumb, "topic_hashtags": ""}
+    return {"title": title, "description": description, "tags": tags, "thumb_text": thumb, "topic_hashtags": "", "broll_keyword": ""}
 
 
 def generate_metadata(joke: dict, episode: int, segment: dict) -> dict:
@@ -307,8 +308,9 @@ Respond ONLY:
 <DESCRIPTION>[joke + cta + hashtags]</DESCRIPTION>
 <TAGS>[comma-separated tags]</TAGS>
 <THUMB>[2-3 ALL CAPS words]</THUMB>
-<TOPICHASHTAGS>[3-5 lowercase hashtags specific to the joke topic, no #, comma-separated, e.g. "watermelon,fruit,cantaloupe" or "bees,wedding,honeymoon"]</TOPICHASHTAGS>""",
-            max_tokens=700,
+<TOPICHASHTAGS>[3-5 lowercase hashtags specific to the joke topic, no #, comma-separated, e.g. "watermelon,fruit,cantaloupe" or "bees,wedding,honeymoon"]</TOPICHASHTAGS>
+<BROLLKEYWORD>[ONE single concrete noun from the setup that would make a good stock photo — e.g. "watermelon", "broom", "spacebar". If the joke has no good visual subject (abstract concepts, wordplay only), respond with NONE.]</BROLLKEYWORD>""",
+            max_tokens=750,
         )
         meta = {
             "title": extract_tag(result, "TITLE"),
@@ -316,6 +318,7 @@ Respond ONLY:
             "tags": extract_tag(result, "TAGS"),
             "thumb_text": extract_tag(result, "THUMB"),
             "topic_hashtags": extract_tag(result, "TOPICHASHTAGS"),
+            "broll_keyword": extract_tag(result, "BROLLKEYWORD"),
         }
         # Guard against empty LLM output — fall back to template if any field is blank
         if not all(meta.values()):
@@ -676,6 +679,44 @@ def prune_old_videos(keep_last: int = 25):
             log(f"  Pruned old video: {old['name']}")
     except Exception as e:
         log(f"  Video prune skipped: {e}")
+
+
+# ── B-roll image fetch (Pexels) ───────────────────────────────────────────────
+
+def fetch_broll_image(keyword: str, output_path: str) -> str:
+    """Pull a single landscape image matching the keyword from Pexels.
+    Returns the local path on success, or '' on any failure (no Pexels key,
+    no results, network error). Caller should treat empty as 'no b-roll'."""
+    if not PEXELS_API_KEY or not keyword:
+        return ""
+    log(f"Fetching b-roll image for '{keyword}'...")
+    try:
+        resp = requests.get(
+            "https://api.pexels.com/v1/search",
+            params={"query": keyword, "per_page": 5, "orientation": "landscape", "size": "medium"},
+            headers={"Authorization": PEXELS_API_KEY},
+            timeout=15,
+        )
+        resp.raise_for_status()
+        photos = resp.json().get("photos", [])
+        if not photos:
+            log(f"  No Pexels results for '{keyword}'")
+            return ""
+        # Take the first result, prefer "large" size
+        photo = photos[0]
+        src = photo.get("src", {})
+        img_url = src.get("large") or src.get("medium") or src.get("original")
+        if not img_url:
+            return ""
+        img_resp = requests.get(img_url, timeout=30)
+        img_resp.raise_for_status()
+        with open(output_path, "wb") as f:
+            f.write(img_resp.content)
+        log(f"  B-roll saved: {output_path} ({len(img_resp.content) // 1024} KB, by {photo.get('photographer', '?')})")
+        return output_path
+    except Exception as e:
+        log(f"  Pexels fetch failed: {e}")
+        return ""
 
 
 # ── Step 6: HeyGen avatar generation ──────────────────────────────────────────
@@ -1063,8 +1104,55 @@ def _find_social_accounts() -> dict[str, str]:
     return result
 
 
-def post_via_postforme(video_url: str, caption: str, title: str) -> tuple[str, list[str]]:
-    """Post the video to every connected social account via Post for Me.
+def _build_platform_captions(joke: dict, title: str, topic_hashtags: str) -> dict:
+    """Per-platform caption variants. Each platform rewards different formats:
+    - TikTok: short + hashtag-heavy, comment bait first
+    - Instagram: medium with line breaks, fewer hashtags up top
+    - YouTube: long description with full joke + extra context
+    """
+    setup = joke["setup"]
+    punch = joke["punchline"]
+    base_tags = "#dadjokes #dadjoke #dadjokefix #comedy #fyp #foryou #funny #jokes"
+    topic = " ".join(
+        f"#{t.strip().replace(' ', '').replace('#', '')}"
+        for t in (topic_hashtags or "").split(",")
+        if t.strip()
+    )
+
+    # TikTok: max impact in min chars — algorithm scans hashtags for topic match
+    tiktok = (
+        f"{setup} {punch} 👇 rate it 1-10 in comments\n\n"
+        f"{base_tags} {topic}"
+    ).strip()
+
+    # Instagram: more breathing room, story-style, fewer up-top hashtags
+    instagram = (
+        f"{setup}\n\n"
+        f"{punch} 🫥\n\n"
+        f"Drop a number 1-10 in comments — how bad was it?\n\n"
+        f"Follow @dadjokefix for two dad jokes a day.\n"
+        f".\n.\n.\n"
+        f"{base_tags} {topic}"
+    ).strip()
+
+    # YouTube: long description for SEO, includes the joke + channel pitch
+    youtube = (
+        f"{setup}\n\n{punch}\n\n"
+        f"---\n\n"
+        f"Welcome to Dad Joke Fix — your daily dose of groan-worthy dad jokes.\n"
+        f"🟡 New Shorts at 10am, 2pm, and 6pm ET, every single day\n"
+        f"🟡 Fresh jokes pulled daily — no recycled internet stuff\n"
+        f"🟡 Subscribe and turn on notifications so you never miss a groan\n\n"
+        f"Got a joke? Drop it in the comments — best ones get featured.\n\n"
+        f"{base_tags} {topic}"
+    ).strip()
+
+    return {"tiktok": tiktok, "instagram": instagram, "youtube": youtube}
+
+
+def post_via_postforme(video_url: str, joke: dict, metadata: dict) -> tuple[str, list[str]]:
+    """Post the video to every connected social account via Post for Me with
+    a per-platform optimized caption.
 
     Returns (post_id, list_of_target_platforms). If the initial API call fails
     or no accounts are connected, returns ('', []) — caller should fall back
@@ -1082,9 +1170,15 @@ def post_via_postforme(video_url: str, caption: str, title: str) -> tuple[str, l
             return "", []
         log(f"  Connected platforms: {sorted(accounts.keys())}")
 
+        title = metadata.get("title", "") or f"Dad Joke Fix"
+        captions = _build_platform_captions(joke, title, metadata.get("topic_hashtags", ""))
+        # Default caption (used by any platform we don't have a tailored one for)
+        default_caption = captions["tiktok"]
+
         platform_configurations = {}
         if "tiktok" in accounts:
             platform_configurations["tiktok"] = {
+                "caption": captions["tiktok"],
                 "privacy_status": "public",
                 "allow_comment": True,
                 "allow_duet": True,
@@ -1093,11 +1187,13 @@ def post_via_postforme(video_url: str, caption: str, title: str) -> tuple[str, l
             }
         if "instagram" in accounts:
             platform_configurations["instagram"] = {
+                "caption": captions["instagram"],
                 "placement": "reels",
                 "share_to_feed": True,
             }
         if "youtube" in accounts:
             platform_configurations["youtube"] = {
+                "caption": captions["youtube"],
                 "title": title[:100],
                 "privacy_status": "public",
                 "made_for_kids": False,
@@ -1110,7 +1206,7 @@ def post_via_postforme(video_url: str, caption: str, title: str) -> tuple[str, l
                 "Content-Type": "application/json",
             },
             json={
-                "caption": caption,
+                "caption": default_caption,
                 "social_accounts": list(accounts.values()),
                 "media": [{"url": video_url}],
                 "platform_configurations": platform_configurations,
@@ -1256,12 +1352,21 @@ def main():
     # 7. Render final Short with intro/outro/captions
     from dad_video_renderer import render_dad_short, render_thumbnail
     short_path = os.path.join(output_dir, "dad_short.mp4")
+    # Optional: fetch a Pexels b-roll image keyed by Gemini's suggestion.
+    # Falls through silently if no key/no result/abstract joke (NONE).
+    broll_path = ""
+    broll_kw = (metadata.get("broll_keyword") or "").strip()
+    if broll_kw and broll_kw.upper() != "NONE":
+        candidate = os.path.join(output_dir, "broll.jpg")
+        broll_path = fetch_broll_image(broll_kw, candidate)
+
     render_dad_short(
         avatar_path=avatar_path,
         joke=joke,
         episode=episode,
         catchphrase=script_data["catchphrase"],
         outro_text=script_data.get("outro_text"),
+        broll_image_path=broll_path or None,
         output_path=short_path,
     )
 
@@ -1294,24 +1399,12 @@ def main():
     except Exception as e:
         log(f"  WARNING: Video repo upload / RSS update failed: {e}")
 
-    # 10. Auto-post to every connected platform via Post for Me.
-    # Fall back to a GitHub Issue notification only if the API call itself
-    # fails or no accounts are connected.
+    # 10. Auto-post to every connected platform via Post for Me with
+    # per-platform optimized captions. Fall back to a GitHub Issue
+    # notification only if the API call itself fails or no accounts
+    # are connected.
     if video_url:
-        # Joke-specific hashtags (from Gemini) sit alongside the standard set
-        # so the post can be discovered by topic searches as well as channel ones.
-        topic_tags = metadata.get("topic_hashtags", "") or ""
-        topic_hashtags = " ".join(
-            f"#{t.strip().replace(' ', '').replace('#', '')}"
-            for t in topic_tags.split(",")
-            if t.strip()
-        )
-        caption = (
-            f"{joke['setup']} {joke['punchline']} "
-            f"#dadjokes #dadjoke #dadjokefix #comedy #fyp #foryou #funny #jokes "
-            f"{topic_hashtags}"
-        ).strip()
-        post_id, targets = post_via_postforme(video_url, caption, metadata.get("title", ""))
+        post_id, targets = post_via_postforme(video_url, joke, metadata)
         if not post_id:
             notify_for_tiktok(video_url, joke, metadata, episode)
 

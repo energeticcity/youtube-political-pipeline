@@ -265,6 +265,54 @@ def render_hook_banner(output_path: str, text: str | None = None):
     img.save(output_path, "PNG")
 
 
+def _composite_broll_card(image_path: str, output_path: str):
+    """Open the b-roll image, scale + crop to 720x540, frame in a yellow border,
+    composite on a transparent canvas at the upper-third position. Drop shadow
+    for separation from background."""
+    card_w, card_h = 720, 540
+    border = 8
+    pos_x = (SHORT_W - card_w) // 2
+    pos_y = 380   # upper-third — well above Hank's face
+
+    canvas = Image.new("RGBA", (SHORT_W, SHORT_H), (0, 0, 0, 0))
+    src = Image.open(image_path).convert("RGB")
+    # Cover-fit the source into card_w x card_h
+    src_ratio = src.width / src.height
+    target_ratio = card_w / card_h
+    if src_ratio > target_ratio:
+        new_h = card_h
+        new_w = int(card_h * src_ratio)
+    else:
+        new_w = card_w
+        new_h = int(card_w / src_ratio)
+    src = src.resize((new_w, new_h), Image.LANCZOS)
+    crop_x = (new_w - card_w) // 2
+    crop_y = (new_h - card_h) // 2
+    src = src.crop((crop_x, crop_y, crop_x + card_w, crop_y + card_h))
+
+    # Drop shadow
+    shadow = Image.new("RGBA", (SHORT_W, SHORT_H), (0, 0, 0, 0))
+    shadow_draw = ImageDraw.Draw(shadow)
+    shadow_draw.rounded_rectangle(
+        [pos_x + 12, pos_y + 16, pos_x + card_w + 12, pos_y + card_h + 16],
+        radius=20, fill=(0, 0, 0, 140),
+    )
+    canvas = Image.alpha_composite(canvas, shadow)
+
+    # Yellow border behind the image
+    border_layer = Image.new("RGBA", (SHORT_W, SHORT_H), (0, 0, 0, 0))
+    border_draw = ImageDraw.Draw(border_layer)
+    border_draw.rounded_rectangle(
+        [pos_x - border, pos_y - border, pos_x + card_w + border, pos_y + card_h + border],
+        radius=22, fill=(*ACCENT_COLOR, 255),
+    )
+    canvas = Image.alpha_composite(canvas, border_layer)
+
+    # Paste image
+    canvas.paste(src, (pos_x, pos_y))
+    canvas.save(output_path, "PNG")
+
+
 def render_handle_watermark(output_path: str):
     """Small persistent @dadjokefix handle bottom-left — brand watermark that
     travels with screenshots and re-uploads."""
@@ -359,6 +407,7 @@ def render_dad_short(
     episode: int = 1,
     catchphrase: str = "",
     outro_text: str | None = None,
+    broll_image_path: str | None = None,
 ) -> str:
     """Compose avatar + captions + episode badge + comment-bait + rim-shot SFX + outro."""
     log("Rendering dad joke Short...")
@@ -391,6 +440,15 @@ def render_dad_short(
     flash_png = os.path.join(work_dir, "punch_flash.png")
     flash_img = Image.new("RGBA", (SHORT_W, SHORT_H), (*ACCENT_COLOR, 64))
     flash_img.save(flash_png, "PNG")
+
+    # B-roll image — placed in the upper third with a yellow border + drop shadow,
+    # shown for ~1.5s in the middle of the setup. Visual breakup of the talking
+    # head, helps short-form retention.
+    have_broll = broll_image_path and Path(broll_image_path).exists()
+    broll_card = None
+    if have_broll:
+        broll_card = os.path.join(work_dir, "broll_card.png")
+        _composite_broll_card(broll_image_path, broll_card)
 
     # Caption windows
     setup_show_until = setup_end + 0.1            # tiny overlap into pause for readability
@@ -449,6 +507,23 @@ def render_dad_short(
         f"[av_with_counter][6:v]overlay=0:0:enable='between(t,0.15,1.4)'[av_with_hook];"
         # Persistent @dadjokefix watermark for the entire video
         f"[av_with_hook][7:v]overlay=0:0[av_with_brand];"
+    )
+
+    # B-roll card overlay (input [9]) during the middle of the setup.
+    # Window: from (setup_end - 2.0) to (setup_end - 0.3) — plays for ~1.7s
+    # right before the punchline pause. Visual breakup of the talking head.
+    if have_broll:
+        broll_start = max(1.5, setup_end - 2.0)
+        broll_end = max(broll_start + 1.0, setup_end - 0.3)
+        filter_video += (
+            f"[av_with_brand][9:v]overlay=0:0"
+            f":enable='between(t,{broll_start:.3f},{broll_end:.3f})'[av_with_brand2];"
+        )
+        final_video_label = "av_with_brand2"
+    else:
+        final_video_label = "av_with_brand"
+
+    filter_video += (
         f"[1:v]scale={SHORT_W}:{SHORT_H},setsar=1,format=yuv420p[outro_v];"
     )
 
@@ -460,7 +535,9 @@ def render_dad_short(
     #   [7] = groan     (if rim shot + groan both present)
     #   [8] = laugh     (if all three present; otherwise index shifts)
     audio_layers = []
-    next_input = 9   # 0=avatar, 1=outro, 2=setup, 3=punch, 4=counter, 5=silent, 6=hook, 7=handle, 8=flash
+    # 0=avatar, 1=outro, 2=setup, 3=punch, 4=counter, 5=silent, 6=hook,
+    # 7=handle, 8=flash, [9=broll if present], audio inputs start after.
+    next_input = 10 if have_broll else 9
     if have_rimshot:
         audio_layers.append((next_input, rimshot_at_ms, 0.45, "rim"))
         next_input += 1
@@ -497,7 +574,7 @@ def render_dad_short(
     filter_complex = (
         filter_video
         + filter_audio
-        + "[av_with_brand][av_a][outro_v][5:a]concat=n=2:v=1:a=1[outv][outa]"
+        + f"[{final_video_label}][av_a][outro_v][5:a]concat=n=2:v=1:a=1[outv][outa]"
     )
 
     cmd = [
@@ -513,6 +590,8 @@ def render_dad_short(
         "-i", handle_png,      # [7]
         "-i", flash_png,       # [8]
     ]
+    if have_broll:
+        cmd += ["-i", broll_card]   # [9]
     if have_rimshot:
         cmd += ["-i", str(RIMSHOT_PATH)]
     if have_groan:

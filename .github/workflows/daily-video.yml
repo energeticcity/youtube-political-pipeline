@@ -52,6 +52,7 @@ jobs:
           ELEVENLABS_MODEL_ID: ${{ secrets.ELEVENLABS_MODEL_ID }}
           POSTFORME_API_KEY: ${{ secrets.POSTFORME_API_KEY }}
           POSTFORME_TIKTOK_ACCOUNT_ID: ${{ secrets.POSTFORME_TIKTOK_ACCOUNT_ID }}
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
           YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}

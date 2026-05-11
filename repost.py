@@ -37,7 +37,12 @@ def main():
     log(f"  Title: {title}")
     log(f"  Caption: {caption[:120]}{'...' if len(caption) > 120 else ''}")
 
-    post_id, targets = post_via_postforme(video_url, caption, title)
+    # Reuse the multi-platform poster by faking a minimal joke + metadata
+    # dict — repost is for ad-hoc backfills where the user supplies caption
+    # text directly, so we put it in setup and leave punchline blank.
+    fake_joke = {"setup": caption, "punchline": ""}
+    fake_metadata = {"title": title, "topic_hashtags": ""}
+    post_id, targets = post_via_postforme(video_url, fake_joke, fake_metadata)
     if post_id:
         log(f"SUCCESS: queued to {targets} (post_id={post_id})")
     else:
