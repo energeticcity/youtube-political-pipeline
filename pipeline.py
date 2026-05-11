@@ -1249,7 +1249,50 @@ def _find_social_accounts() -> dict[str, str]:
     return result
 
 
-def _build_platform_captions(joke: dict, title: str, topic_hashtags: str) -> dict:
+# Always-on tags split into pools so we can vary which variant ships per post.
+# Brand tags rotate ORDER (3 brand tags shuffled). AI tags pick 2 of 4 each post.
+_BRAND_TAGS = ["#dadjokes", "#dadjoke", "#dadjokefix"]
+_AI_TAGS_POOL = ["#aigenerated", "#aicontent", "#aicomedy", "#aiavatar", "#syntheticmedia"]
+
+# 20 rotating hashtag sets — picked deterministically by episode number so no
+# duplicate set appears within 20 consecutive posts. Repeating the exact same
+# hashtag set daily is a documented spam signal in 2026 algorithms.
+# Each set is 3-4 tags from the niche/mid/broad tier mix per research.
+HASHTAG_SETS = [
+    ["#cleancomedy", "#comedyclips", "#fyp"],
+    ["#punsday", "#groanworthy", "#shortcomedy", "#foryou"],
+    ["#cornyjokes", "#wordplay", "#dadhumor", "#shorts"],
+    ["#punny", "#lameanddumbjokes", "#comedyshort", "#fyp"],
+    ["#onelinerjoke", "#cleancomedy", "#humor", "#foryoupage"],
+    ["#cheesyjokes", "#punsday", "#funnyclips", "#fyp"],
+    ["#wordplay", "#cornyjokes", "#funnyvideos", "#shorts"],
+    ["#dadhumor", "#cleancomedy", "#standupcomedy", "#fyp"],
+    ["#groanworthy", "#punny", "#funnyclips", "#foryou"],
+    ["#cornyjokes", "#shortcomedy", "#lol", "#shorts"],
+    ["#dadhumor", "#punsday", "#cleancomedy", "#fyp"],
+    ["#cleanjokes", "#funnyvideos", "#humor", "#foryoupage"],
+    ["#punny", "#dadhumor", "#comedyshort", "#fyp"],
+    ["#onelinerjoke", "#cornyjokes", "#funnyclips", "#shorts"],
+    ["#groanworthy", "#cleancomedy", "#lol", "#foryou"],
+    ["#cheesyjokes", "#wordplay", "#shortcomedy", "#fyp"],
+    ["#punsday", "#dadhumor", "#funnyvideos", "#foryoupage"],
+    ["#cornyjokes", "#punny", "#standupcomedy", "#shorts"],
+    ["#cleanjokes", "#onelinerjoke", "#humor", "#fyp"],
+    ["#wordplay", "#groanworthy", "#funnyclips", "#foryou"],
+]
+
+
+def _rotated_hashtags(episode: int) -> str:
+    """Build the per-post hashtag string. Brand tags rotate order, AI tags pick
+    2 of the pool, niche+broad set is determined by episode % 20 (no repeats
+    within 20 posts). Detection-resistant on purpose."""
+    rotating = HASHTAG_SETS[episode % len(HASHTAG_SETS)]
+    brand = random.sample(_BRAND_TAGS, len(_BRAND_TAGS))
+    ai = random.sample(_AI_TAGS_POOL, 2)
+    return " ".join(brand + ai + rotating)
+
+
+def _build_platform_captions(joke: dict, title: str, topic_hashtags: str, episode: int = 0) -> dict:
     """Per-platform caption variants. Each platform rewards different formats:
     - TikTok: short + hashtag-heavy, comment bait first
     - Instagram: medium with line breaks, fewer hashtags up top
@@ -1259,11 +1302,12 @@ def _build_platform_captions(joke: dict, title: str, topic_hashtags: str) -> dic
     *undisclosed* AI content heavily (TikTok: documented 73% reach drop when
     detected). Disclosed AI is not penalized — and TikTok's API is_ai_generated
     flag is also set on every post for the same reason.
+
+    Hashtag sets rotate per episode to dodge spam-pattern detection.
     """
     setup = joke["setup"]
     punch = joke["punchline"]
-    base_tags = "#dadjokes #dadjoke #dadjokefix #comedy #fyp #foryou #funny #jokes"
-    ai_tags = "#aigenerated #aicontent"
+    rotated_tags = _rotated_hashtags(episode)
     topic = " ".join(
         f"#{t.strip().replace(' ', '').replace('#', '')}"
         for t in (topic_hashtags or "").split(",")
@@ -1274,7 +1318,7 @@ def _build_platform_captions(joke: dict, title: str, topic_hashtags: str) -> dic
     tiktok = (
         f"{setup} {punch} 👇 rate it 1-10 in comments\n\n"
         f"🤖 AI-generated dad (Hank) — fresh joke daily\n\n"
-        f"{base_tags} {ai_tags} {topic}"
+        f"{rotated_tags} {topic}"
     ).strip()
 
     # Instagram: more breathing room, story-style, fewer up-top hashtags
@@ -1285,7 +1329,7 @@ def _build_platform_captions(joke: dict, title: str, topic_hashtags: str) -> dic
         f"Follow @dadjokefix for two dad jokes a day.\n\n"
         f"🤖 Hank is an AI character. Voice, face and animation are all generated.\n"
         f".\n.\n.\n"
-        f"{base_tags} {ai_tags} {topic}"
+        f"{rotated_tags} {topic}"
     ).strip()
 
     # YouTube: long description for SEO, includes the joke + channel pitch
@@ -1303,7 +1347,7 @@ def _build_platform_captions(joke: dict, title: str, topic_hashtags: str) -> dic
         f"🟡 Fresh jokes pulled daily — no recycled internet stuff\n"
         f"🟡 Subscribe and turn on notifications so you never miss a groan\n\n"
         f"Got a joke? Drop it in the comments — best ones get featured.\n\n"
-        f"{base_tags} {ai_tags} {topic}"
+        f"{rotated_tags} {topic}"
     ).strip()
 
     return {"tiktok": tiktok, "instagram": instagram, "youtube": youtube}
@@ -1568,6 +1612,7 @@ def main():
         joke,
         metadata.get("title", "") or "Dad Joke Fix",
         metadata.get("topic_hashtags", ""),
+        episode=episode,
     )
     metadata_with_episode = {**metadata, "episode": episode}
 
