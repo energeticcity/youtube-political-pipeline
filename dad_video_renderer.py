@@ -119,37 +119,37 @@ def draw_text_block(
     return cur_y
 
 
-def render_outro_card(output_path: str):
+def render_outro_card(output_path: str, cta_text: str | None = None):
+    """Render the 1.0s end card. Auto-wraps long CTAs across 2-3 lines.
+    Always shows @dadjokefix below the CTA for brand."""
     img = Image.new("RGB", (SHORT_W, SHORT_H), BG_COLOR)
     draw = ImageDraw.Draw(img)
 
-    title_font = find_font(150, "ExtraBold")
-    sub_font = find_font(85, "Bold")
-    handle_font = find_font(60, "SemiBold")
+    cta_text = (cta_text or "FOLLOW for daily groans").upper()
+    cta_font = find_font(115, "ExtraBold")
+    handle_font = find_font(65, "SemiBold")
 
-    draw_text_block(
-        draw, "FOLLOW",
-        font=title_font,
-        box=(60, SHORT_H // 2 - 320, SHORT_W - 120, 180),
-        fill=ACCENT_COLOR,
-    )
-    draw_text_block(
-        draw, "for 2 dad jokes",
-        font=sub_font,
-        box=(60, SHORT_H // 2 - 100, SHORT_W - 120, 110),
-        fill=TEXT_COLOR,
-    )
-    draw_text_block(
-        draw, "every day",
-        font=sub_font,
-        box=(60, SHORT_H // 2 + 40, SHORT_W - 120, 110),
-        fill=TEXT_COLOR,
-    )
+    # Wrap CTA so long ones (e.g. "RATE THAT JOKE / 1-10") fit cleanly
+    inner_w = SHORT_W - 120
+    lines = wrap_text(draw, cta_text, cta_font, inner_w)
+    line_h = int(cta_font.size * 1.1)
+    total_h = line_h * len(lines)
+
+    cur_y = (SHORT_H - total_h) // 2 - 80
+    for line in lines:
+        draw_text_block(
+            draw, line,
+            font=cta_font,
+            box=(60, cur_y, inner_w, line_h),
+            fill=ACCENT_COLOR,
+        )
+        cur_y += line_h
+
     draw_text_block(
         draw, "@dadjokefix",
         font=handle_font,
-        box=(60, SHORT_H // 2 + 220, SHORT_W - 120, 80),
-        fill=ACCENT_COLOR,
+        box=(60, cur_y + 40, inner_w, 80),
+        fill=TEXT_COLOR,
     )
 
     img.save(output_path, "PNG")
@@ -214,12 +214,28 @@ def render_caption_overlay(text: str, output_path: str, style: str = "setup"):
     img.save(output_path, "PNG")
 
 
-def render_hook_banner(output_path: str):
-    """First-1.2-second attention grabber. Bright pill-shape banner with hook text."""
+HOOK_BANNERS = [
+    "WAIT FOR IT",
+    "BRACE YOURSELF",
+    "DAD JOKE INCOMING",
+    "TRY NOT TO GROAN",
+    "THIS GOT ME",
+    "GET READY",
+    "LISTEN UP",
+    "HEAR ME OUT",
+    "WORTH THE WAIT",
+]
+
+
+def render_hook_banner(output_path: str, text: str | None = None):
+    """First-1.2-second attention grabber. Bright pill-shape banner with hook text.
+    Picks a random text from HOOK_BANNERS if not specified — variety across runs
+    helps the algorithm: same viewers don't see identical openers twice."""
+    import random
     img = Image.new("RGBA", (SHORT_W, SHORT_H), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
 
-    text = "WAIT FOR IT"
+    text = text or random.choice(HOOK_BANNERS)
     font = find_font(80, "ExtraBold")
     bbox = draw.textbbox((0, 0), text, font=font)
     text_w = bbox[2] - bbox[0]
@@ -342,6 +358,7 @@ def render_dad_short(
     output_path: str,
     episode: int = 1,
     catchphrase: str = "",
+    outro_text: str | None = None,
 ) -> str:
     """Compose avatar + captions + episode badge + comment-bait + rim-shot SFX + outro."""
     log("Rendering dad joke Short...")
@@ -364,12 +381,16 @@ def render_dad_short(
     hook_png = os.path.join(work_dir, "hook_banner.png")
     handle_png = os.path.join(work_dir, "handle_watermark.png")
 
-    render_outro_card(outro_png)
+    render_outro_card(outro_png, cta_text=outro_text)
     render_caption_overlay(joke["setup"], setup_png, style="setup")
     render_caption_overlay(joke["punchline"], punch_png, style="punchline")
     render_episode_counter_overlay(episode, counter_png)
     render_hook_banner(hook_png)
     render_handle_watermark(handle_png)
+    # Punchline flash overlay — full-screen yellow tint at 25% alpha for 150ms
+    flash_png = os.path.join(work_dir, "punch_flash.png")
+    flash_img = Image.new("RGBA", (SHORT_W, SHORT_H), (*ACCENT_COLOR, 64))
+    flash_img.save(flash_png, "PNG")
 
     # Caption windows
     setup_show_until = setup_end + 0.1            # tiny overlap into pause for readability
@@ -395,9 +416,10 @@ def render_dad_short(
     #  [3] punchline caption PNG
     #  [4] episode counter PNG
     #  [5] silent audio for outro
-    #  [6] hook banner PNG ("WAIT FOR IT", first ~1.2s)
-    #  [7] handle watermark PNG (@dadjokefix, persistent)
-    #  [8+] reaction SFX (rim/groan/laugh) — indices shift based on what exists
+    #  [6] hook banner PNG (first ~1.2s)
+    #  [7] handle watermark PNG (persistent)
+    #  [8] punchline flash PNG (yellow tint, 150ms at punchline reveal)
+    #  [9+] reaction SFX (rim/groan/laugh/ambient) — indices shift based on what exists
     #
     # Full-screen avatar: HeyGen returns a square ~1024x1024 video. Scale to
     # 1920 height (becomes 1920x1920 since aspect-preserved), then crop the
@@ -418,7 +440,10 @@ def render_dad_short(
         f":h=-2:eval=frame,"
         f"crop={SHORT_W}:{SHORT_H},setsar=1,format=yuv420p[av_kb];"
         f"[av_kb][2:v]overlay=0:0:enable='between(t,0,{setup_show_until:.3f})'[av1];"
-        f"[av1][3:v]overlay=0:0:enable='between(t,{punch_show_from:.3f},{avatar_dur:.3f})'[av2];"
+        # Punchline yellow flash — 150ms at the moment the joke lands.
+        # Goes BEHIND the punchline caption so the text reads cleanly.
+        f"[av1][8:v]overlay=0:0:enable='between(t,{punch_show_from:.3f},{punch_show_from + 0.15:.3f})'[av_flash];"
+        f"[av_flash][3:v]overlay=0:0:enable='between(t,{punch_show_from:.3f},{avatar_dur:.3f})'[av2];"
         f"[av2][4:v]overlay=0:0[av_with_counter];"
         # Hook banner — first 1.4s only, kicks the FYP scroll
         f"[av_with_counter][6:v]overlay=0:0:enable='between(t,0.15,1.4)'[av_with_hook];"
@@ -435,7 +460,7 @@ def render_dad_short(
     #   [7] = groan     (if rim shot + groan both present)
     #   [8] = laugh     (if all three present; otherwise index shifts)
     audio_layers = []
-    next_input = 8   # 0=avatar, 1=outro, 2=setup, 3=punch, 4=counter, 5=silent, 6=hook, 7=handle
+    next_input = 9   # 0=avatar, 1=outro, 2=setup, 3=punch, 4=counter, 5=silent, 6=hook, 7=handle, 8=flash
     if have_rimshot:
         audio_layers.append((next_input, rimshot_at_ms, 0.45, "rim"))
         next_input += 1
@@ -486,6 +511,7 @@ def render_dad_short(
         "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
         "-i", hook_png,        # [6]
         "-i", handle_png,      # [7]
+        "-i", flash_png,       # [8]
     ]
     if have_rimshot:
         cmd += ["-i", str(RIMSHOT_PATH)]

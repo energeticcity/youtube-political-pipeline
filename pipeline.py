@@ -199,6 +199,20 @@ CATCHPHRASES = [
 ]
 
 
+# CTAs rotate per video — comment-bait variants outperform "Follow for more"
+# by 5-10x on engagement signals. All variants are similar length so timing
+# estimates stay accurate. (spoken_cta, outro_card_text) pairs.
+CTA_VARIANTS = [
+    ("Drop a groan emoji if I got you!",  "DROP A 🫥 IF I GOT YOU"),
+    ("Tag someone with worse jokes!",     "TAG SOMEONE WITH WORSE JOKES"),
+    ("Rate that one to ten in comments!", "RATE THAT JOKE / 1-10"),
+    ("Comment your guess if you saw it!", "DID YOU SEE IT COMING?"),
+    ("Hit follow for more dad jokes!",    "FOLLOW for daily groans"),
+    ("Send this to a dad you know!",      "SEND THIS TO A DAD"),
+    ("How bad was that — drop a number!", "HOW BAD WAS THAT? 1-10 👇"),
+]
+
+
 def write_script(joke: dict, episode: int, segment: dict) -> dict:
     """Short, snappy script: hook → setup → tight pause → punchline → one-word CTA.
 
@@ -215,15 +229,12 @@ def write_script(joke: dict, episode: int, segment: dict) -> dict:
 
     # Use the segment hook 70% of the time (brand reinforcement), random hook 30% (variety)
     catchphrase = segment["hook"] if random.random() < 0.7 else random.choice(CATCHPHRASES)
+    spoken_cta, outro_text = random.choice(CTA_VARIANTS)
 
     # Em dash + ellipses give ElevenLabs natural prosody (rising tone, pauses).
     # Inline [tags] are ElevenLabs v3 expression markers — the model interprets
     # them as delivery direction. They're invisible on older models because we
     # strip them in generate_tts() if the model isn't v3.
-    #
-    # The mix of pauses and breaths between sections is what gives it a real
-    # human cadence — the model adds tiny inhales between lines instead of
-    # robotic dead-silence.
     script = (
         f"[cheerful] {catchphrase} "
         f"[short pause] — "
@@ -231,7 +242,7 @@ def write_script(joke: dict, episode: int, segment: dict) -> dict:
         f"[pauses, smirking] ... "
         f"[grinning] {punchline} "
         f"[chuckles softly] ... "
-        f"[warmly] Follow for more!"
+        f"[warmly] {spoken_cta}"
     )
     return {
         "script": script,
@@ -240,6 +251,8 @@ def write_script(joke: dict, episode: int, segment: dict) -> dict:
         "catchphrase": catchphrase,
         "episode": episode,
         "segment": segment,
+        "spoken_cta": spoken_cta,
+        "outro_text": outro_text,
     }
 
 
@@ -270,7 +283,7 @@ def _template_metadata(joke: dict, episode: int, segment: dict) -> dict:
     candidates = [w.strip("?.!,").upper() for w in words if w.lower() not in stopwords and w.strip("?.!,").isalpha()]
     thumb = " ".join(candidates[:2]) if len(candidates) >= 2 else "DAD JOKE"
 
-    return {"title": title, "description": description, "tags": tags, "thumb_text": thumb}
+    return {"title": title, "description": description, "tags": tags, "thumb_text": thumb, "topic_hashtags": ""}
 
 
 def generate_metadata(joke: dict, episode: int, segment: dict) -> dict:
@@ -293,14 +306,16 @@ Respond ONLY:
 <TITLE>[under 60 chars]</TITLE>
 <DESCRIPTION>[joke + cta + hashtags]</DESCRIPTION>
 <TAGS>[comma-separated tags]</TAGS>
-<THUMB>[2-3 ALL CAPS words]</THUMB>""",
-            max_tokens=600,
+<THUMB>[2-3 ALL CAPS words]</THUMB>
+<TOPICHASHTAGS>[3-5 lowercase hashtags specific to the joke topic, no #, comma-separated, e.g. "watermelon,fruit,cantaloupe" or "bees,wedding,honeymoon"]</TOPICHASHTAGS>""",
+            max_tokens=700,
         )
         meta = {
             "title": extract_tag(result, "TITLE"),
             "description": extract_tag(result, "DESCRIPTION"),
             "tags": extract_tag(result, "TAGS"),
             "thumb_text": extract_tag(result, "THUMB"),
+            "topic_hashtags": extract_tag(result, "TOPICHASHTAGS"),
         }
         # Guard against empty LLM output — fall back to template if any field is blank
         if not all(meta.values()):
@@ -1232,6 +1247,7 @@ def main():
         joke=joke,
         episode=episode,
         catchphrase=script_data["catchphrase"],
+        outro_text=script_data.get("outro_text"),
         output_path=short_path,
     )
 
@@ -1268,10 +1284,19 @@ def main():
     # Fall back to a GitHub Issue notification only if the API call itself
     # fails or no accounts are connected.
     if video_url:
+        # Joke-specific hashtags (from Gemini) sit alongside the standard set
+        # so the post can be discovered by topic searches as well as channel ones.
+        topic_tags = metadata.get("topic_hashtags", "") or ""
+        topic_hashtags = " ".join(
+            f"#{t.strip().replace(' ', '').replace('#', '')}"
+            for t in topic_tags.split(",")
+            if t.strip()
+        )
         caption = (
             f"{joke['setup']} {joke['punchline']} "
-            f"#dadjokes #dadjoke #dadjokefix #comedy #fyp #foryou #funny #jokes"
-        )
+            f"#dadjokes #dadjoke #dadjokefix #comedy #fyp #foryou #funny #jokes "
+            f"{topic_hashtags}"
+        ).strip()
         post_id, targets = post_via_postforme(video_url, caption, metadata.get("title", ""))
         if not post_id:
             notify_for_tiktok(video_url, joke, metadata, episode)
