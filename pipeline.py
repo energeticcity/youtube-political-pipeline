@@ -115,38 +115,76 @@ def split_joke(joke_text: str) -> tuple[str, str]:
     return text, ""
 
 
-def fetch_dad_joke() -> dict:
-    """Pull a clean joke from icanhazdadjoke.com; Gemini fallback if needed."""
-    log("Fetching dad joke from icanhazdadjoke.com...")
+JOKE_MIN_QUALITY = int(os.environ.get("JOKE_MIN_QUALITY", "7"))
+JOKE_MAX_FETCH_ATTEMPTS = 6
 
+
+def rate_joke_quality(joke: dict) -> int:
+    """Score a joke 1-10 via Gemini. Returns 7 (acceptable) on any failure
+    so a Gemini outage never blocks the pipeline."""
+    try:
+        result = call_llm(
+            system="You rate dad jokes from 1 to 10. 1 = incomprehensible / not actually a joke. 5 = mediocre setup-punchline that lands but barely. 7 = solid groan-worthy dad joke. 10 = genuinely clever pun that makes you smile despite yourself. Output ONLY a single integer 1-10, no other text.",
+            user_message=f"Setup: {joke['setup']}\nPunchline: {joke['punchline']}",
+            max_tokens=10,
+        )
+        m = re.search(r"\b(10|[1-9])\b", result)
+        return int(m.group(1)) if m else 7
+    except Exception as e:
+        log(f"  Joke quality rating failed ({e}); accepting joke")
+        return 7
+
+
+def _fetch_one_dad_joke_raw() -> dict | None:
+    """Single-attempt fetch from icanhazdadjoke. Returns None if no clean joke
+    could be split (NOT a Gemini fallback — caller decides retry policy)."""
     headers = {
         "Accept": "application/json",
         "User-Agent": "DadJokeFix (https://github.com/energeticcity/youtube-political-pipeline)",
     }
+    try:
+        resp = requests.get(
+            "https://icanhazdadjoke.com/", headers=headers, timeout=15,
+        )
+        resp.raise_for_status()
+        joke_text = (resp.json().get("joke") or "").strip()
+        if not joke_text or len(joke_text) > 280:
+            return None
+        if any(bad in joke_text.lower() for bad in JOKE_BLOCKLIST):
+            return None
+        setup, punchline = split_joke(joke_text)
+        if setup and punchline:
+            return {"setup": setup, "punchline": punchline, "source": "icanhazdadjoke"}
+    except Exception as e:
+        log(f"  icanhazdadjoke single-fetch failed: {e}")
+    return None
 
-    for attempt in range(5):
-        try:
-            resp = requests.get(
-                "https://icanhazdadjoke.com/",
-                headers=headers,
-                timeout=15,
-            )
-            resp.raise_for_status()
-            joke_text = (resp.json().get("joke") or "").strip()
 
-            if not joke_text or len(joke_text) > 280:
-                continue
-            if any(bad in joke_text.lower() for bad in JOKE_BLOCKLIST):
-                continue
+def fetch_dad_joke() -> dict:
+    """Pull a clean joke from icanhazdadjoke.com; reject low-quality candidates
+    using a Gemini quality rating. Falls back to a Gemini-generated joke if
+    after JOKE_MAX_FETCH_ATTEMPTS we can't find one rated >= JOKE_MIN_QUALITY."""
+    log(f"Fetching dad joke (min quality {JOKE_MIN_QUALITY}/10)...")
 
-            setup, punchline = split_joke(joke_text)
-            if setup and punchline:
-                log(f"  Picked joke from icanhazdadjoke (attempt {attempt + 1})")
-                return {"setup": setup, "punchline": punchline, "source": "icanhazdadjoke"}
-        except Exception as e:
-            log(f"  icanhazdadjoke attempt {attempt + 1} failed: {e}")
+    best: tuple[int, dict] | None = None  # (rating, joke) for fallback if nothing >= min
+    for attempt in range(JOKE_MAX_FETCH_ATTEMPTS):
+        joke = _fetch_one_dad_joke_raw()
+        if not joke:
+            continue
+        rating = rate_joke_quality(joke)
+        log(f"  Attempt {attempt + 1}: '{joke['setup'][:50]}...' rated {rating}/10")
+        if rating >= JOKE_MIN_QUALITY:
+            return joke
+        if best is None or rating > best[0]:
+            best = (rating, joke)
 
-    log("  No cleanly-splittable joke found, falling back to Gemini")
+    # No joke met the threshold — use the best of what we saw rather than
+    # falling all the way to Gemini if we have something usable.
+    if best and best[0] >= 5:
+        log(f"  No joke >= {JOKE_MIN_QUALITY}; using best candidate (rated {best[0]})")
+        return best[1]
+
+    log("  All candidates too weak; falling back to Gemini")
     result = call_llm(
         system="You are a dad telling clean, family-friendly dad jokes. Output ONLY the requested format.",
         user_message="""Write one original dad joke. The setup should end with a question or "...". The punchline must be a groan-worthy pun. Keep both lines short.
@@ -403,6 +441,8 @@ HEYGEN_COST_PER_VIDEO = 0.50      # USD with Avatar IV enabled
 
 def get_and_increment_state() -> dict:
     """Read state.json from the repo, increment episode + monthly counters, push back.
+    Also CLEARS next_joke (the consumer in main() already grabbed it via
+    _read_state_raw before this is called).
     Returns the full state dict including {episode, month, monthly_count, warned_80}."""
     if not GITHUB_TOKEN:
         log("State counter skipped (no GITHUB_TOKEN); using fallback")
@@ -440,6 +480,8 @@ def get_and_increment_state() -> dict:
 
     state["episode"] = int(state.get("episode", 0)) + 1
     state["monthly_count"] = int(state.get("monthly_count", 0)) + 1
+    # Clear consumed pre-fetched joke (main() already pulled it via _read_state_raw)
+    state.pop("next_joke", None)
 
     log(f"  Episode #{state['episode']} | This month: {state['monthly_count']}/{HEYGEN_MONTHLY_BUDGET_VIDEOS} "
         f"(~${state['monthly_count'] * HEYGEN_COST_PER_VIDEO:.2f} of $25 HeyGen budget)")
@@ -517,6 +559,66 @@ def _create_budget_issue(title: str, body: str):
         )
     except Exception as e:
         log(f"  WARNING: budget alert issue failed: {e}")
+
+
+def _read_state_raw() -> dict:
+    """Best-effort read of state.json from the repo. Returns empty dict on failure
+    rather than raising — callers handle missing keys gracefully."""
+    if not GITHUB_TOKEN:
+        return {}
+    try:
+        resp = requests.get(
+            f"https://api.github.com/repos/{GITHUB_REPO}/contents/state.json",
+            headers={
+                "Authorization": f"token {GITHUB_TOKEN}",
+                "Accept": "application/vnd.github+json",
+            },
+            timeout=15,
+        )
+        if resp.status_code != 200:
+            return {}
+        return json.loads(base64.b64decode(resp.json()["content"]).decode("utf-8"))
+    except Exception:
+        return {}
+
+
+def save_next_joke_to_state(next_joke: dict):
+    """Persist tomorrow's pre-fetched joke into state.json so the next run picks
+    it up instead of fetching fresh. Merges with existing state — does NOT
+    touch episode/monthly_count fields."""
+    if not GITHUB_TOKEN:
+        return
+    state = _read_state_raw()
+    state["next_joke"] = {
+        "setup": next_joke.get("setup", ""),
+        "punchline": next_joke.get("punchline", ""),
+        "source": next_joke.get("source", ""),
+    }
+    _save_state(state)
+
+
+# Common stopwords to filter out when picking a tease keyword from a setup
+_TEASE_STOPWORDS = {
+    "the", "a", "an", "is", "was", "were", "are", "and", "or", "but", "of",
+    "to", "for", "in", "on", "at", "with", "you", "your", "my", "his", "her",
+    "it", "its", "they", "their", "what", "why", "where", "when", "who", "how",
+    "did", "do", "does", "i", "me", "we", "be", "been", "have", "has", "had",
+    "this", "that", "these", "those", "so", "if", "because",
+}
+
+
+def _extract_tease_keyword(joke: dict) -> str:
+    """Pick one short noun-ish word from the setup to tease in the outro.
+    Naive: longest non-stopword that's letters-only. Empty string if nothing
+    decent — outro just won't show the tease line in that case."""
+    if not joke or not joke.get("setup"):
+        return ""
+    words = re.findall(r"[A-Za-z]{4,}", joke["setup"])
+    candidates = [w for w in words if w.lower() not in _TEASE_STOPWORDS]
+    if not candidates:
+        return ""
+    # Prefer the longest (more concrete/distinctive)
+    return max(candidates, key=len).lower()
 
 
 def _save_state(state: dict):
@@ -1349,12 +1451,26 @@ def main():
     from datetime import datetime, timezone
     tag = datetime.now(timezone.utc).strftime("v%Y%m%d-%H%M")
 
-    # 1. Joke
-    joke = fetch_dad_joke()
+    # 1. Today's joke — use the one pre-fetched at the END of last run (if any),
+    # otherwise fetch fresh. Then pre-fetch ONE more for next run so we can
+    # tease its topic in this video's outro card.
+    state_blob = _read_state_raw()
+    pending = state_blob.get("next_joke") if state_blob else None
+    if pending and pending.get("setup") and pending.get("punchline"):
+        joke = pending
+        log("  Using pre-fetched joke from previous run")
+    else:
+        joke = fetch_dad_joke()
     if not joke.get("setup") or not joke.get("punchline"):
         raise RuntimeError(f"Failed to get a usable joke: {joke}")
     log(f"  Setup:     {joke['setup']}")
     log(f"  Punchline: {joke['punchline']}")
+
+    # Pre-fetch tomorrow's joke (so this video's outro can tease its topic)
+    log("Pre-fetching next run's joke for outro tease...")
+    next_joke = fetch_dad_joke()
+    next_keyword = _extract_tease_keyword(next_joke)
+    log(f"  Next joke teaser keyword: {next_keyword or '(none)'}")
 
     # 2. Episode counter + monthly HeyGen budget tracking + today's segment
     state = get_and_increment_state()
@@ -1410,6 +1526,8 @@ def main():
         catchphrase=script_data["catchphrase"],
         outro_text=script_data.get("outro_text"),
         broll_image_path=broll_path or None,
+        segment_name=segment.get("name"),
+        next_joke_tease=next_keyword or None,
         output_path=short_path,
     )
 
@@ -1462,6 +1580,9 @@ def main():
         post_id, targets = post_via_postforme(video_url, joke, metadata, captions)
         if not post_id:
             notify_for_tiktok(video_url, joke, metadata, episode)
+
+    # 11. Persist next run's pre-fetched joke so it doesn't get re-fetched.
+    save_next_joke_to_state(next_joke)
 
     log("=" * 60)
     log("Pipeline complete!")

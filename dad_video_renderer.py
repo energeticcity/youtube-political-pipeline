@@ -119,23 +119,24 @@ def draw_text_block(
     return cur_y
 
 
-def render_outro_card(output_path: str, cta_text: str | None = None):
+def render_outro_card(output_path: str, cta_text: str | None = None, next_joke_tease: str | None = None):
     """Render the 1.0s end card. Auto-wraps long CTAs across 2-3 lines.
-    Always shows @dadjokefix below the CTA for brand."""
+    Always shows @dadjokefix below the CTA for brand. Optionally appends a
+    "TOMORROW: a joke about X" tease at the bottom to drive return visits."""
     img = Image.new("RGB", (SHORT_W, SHORT_H), BG_COLOR)
     draw = ImageDraw.Draw(img)
 
     cta_text = (cta_text or "FOLLOW for daily groans").upper()
     cta_font = find_font(115, "ExtraBold")
     handle_font = find_font(65, "SemiBold")
+    tease_font = find_font(46, "Bold")
 
-    # Wrap CTA so long ones (e.g. "RATE THAT JOKE / 1-10") fit cleanly
     inner_w = SHORT_W - 120
     lines = wrap_text(draw, cta_text, cta_font, inner_w)
     line_h = int(cta_font.size * 1.1)
     total_h = line_h * len(lines)
 
-    cur_y = (SHORT_H - total_h) // 2 - 80
+    cur_y = (SHORT_H - total_h) // 2 - 140
     for line in lines:
         draw_text_block(
             draw, line,
@@ -151,6 +152,20 @@ def render_outro_card(output_path: str, cta_text: str | None = None):
         box=(60, cur_y + 40, inner_w, 80),
         fill=TEXT_COLOR,
     )
+
+    if next_joke_tease:
+        tease_text = f"NEXT: a joke about {next_joke_tease.upper()}"
+        # Wrap if very long
+        tease_lines = wrap_text(draw, tease_text, tease_font, inner_w)
+        tease_y = cur_y + 200
+        for line in tease_lines:
+            draw_text_block(
+                draw, line,
+                font=tease_font,
+                box=(60, tease_y, inner_w, 60),
+                fill=ACCENT_COLOR,
+            )
+            tease_y += 60
 
     img.save(output_path, "PNG")
     log(f"  Outro card: {output_path}")
@@ -226,16 +241,34 @@ HOOK_BANNERS = [
     "WORTH THE WAIT",
 ]
 
+# Segment-themed hook variants. Picked 60% of the time for that day, generic
+# 40% for variety. Keeps the brand recognizable per day-of-week.
+SEGMENT_HOOKS = {
+    "Monday Morning Groans": ["MONDAY GROAN INBOUND", "COFFEE BREAK GROAN", "RISE AND GROAN"],
+    "Punsday Tuesday":       ["PUN INCOMING", "BRACE FOR PUN", "PUNSDAY DELIVERY"],
+    "Midweek Dad Joke":      ["MIDWEEK GROAN", "HUMP-DAY JOKE", "WEDNESDAY WORTHY"],
+    "Throwback Thursday":    ["THROWBACK GROAN", "OLDIE BUT GROANER", "VINTAGE DAD JOKE"],
+    "Joke Court Friday":     ["CASE OPEN", "ALL RISE", "FRIDAY VERDICT"],
+    "Weekend Wild Card":     ["WEEKEND GROAN", "WILD CARD JOKE", "BUCKLE UP"],
+    "Sunday Funday":         ["SUNDAY GROAN", "LAZY SUNDAY JOKE", "SUNDAY SCROLL"],
+}
 
-def render_hook_banner(output_path: str, text: str | None = None):
+
+def render_hook_banner(output_path: str, text: str | None = None, segment_name: str | None = None):
     """First-1.2-second attention grabber. Bright pill-shape banner with hook text.
-    Picks a random text from HOOK_BANNERS if not specified — variety across runs
-    helps the algorithm: same viewers don't see identical openers twice."""
+    Picks a random text from HOOK_BANNERS or the segment-specific list if a
+    segment is given — variety across runs helps the algorithm: same viewers
+    don't see identical openers twice."""
     import random
     img = Image.new("RGBA", (SHORT_W, SHORT_H), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
 
-    text = text or random.choice(HOOK_BANNERS)
+    if not text:
+        seg_hooks = SEGMENT_HOOKS.get(segment_name or "", [])
+        if seg_hooks and random.random() < 0.6:
+            text = random.choice(seg_hooks)
+        else:
+            text = random.choice(HOOK_BANNERS)
     font = find_font(80, "ExtraBold")
     bbox = draw.textbbox((0, 0), text, font=font)
     text_w = bbox[2] - bbox[0]
@@ -311,6 +344,54 @@ def _composite_broll_card(image_path: str, output_path: str):
     # Paste image
     canvas.paste(src, (pos_x, pos_y))
     canvas.save(output_path, "PNG")
+
+
+def render_lower_third_chyron(output_path: str):
+    """TV-style lower-third name banner. Shows for the first 2 sec of the
+    video — character + channel ID. Yellow accent stripe on the left, dark
+    navy field with white name + brand subtitle."""
+    img = Image.new("RGBA", (SHORT_W, SHORT_H), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+
+    name = "HANK"
+    sub = "DAD JOKE FIX"
+
+    name_font = find_font(96, "ExtraBold")
+    sub_font = find_font(44, "Bold")
+
+    pad = 36
+    accent_w = 18
+    bar_w = 760
+    bar_h = 200
+
+    bar_x = 50
+    bar_y = 1500   # safely above the platform bottom UI
+
+    bg_layer = Image.new("RGBA", (SHORT_W, SHORT_H), (0, 0, 0, 0))
+    bg_draw = ImageDraw.Draw(bg_layer)
+    # Drop shadow
+    bg_draw.rounded_rectangle(
+        [bar_x + 8, bar_y + 10, bar_x + bar_w + 8, bar_y + bar_h + 10],
+        radius=18, fill=(0, 0, 0, 120),
+    )
+    # Main dark bar
+    bg_draw.rounded_rectangle(
+        [bar_x, bar_y, bar_x + bar_w, bar_y + bar_h],
+        radius=18, fill=(*BG_COLOR, 235),
+    )
+    # Yellow accent stripe on the left
+    bg_draw.rounded_rectangle(
+        [bar_x, bar_y, bar_x + accent_w, bar_y + bar_h],
+        radius=8, fill=(*ACCENT_COLOR, 255),
+    )
+    img = Image.alpha_composite(img, bg_layer)
+    draw = ImageDraw.Draw(img)
+
+    text_x = bar_x + accent_w + pad
+    draw.text((text_x, bar_y + 22), name, font=name_font, fill=ACCENT_COLOR)
+    draw.text((text_x, bar_y + 130), sub, font=sub_font, fill=TEXT_COLOR)
+
+    img.save(output_path, "PNG")
 
 
 def render_handle_watermark(output_path: str):
@@ -408,6 +489,8 @@ def render_dad_short(
     catchphrase: str = "",
     outro_text: str | None = None,
     broll_image_path: str | None = None,
+    segment_name: str | None = None,
+    next_joke_tease: str | None = None,
 ) -> str:
     """Compose avatar + captions + episode badge + comment-bait + rim-shot SFX + outro."""
     log("Rendering dad joke Short...")
@@ -430,12 +513,14 @@ def render_dad_short(
     hook_png = os.path.join(work_dir, "hook_banner.png")
     handle_png = os.path.join(work_dir, "handle_watermark.png")
 
-    render_outro_card(outro_png, cta_text=outro_text)
+    render_outro_card(outro_png, cta_text=outro_text, next_joke_tease=next_joke_tease)
     render_caption_overlay(joke["setup"], setup_png, style="setup")
     render_caption_overlay(joke["punchline"], punch_png, style="punchline")
     render_episode_counter_overlay(episode, counter_png)
-    render_hook_banner(hook_png)
+    render_hook_banner(hook_png, segment_name=segment_name)
     render_handle_watermark(handle_png)
+    chyron_png = os.path.join(work_dir, "lower_third_chyron.png")
+    render_lower_third_chyron(chyron_png)
     # Punchline flash overlay — full-screen yellow tint at 25% alpha for 150ms
     flash_png = os.path.join(work_dir, "punch_flash.png")
     flash_img = Image.new("RGBA", (SHORT_W, SHORT_H), (*ACCENT_COLOR, 64))
@@ -477,7 +562,9 @@ def render_dad_short(
     #  [6] hook banner PNG (first ~1.2s)
     #  [7] handle watermark PNG (persistent)
     #  [8] punchline flash PNG (yellow tint, 150ms at punchline reveal)
-    #  [9+] reaction SFX (rim/groan/laugh/ambient) — indices shift based on what exists
+    #  [9] lower-third HANK chyron (first ~2s)
+    #  [10] b-roll image card PNG (optional, only if Pexels returned a result)
+    #  [11+] reaction SFX (rim/groan/laugh/ambient) — indices shift based on b-roll
     #
     # Full-screen avatar: HeyGen returns a square ~1024x1024 video. Scale to
     # 1920 height (becomes 1920x1920 since aspect-preserved), then crop the
@@ -507,21 +594,23 @@ def render_dad_short(
         f"[av_with_counter][6:v]overlay=0:0:enable='between(t,0.15,1.4)'[av_with_hook];"
         # Persistent @dadjokefix watermark for the entire video
         f"[av_with_hook][7:v]overlay=0:0[av_with_brand];"
+        # Lower-third HANK chyron — first 2.2s, character + brand identification
+        f"[av_with_brand][9:v]overlay=0:0:enable='between(t,0.3,2.2)'[av_with_chyron];"
     )
 
-    # B-roll card overlay (input [9]) during the middle of the setup.
+    # B-roll card overlay (input [10]) during the middle of the setup.
     # Window: from (setup_end - 2.0) to (setup_end - 0.3) — plays for ~1.7s
     # right before the punchline pause. Visual breakup of the talking head.
     if have_broll:
         broll_start = max(1.5, setup_end - 2.0)
         broll_end = max(broll_start + 1.0, setup_end - 0.3)
         filter_video += (
-            f"[av_with_brand][9:v]overlay=0:0"
-            f":enable='between(t,{broll_start:.3f},{broll_end:.3f})'[av_with_brand2];"
+            f"[av_with_chyron][10:v]overlay=0:0"
+            f":enable='between(t,{broll_start:.3f},{broll_end:.3f})'[av_with_broll];"
         )
-        final_video_label = "av_with_brand2"
+        final_video_label = "av_with_broll"
     else:
-        final_video_label = "av_with_brand"
+        final_video_label = "av_with_chyron"
 
     filter_video += (
         f"[1:v]scale={SHORT_W}:{SHORT_H},setsar=1,format=yuv420p[outro_v];"
@@ -536,8 +625,8 @@ def render_dad_short(
     #   [8] = laugh     (if all three present; otherwise index shifts)
     audio_layers = []
     # 0=avatar, 1=outro, 2=setup, 3=punch, 4=counter, 5=silent, 6=hook,
-    # 7=handle, 8=flash, [9=broll if present], audio inputs start after.
-    next_input = 10 if have_broll else 9
+    # 7=handle, 8=flash, 9=chyron, [10=broll if present], audio inputs start after.
+    next_input = 11 if have_broll else 10
     if have_rimshot:
         audio_layers.append((next_input, rimshot_at_ms, 0.45, "rim"))
         next_input += 1
@@ -589,9 +678,10 @@ def render_dad_short(
         "-i", hook_png,        # [6]
         "-i", handle_png,      # [7]
         "-i", flash_png,       # [8]
+        "-i", chyron_png,      # [9]
     ]
     if have_broll:
-        cmd += ["-i", broll_card]   # [9]
+        cmd += ["-i", broll_card]   # [10]
     if have_rimshot:
         cmd += ["-i", str(RIMSHOT_PATH)]
     if have_groan:
