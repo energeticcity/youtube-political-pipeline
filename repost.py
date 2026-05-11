@@ -39,10 +39,12 @@ def main():
 
     # Reuse the multi-platform poster by faking a minimal joke + metadata
     # dict — repost is for ad-hoc backfills where the user supplies caption
-    # text directly, so we put it in setup and leave punchline blank.
+    # text directly, so we put it in setup and leave punchline blank. Same
+    # caption goes to all platforms.
     fake_joke = {"setup": caption, "punchline": ""}
     fake_metadata = {"title": title, "topic_hashtags": ""}
-    post_id, targets = post_via_postforme(video_url, fake_joke, fake_metadata)
+    captions = {"tiktok": caption, "instagram": caption, "youtube": caption}
+    post_id, targets = post_via_postforme(video_url, fake_joke, fake_metadata, captions)
     if post_id:
         log(f"SUCCESS: queued to {targets} (post_id={post_id})")
     else:

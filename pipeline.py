@@ -956,8 +956,22 @@ def upload_short_to_youtube(short_path: str, thumbnail_path: str, metadata: dict
 
 # ── Step 8: RSS feed update (Publer reads this) ───────────────────────────────
 
-def update_rss_feed(video_url: str, metadata: dict, joke: dict, youtube_short_id: str = ""):
-    """Update feed.xml in the repo with the new dad joke entry. Publer auto-posts from this."""
+RSS_NAMESPACE_URI = "https://dadjokefix.com/rss"
+
+
+def update_rss_feed(
+    video_url: str,
+    metadata: dict,
+    joke: dict,
+    youtube_short_id: str = "",
+    captions: dict | None = None,
+):
+    """Update feed.xml in the repo with the new dad joke entry.
+
+    When `captions` is supplied (keys: tiktok/instagram/youtube), per-platform
+    caption elements are written under the dadjokefix:* namespace so any RSS
+    consumer can pick the platform-appropriate text.
+    """
     if not GITHUB_TOKEN:
         log("RSS feed update skipped (no GITHUB_TOKEN)")
         return
@@ -967,6 +981,10 @@ def update_rss_feed(video_url: str, metadata: dict, joke: dict, youtube_short_id
     import base64
 
     log("Updating RSS feed...")
+    # Register the dadjokefix prefix so ElementTree writes
+    # `dadjokefix:tiktok_caption` instead of `ns0:tiktok_caption`.
+    ET.register_namespace("dadjokefix", RSS_NAMESPACE_URI)
+
     headers = {
         "Authorization": f"token {GITHUB_TOKEN}",
         "Accept": "application/vnd.github+json",
@@ -1000,6 +1018,8 @@ def update_rss_feed(video_url: str, metadata: dict, joke: dict, youtube_short_id
             channel = None
 
     if channel is None:
+        # register_namespace adds xmlns:dadjokefix automatically when the
+        # serializer encounters our custom elements — don't double-declare here.
         root = ET.Element("rss", version="2.0", attrib={
             "xmlns:media": "http://search.yahoo.com/mrss/",
             "xmlns:atom": "http://www.w3.org/2005/Atom",
@@ -1009,6 +1029,10 @@ def update_rss_feed(video_url: str, metadata: dict, joke: dict, youtube_short_id
         ET.SubElement(channel, "link").text = f"https://github.com/{GITHUB_REPO}"
         ET.SubElement(channel, "description").text = "Two fresh dad jokes every day, delivered by an animated dad. For TikTok and Instagram Reels."
         ET.SubElement(channel, "language").text = "en-us"
+    else:
+        # Strip any duplicate xmlns:dadjokefix that may have been written by
+        # an older code path — register_namespace will write it cleanly.
+        root.attrib.pop("xmlns:dadjokefix", None)
 
     last_build = channel.find("lastBuildDate")
     if last_build is None:
@@ -1048,6 +1072,25 @@ def update_rss_feed(video_url: str, metadata: dict, joke: dict, youtube_short_id
             "type": "video/mp4",
             "length": "0",
         })
+
+    # Custom dadjokefix:* elements so any RSS consumer can route the right
+    # caption to the right platform without re-deriving it from the joke.
+    # Use {namespace}localname so ElementTree writes the correct prefix.
+    ns = f"{{{RSS_NAMESPACE_URI}}}"
+    ET.SubElement(item, f"{ns}setup").text = joke.get("setup", "")
+    ET.SubElement(item, f"{ns}punchline").text = joke.get("punchline", "")
+    ET.SubElement(item, f"{ns}episode").text = str(metadata.get("episode", "")) if metadata.get("episode") else ""
+    if youtube_short_id:
+        ET.SubElement(item, f"{ns}youtube_url").text = f"https://youtube.com/shorts/{youtube_short_id}"
+    if captions:
+        if captions.get("tiktok"):
+            ET.SubElement(item, f"{ns}tiktok_caption").text = captions["tiktok"]
+        if captions.get("instagram"):
+            ET.SubElement(item, f"{ns}instagram_caption").text = captions["instagram"]
+        if captions.get("youtube"):
+            ET.SubElement(item, f"{ns}youtube_caption").text = captions["youtube"]
+        if metadata.get("title"):
+            ET.SubElement(item, f"{ns}youtube_title").text = metadata["title"][:100]
 
     items = channel.findall("item")
     if items:
@@ -1150,9 +1193,10 @@ def _build_platform_captions(joke: dict, title: str, topic_hashtags: str) -> dic
     return {"tiktok": tiktok, "instagram": instagram, "youtube": youtube}
 
 
-def post_via_postforme(video_url: str, joke: dict, metadata: dict) -> tuple[str, list[str]]:
+def post_via_postforme(video_url: str, joke: dict, metadata: dict, captions: dict) -> tuple[str, list[str]]:
     """Post the video to every connected social account via Post for Me with
-    a per-platform optimized caption.
+    a per-platform optimized caption from the supplied `captions` dict
+    (keys: tiktok / instagram / youtube).
 
     Returns (post_id, list_of_target_platforms). If the initial API call fails
     or no accounts are connected, returns ('', []) — caller should fall back
@@ -1170,8 +1214,7 @@ def post_via_postforme(video_url: str, joke: dict, metadata: dict) -> tuple[str,
             return "", []
         log(f"  Connected platforms: {sorted(accounts.keys())}")
 
-        title = metadata.get("title", "") or f"Dad Joke Fix"
-        captions = _build_platform_captions(joke, title, metadata.get("topic_hashtags", ""))
+        title = metadata.get("title", "") or "Dad Joke Fix"
         # Default caption (used by any platform we don't have a tailored one for)
         default_caption = captions["tiktok"]
 
@@ -1385,6 +1428,17 @@ def main():
     except Exception as e:
         log(f"  WARNING: YouTube upload failed: {e}")
 
+    # 8b. Build per-platform captions ONCE so both the RSS feed and Post for Me
+    # use the exact same text. Any future RSS consumer (Make.com, n8n, etc.)
+    # can read dadjokefix:tiktok_caption / instagram_caption / youtube_caption
+    # straight from the feed without re-deriving them.
+    captions = _build_platform_captions(
+        joke,
+        metadata.get("title", "") or "Dad Joke Fix",
+        metadata.get("topic_hashtags", ""),
+    )
+    metadata_with_episode = {**metadata, "episode": episode}
+
     # 9. Commit final video to repo (Instagram-friendly direct URL via raw.githubusercontent)
     video_url = ""
     try:
@@ -1392,19 +1446,20 @@ def main():
         prune_old_videos(keep_last=25)
         update_rss_feed(
             video_url=video_url,
-            metadata=metadata,
+            metadata=metadata_with_episode,
             joke=joke,
             youtube_short_id=short_id,
+            captions=captions,
         )
     except Exception as e:
         log(f"  WARNING: Video repo upload / RSS update failed: {e}")
 
-    # 10. Auto-post to every connected platform via Post for Me with
-    # per-platform optimized captions. Fall back to a GitHub Issue
-    # notification only if the API call itself fails or no accounts
-    # are connected.
+    # 10. Auto-post to every connected platform via Post for Me with the
+    # per-platform captions we just wrote into the feed. Fall back to a
+    # GitHub Issue notification only if the API call itself fails or no
+    # accounts are connected.
     if video_url:
-        post_id, targets = post_via_postforme(video_url, joke, metadata)
+        post_id, targets = post_via_postforme(video_url, joke, metadata, captions)
         if not post_id:
             notify_for_tiktok(video_url, joke, metadata, episode)
 
