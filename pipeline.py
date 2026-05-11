@@ -1254,10 +1254,16 @@ def _build_platform_captions(joke: dict, title: str, topic_hashtags: str) -> dic
     - TikTok: short + hashtag-heavy, comment bait first
     - Instagram: medium with line breaks, fewer hashtags up top
     - YouTube: long description with full joke + extra context
+
+    All three include AI-disclosure text + hashtags. Platforms penalize
+    *undisclosed* AI content heavily (TikTok: documented 73% reach drop when
+    detected). Disclosed AI is not penalized — and TikTok's API is_ai_generated
+    flag is also set on every post for the same reason.
     """
     setup = joke["setup"]
     punch = joke["punchline"]
     base_tags = "#dadjokes #dadjoke #dadjokefix #comedy #fyp #foryou #funny #jokes"
+    ai_tags = "#aigenerated #aicontent"
     topic = " ".join(
         f"#{t.strip().replace(' ', '').replace('#', '')}"
         for t in (topic_hashtags or "").split(",")
@@ -1267,7 +1273,8 @@ def _build_platform_captions(joke: dict, title: str, topic_hashtags: str) -> dic
     # TikTok: max impact in min chars — algorithm scans hashtags for topic match
     tiktok = (
         f"{setup} {punch} 👇 rate it 1-10 in comments\n\n"
-        f"{base_tags} {topic}"
+        f"🤖 AI-generated dad (Hank) — fresh joke daily\n\n"
+        f"{base_tags} {ai_tags} {topic}"
     ).strip()
 
     # Instagram: more breathing room, story-style, fewer up-top hashtags
@@ -1275,21 +1282,28 @@ def _build_platform_captions(joke: dict, title: str, topic_hashtags: str) -> dic
         f"{setup}\n\n"
         f"{punch} 🫥\n\n"
         f"Drop a number 1-10 in comments — how bad was it?\n\n"
-        f"Follow @dadjokefix for two dad jokes a day.\n"
+        f"Follow @dadjokefix for two dad jokes a day.\n\n"
+        f"🤖 Hank is an AI character. Voice, face and animation are all generated.\n"
         f".\n.\n.\n"
-        f"{base_tags} {topic}"
+        f"{base_tags} {ai_tags} {topic}"
     ).strip()
 
     # YouTube: long description for SEO, includes the joke + channel pitch
+    # + explicit AI disclosure paragraph (YouTube wants this prominently)
     youtube = (
         f"{setup}\n\n{punch}\n\n"
+        f"---\n\n"
+        f"🤖 AI-GENERATED CONTENT DISCLOSURE\n"
+        f"Hank is a synthetic character. His voice (ElevenLabs), face animation (HeyGen), "
+        f"and script polish are all AI-generated. Jokes are sourced from public dad-joke "
+        f"databases and rated by AI for quality before publishing.\n\n"
         f"---\n\n"
         f"Welcome to Dad Joke Fix — your daily dose of groan-worthy dad jokes.\n"
         f"🟡 New Shorts at 10am, 2pm, and 6pm ET, every single day\n"
         f"🟡 Fresh jokes pulled daily — no recycled internet stuff\n"
         f"🟡 Subscribe and turn on notifications so you never miss a groan\n\n"
         f"Got a joke? Drop it in the comments — best ones get featured.\n\n"
-        f"{base_tags} {topic}"
+        f"{base_tags} {ai_tags} {topic}"
     ).strip()
 
     return {"tiktok": tiktok, "instagram": instagram, "youtube": youtube}
