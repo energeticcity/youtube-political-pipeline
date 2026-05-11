@@ -690,16 +690,33 @@ def generate_avatar_video(audio_url: str, output_path: str, avatar_id: str) -> s
     # plain avatar type if our HEYGEN_AVATAR_ID was registered that way.
     talking_style = os.environ.get("HEYGEN_TALKING_STYLE", "expressive")
     expression = os.environ.get("HEYGEN_EXPRESSION", "happy")
+    # Avatar IV is HeyGen's newer model that adds head sway, blinks, and subtle
+    # gestures from the same Photo Avatar source. Costs more per video (~1.5-2x),
+    # so off by default. Set HEYGEN_USE_AVATAR_IV=true to enable.
+    use_avatar_iv = os.environ.get("HEYGEN_USE_AVATAR_IV", "").lower() in ("1", "true", "yes")
+    motion_prompt = os.environ.get(
+        "HEYGEN_MOTION_PROMPT",
+        "A friendly dad delivers a joke. Natural blinks, subtle head movements, "
+        "warm smile, slight knowing nod when the punchline lands.",
+    )
+
+    character: dict = {
+        "type": "talking_photo",
+        "talking_photo_id": avatar_id,
+        "talking_style": talking_style,
+        "expression": expression,
+    }
+    if use_avatar_iv:
+        character["use_avatar_iv_model"] = True
+        if motion_prompt:
+            character["prompt"] = motion_prompt
+            character["keep_original_prompt"] = False
+        log(f"  Avatar IV enabled with motion prompt ({len(motion_prompt)} chars)")
 
     payload_talking_photo = {
         "video_inputs": [
             {
-                "character": {
-                    "type": "talking_photo",
-                    "talking_photo_id": avatar_id,
-                    "talking_style": talking_style,
-                    "expression": expression,
-                },
+                "character": character,
                 "voice": {"type": "audio", "audio_url": audio_url},
             }
         ],

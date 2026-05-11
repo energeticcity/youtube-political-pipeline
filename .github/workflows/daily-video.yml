@@ -43,6 +43,10 @@ jobs:
           HEYGEN_API_KEY: ${{ secrets.HEYGEN_API_KEY }}
           HEYGEN_AVATAR_ID: ${{ secrets.HEYGEN_AVATAR_ID }}
           HEYGEN_AVATAR_IDS_EXTRA: ${{ secrets.HEYGEN_AVATAR_IDS_EXTRA }}
+          HEYGEN_USE_AVATAR_IV: ${{ secrets.HEYGEN_USE_AVATAR_IV }}
+          HEYGEN_TALKING_STYLE: ${{ secrets.HEYGEN_TALKING_STYLE }}
+          HEYGEN_EXPRESSION: ${{ secrets.HEYGEN_EXPRESSION }}
+          HEYGEN_MOTION_PROMPT: ${{ secrets.HEYGEN_MOTION_PROMPT }}
           ELEVENLABS_MODEL_ID: ${{ secrets.ELEVENLABS_MODEL_ID }}
           POSTFORME_API_KEY: ${{ secrets.POSTFORME_API_KEY }}
           POSTFORME_TIKTOK_ACCOUNT_ID: ${{ secrets.POSTFORME_TIKTOK_ACCOUNT_ID }}
