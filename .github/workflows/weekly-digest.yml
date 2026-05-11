@@ -1,0 +1,34 @@
+name: Weekly Performance Digest
+
+on:
+  schedule:
+    # Mondays 13:07 UTC (~9:07am ET / 6:07am PT) — fresh data covering Mon-Sun
+    - cron: '7 13 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run weekly digest
+        env:
+          POSTFORME_API_KEY: ${{ secrets.POSTFORME_API_KEY }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python monitor.py

@@ -582,6 +582,58 @@ def _read_state_raw() -> dict:
         return {}
 
 
+def log_video_metrics(record: dict):
+    """Append a per-post metadata record to metrics_log.json in the repo.
+    The weekly monitoring workflow joins these against view counts from
+    Post for Me to surface what's actually working — which segments,
+    hooks, CTAs, hashtag sets, and topics drive views."""
+    if not GITHUB_TOKEN:
+        return
+    headers = {
+        "Authorization": f"token {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github+json",
+    }
+    path = "metrics_log.json"
+    log_entries: list = []
+    existing_sha = None
+
+    try:
+        resp = requests.get(
+            f"https://api.github.com/repos/{GITHUB_REPO}/contents/{path}",
+            headers=headers, timeout=15,
+        )
+        if resp.status_code == 200:
+            existing_sha = resp.json()["sha"]
+            try:
+                log_entries = json.loads(base64.b64decode(resp.json()["content"]).decode("utf-8"))
+                if not isinstance(log_entries, list):
+                    log_entries = []
+            except Exception:
+                log_entries = []
+    except Exception:
+        pass
+
+    log_entries.append(record)
+    # Keep only last 500 entries (~6 months of 3/day) to bound file size
+    log_entries = log_entries[-500:]
+
+    push_data = {
+        "message": f"Log metrics for episode #{record.get('episode', '?')}",
+        "content": base64.b64encode(json.dumps(log_entries, indent=2).encode()).decode(),
+    }
+    if existing_sha:
+        push_data["sha"] = existing_sha
+
+    try:
+        requests.put(
+            f"https://api.github.com/repos/{GITHUB_REPO}/contents/{path}",
+            headers=headers, json=push_data, timeout=30,
+        )
+        log(f"  Metrics log appended (now {len(log_entries)} entries)")
+    except Exception as e:
+        log(f"  WARNING: metrics log append failed: {e}")
+
+
 def save_next_joke_to_state(next_joke: dict):
     """Persist tomorrow's pre-fetched joke into state.json so the next run picks
     it up instead of fetching fresh. Merges with existing state — does NOT
@@ -1642,6 +1694,27 @@ def main():
 
     # 11. Persist next run's pre-fetched joke so it doesn't get re-fetched.
     save_next_joke_to_state(next_joke)
+
+    # 12. Log per-post metadata for the weekly monitoring digest. This is
+    # the "ground truth" we'll join against view counts later to learn what
+    # works — which segments, hooks, CTAs, hashtag sets, and topics perform.
+    from datetime import datetime, timezone
+    log_video_metrics({
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "episode": episode,
+        "post_for_me_id": post_id if video_url else "",
+        "video_url": video_url,
+        "segment_name": segment.get("name", ""),
+        "hashtag_set_index": episode % len(HASHTAG_SETS),
+        "broll_keyword": metadata.get("broll_keyword", ""),
+        "joke_setup": (joke.get("setup") or "")[:120],
+        "joke_punchline": (joke.get("punchline") or "")[:120],
+        "joke_source": joke.get("source", ""),
+        "spoken_cta": script_data.get("spoken_cta", ""),
+        "outro_text": script_data.get("outro_text", ""),
+        "title": metadata.get("title", ""),
+        "topic_hashtags": metadata.get("topic_hashtags", ""),
+    })
 
     log("=" * 60)
     log("Pipeline complete!")
