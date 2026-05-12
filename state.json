@@ -1,11 +1,6 @@
 {
-  "episode": 56,
+  "episode": 57,
   "month": "2026-05",
-  "monthly_count": 24,
-  "warned_80": false,
-  "next_joke": {
-    "setup": "Did you hear about the guy who invented Lifesavers?",
-    "punchline": "They say he made a mint.",
-    "source": "icanhazdadjoke"
-  }
+  "monthly_count": 25,
+  "warned_80": false
 }
