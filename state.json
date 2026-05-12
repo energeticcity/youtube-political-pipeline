@@ -1,11 +1,6 @@
 {
-  "episode": 58,
+  "episode": 59,
   "month": "2026-05",
-  "monthly_count": 26,
-  "warned_80": false,
-  "next_joke": {
-    "setup": "How do hens stay fit?",
-    "punchline": "They always egg-cercise!",
-    "source": "icanhazdadjoke"
-  }
+  "monthly_count": 27,
+  "warned_80": false
 }
