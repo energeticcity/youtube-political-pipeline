@@ -1,11 +1,6 @@
 {
-  "episode": 60,
+  "episode": 61,
   "month": "2026-05",
-  "monthly_count": 28,
-  "warned_80": false,
-  "next_joke": {
-    "setup": "Can I watch the TV?",
-    "punchline": "Dad: Yes, but don\u2019t turn it on.",
-    "source": "icanhazdadjoke"
-  }
+  "monthly_count": 29,
+  "warned_80": false
 }
