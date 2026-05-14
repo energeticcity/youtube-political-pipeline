@@ -1,11 +1,6 @@
 {
-  "episode": 62,
+  "episode": 63,
   "month": "2026-05",
-  "monthly_count": 30,
-  "warned_80": false,
-  "next_joke": {
-    "setup": "What do you call an elephant that doesn\u2019t matter?",
-    "punchline": "An irrelephant.",
-    "source": "icanhazdadjoke"
-  }
+  "monthly_count": 31,
+  "warned_80": false
 }
