@@ -2,5 +2,10 @@
   "episode": 66,
   "month": "2026-05",
   "monthly_count": 34,
-  "warned_80": false
+  "warned_80": false,
+  "next_joke": {
+    "setup": "Don\u2019t interrupt someone working intently on a puzzle.",
+    "punchline": "Chances are, you\u2019ll hear some crosswords.",
+    "source": "icanhazdadjoke"
+  }
 }
