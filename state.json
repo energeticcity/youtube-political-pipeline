@@ -1,11 +1,6 @@
 {
-  "episode": 65,
+  "episode": 66,
   "month": "2026-05",
-  "monthly_count": 33,
-  "warned_80": false,
-  "next_joke": {
-    "setup": "I wouldn't buy anything with velcro.",
-    "punchline": "It's a total rip-off.",
-    "source": "icanhazdadjoke"
-  }
+  "monthly_count": 34,
+  "warned_80": false
 }
