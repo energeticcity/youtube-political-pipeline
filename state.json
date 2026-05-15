@@ -2,5 +2,10 @@
   "episode": 67,
   "month": "2026-05",
   "monthly_count": 35,
-  "warned_80": false
+  "warned_80": false,
+  "next_joke": {
+    "setup": "What\u2019s the difference between an African elephant and an Indian elephant?",
+    "punchline": "About 5000 miles.",
+    "source": "icanhazdadjoke"
+  }
 }
