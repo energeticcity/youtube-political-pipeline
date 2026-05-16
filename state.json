@@ -1,11 +1,6 @@
 {
-  "episode": 70,
+  "episode": 71,
   "month": "2026-05",
-  "monthly_count": 38,
-  "warned_80": false,
-  "next_joke": {
-    "setup": "What do you call a droid that takes the long way around?",
-    "punchline": "R2 detour.",
-    "source": "icanhazdadjoke"
-  }
+  "monthly_count": 39,
+  "warned_80": false
 }
