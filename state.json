@@ -1,11 +1,6 @@
 {
-  "episode": 69,
+  "episode": 70,
   "month": "2026-05",
-  "monthly_count": 37,
-  "warned_80": false,
-  "next_joke": {
-    "setup": "I couldn't get a reservation at the library.",
-    "punchline": "They were completely booked.",
-    "source": "icanhazdadjoke"
-  }
+  "monthly_count": 38,
+  "warned_80": false
 }
