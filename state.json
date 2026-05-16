@@ -1,11 +1,6 @@
 {
-  "episode": 68,
+  "episode": 69,
   "month": "2026-05",
-  "monthly_count": 36,
-  "warned_80": false,
-  "next_joke": {
-    "setup": "What type of music do balloons hate?",
-    "punchline": "Pop music!",
-    "source": "icanhazdadjoke"
-  }
+  "monthly_count": 37,
+  "warned_80": false
 }
