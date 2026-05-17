@@ -1,11 +1,6 @@
 {
-  "episode": 73,
+  "episode": 74,
   "month": "2026-05",
-  "monthly_count": 41,
-  "warned_80": false,
-  "next_joke": {
-    "setup": "What did the mountain climber name his son?",
-    "punchline": "Cliff.",
-    "source": "icanhazdadjoke"
-  }
+  "monthly_count": 42,
+  "warned_80": false
 }
