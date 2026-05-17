@@ -2,5 +2,10 @@
   "episode": 72,
   "month": "2026-05",
   "monthly_count": 40,
-  "warned_80": false
+  "warned_80": false,
+  "next_joke": {
+    "setup": "What do bees do after they are married?",
+    "punchline": "They go on a honeymoon.",
+    "source": "icanhazdadjoke"
+  }
 }
