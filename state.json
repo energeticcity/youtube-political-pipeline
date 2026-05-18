@@ -1,11 +1,6 @@
 {
-  "episode": 76,
+  "episode": 77,
   "month": "2026-05",
-  "monthly_count": 44,
-  "warned_80": false,
-  "next_joke": {
-    "setup": "Why was Pavlov's beard so soft?",
-    "punchline": "Because he conditioned it.",
-    "source": "icanhazdadjoke"
-  }
+  "monthly_count": 45,
+  "warned_80": false
 }
