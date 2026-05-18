@@ -2,5 +2,10 @@
   "episode": 75,
   "month": "2026-05",
   "monthly_count": 43,
-  "warned_80": false
+  "warned_80": false,
+  "next_joke": {
+    "setup": "What happens when you anger a brain surgeon?",
+    "punchline": "They will give you a piece of your mind.",
+    "source": "icanhazdadjoke"
+  }
 }
