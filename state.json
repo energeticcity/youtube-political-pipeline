@@ -1,11 +1,6 @@
 {
-  "episode": 78,
+  "episode": 79,
   "month": "2026-05",
-  "monthly_count": 46,
-  "warned_80": false,
-  "next_joke": {
-    "setup": "Did you hear about the campsite that got visited by Bigfoot?",
-    "punchline": "It got in tents.",
-    "source": "icanhazdadjoke"
-  }
+  "monthly_count": 47,
+  "warned_80": false
 }
