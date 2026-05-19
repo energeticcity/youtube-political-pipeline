@@ -2,5 +2,10 @@
   "episode": 80,
   "month": "2026-05",
   "monthly_count": 48,
-  "warned_80": false
+  "warned_80": false,
+  "next_joke": {
+    "setup": "Where do you learn to make banana splits?",
+    "punchline": "At sundae school.",
+    "source": "icanhazdadjoke"
+  }
 }
