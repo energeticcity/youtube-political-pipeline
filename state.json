@@ -2,5 +2,10 @@
   "episode": 79,
   "month": "2026-05",
   "monthly_count": 47,
-  "warned_80": false
+  "warned_80": false,
+  "next_joke": {
+    "setup": "How many apples grow on a tree?",
+    "punchline": "All of them!",
+    "source": "icanhazdadjoke"
+  }
 }
