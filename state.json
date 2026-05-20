@@ -2,5 +2,10 @@
   "episode": 82,
   "month": "2026-05",
   "monthly_count": 50,
-  "warned_80": false
+  "warned_80": false,
+  "next_joke": {
+    "setup": "How do you get a baby alien to sleep?",
+    "punchline": "You rocket.",
+    "source": "icanhazdadjoke"
+  }
 }
