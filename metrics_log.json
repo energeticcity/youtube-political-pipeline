@@ -430,5 +430,21 @@
     "outro_text": "RATE THAT JOKE / 1-10",
     "title": "Punsday Tuesday #80: How many apples on a tree?",
     "topic_hashtags": "apples, fruit, orchard"
+  },
+  {
+    "timestamp": "2026-05-20T16:59:19.899498+00:00",
+    "episode": 81,
+    "post_for_me_id": "sp_z0V6K6y1bmW5yqNt7dj",
+    "video_url": "https://cdn.jsdelivr.net/gh/energeticcity/youtube-political-pipeline@main/videos/short_v20260520-1657.mp4",
+    "segment_name": "Midweek Dad Joke",
+    "hashtag_set_index": 1,
+    "broll_keyword": "banana",
+    "joke_setup": "Where do you learn to make banana splits?",
+    "joke_punchline": "At sundae school.",
+    "joke_source": "icanhazdadjoke",
+    "spoken_cta": "Hit follow for more dad jokes!",
+    "outro_text": "FOLLOW for daily groans",
+    "title": "Midweek Dad Joke #81: Wanna learn banana splits?",
+    "topic_hashtags": "icecream,dessert,sundae"
   }
 ]
