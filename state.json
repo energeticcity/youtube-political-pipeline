@@ -1,11 +1,6 @@
 {
-  "episode": 81,
+  "episode": 82,
   "month": "2026-05",
-  "monthly_count": 49,
-  "warned_80": false,
-  "next_joke": {
-    "setup": "Why did Dracula lie in the wrong coffin?",
-    "punchline": "He made a grave mistake.",
-    "source": "icanhazdadjoke"
-  }
+  "monthly_count": 50,
+  "warned_80": false
 }
