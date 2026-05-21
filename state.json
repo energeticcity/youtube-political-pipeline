@@ -1,11 +1,6 @@
 {
-  "episode": 85,
+  "episode": 86,
   "month": "2026-05",
-  "monthly_count": 53,
-  "warned_80": false,
-  "next_joke": {
-    "setup": "Today a man knocked on my door and asked for a small donation towards the local swimming pool.",
-    "punchline": "I gave him a glass of water.",
-    "source": "icanhazdadjoke"
-  }
+  "monthly_count": 54,
+  "warned_80": false
 }
