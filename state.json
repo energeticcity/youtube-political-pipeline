@@ -2,5 +2,10 @@
   "episode": 84,
   "month": "2026-05",
   "monthly_count": 52,
-  "warned_80": false
+  "warned_80": false,
+  "next_joke": {
+    "setup": "A red and a blue ship have just collided in the Caribbean.",
+    "punchline": "Apparently the survivors are marooned.",
+    "source": "icanhazdadjoke"
+  }
 }
