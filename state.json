@@ -1,11 +1,6 @@
 {
-  "episode": 86,
+  "episode": 87,
   "month": "2026-05",
-  "monthly_count": 54,
-  "warned_80": false,
-  "next_joke": {
-    "setup": "I considered building the patio by myself.",
-    "punchline": "But I didn't have the stones.",
-    "source": "icanhazdadjoke"
-  }
+  "monthly_count": 55,
+  "warned_80": false
 }
