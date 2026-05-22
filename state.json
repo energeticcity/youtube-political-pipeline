@@ -1,11 +1,6 @@
 {
-  "episode": 88,
+  "episode": 89,
   "month": "2026-05",
-  "monthly_count": 56,
-  "warned_80": false,
-  "next_joke": {
-    "setup": "My boss told me to have a good day.",
-    "punchline": "So I went home...",
-    "source": "icanhazdadjoke"
-  }
+  "monthly_count": 57,
+  "warned_80": false
 }
