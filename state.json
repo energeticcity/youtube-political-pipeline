@@ -2,5 +2,10 @@
   "episode": 89,
   "month": "2026-05",
   "monthly_count": 57,
-  "warned_80": false
+  "warned_80": false,
+  "next_joke": {
+    "setup": "Ever wondered why bees hum?",
+    "punchline": "It's because they don't know the words.",
+    "source": "icanhazdadjoke"
+  }
 }
