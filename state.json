@@ -1,11 +1,6 @@
 {
-  "episode": 87,
+  "episode": 88,
   "month": "2026-05",
-  "monthly_count": 55,
-  "warned_80": false,
-  "next_joke": {
-    "setup": "Why do bees have sticky hair?",
-    "punchline": "Because they use honey combs!",
-    "source": "icanhazdadjoke"
-  }
+  "monthly_count": 56,
+  "warned_80": false
 }
