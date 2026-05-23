@@ -2,5 +2,10 @@
   "episode": 90,
   "month": "2026-05",
   "monthly_count": 58,
-  "warned_80": false
+  "warned_80": false,
+  "next_joke": {
+    "setup": "I thought my wife was joking when she said she'd leave me if I didn't stop signing \"I'm A Believer\"...",
+    "punchline": "Then I saw her face.",
+    "source": "icanhazdadjoke"
+  }
 }
