@@ -1,11 +1,6 @@
 {
-  "episode": 92,
+  "episode": 93,
   "month": "2026-05",
-  "monthly_count": 60,
-  "warned_80": false,
-  "next_joke": {
-    "setup": "Two peanuts were walking down the street.",
-    "punchline": "One was a salted.",
-    "source": "icanhazdadjoke"
-  }
+  "monthly_count": 61,
+  "warned_80": false
 }
