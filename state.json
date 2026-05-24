@@ -1,11 +1,6 @@
 {
-  "episode": 93,
+  "episode": 94,
   "month": "2026-05",
-  "monthly_count": 61,
-  "warned_80": false,
-  "next_joke": {
-    "setup": "I have the heart of a lion...",
-    "punchline": "and a lifetime ban from the San Diego Zoo.",
-    "source": "icanhazdadjoke"
-  }
+  "monthly_count": 62,
+  "warned_80": false
 }
