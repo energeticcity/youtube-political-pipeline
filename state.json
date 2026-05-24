@@ -1,11 +1,6 @@
 {
-  "episode": 91,
+  "episode": 92,
   "month": "2026-05",
-  "monthly_count": 59,
-  "warned_80": false,
-  "next_joke": {
-    "setup": "Why was the big cat disqualified from the race?",
-    "punchline": "Because it was a cheetah.",
-    "source": "icanhazdadjoke"
-  }
+  "monthly_count": 60,
+  "warned_80": false
 }
