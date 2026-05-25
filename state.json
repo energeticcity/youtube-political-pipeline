@@ -1,11 +1,6 @@
 {
-  "episode": 94,
+  "episode": 95,
   "month": "2026-05",
-  "monthly_count": 62,
-  "warned_80": false,
-  "next_joke": {
-    "setup": "How did the hipster burn the roof of his mouth?",
-    "punchline": "He ate the pizza before it was cool.",
-    "source": "icanhazdadjoke"
-  }
+  "monthly_count": 63,
+  "warned_80": false
 }
