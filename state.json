@@ -1,11 +1,6 @@
 {
-  "episode": 96,
+  "episode": 97,
   "month": "2026-05",
-  "monthly_count": 64,
-  "warned_80": false,
-  "next_joke": {
-    "setup": "What do you call a boy who stopped digging holes?",
-    "punchline": "Douglas.",
-    "source": "icanhazdadjoke"
-  }
+  "monthly_count": 65,
+  "warned_80": false
 }
