@@ -2,5 +2,10 @@
   "episode": 97,
   "month": "2026-05",
   "monthly_count": 65,
-  "warned_80": false
+  "warned_80": false,
+  "next_joke": {
+    "setup": "Have you heard of the band 1023MB?",
+    "punchline": "They haven't got a gig yet.",
+    "source": "icanhazdadjoke"
+  }
 }
