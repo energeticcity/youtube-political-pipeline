@@ -2,5 +2,10 @@
   "episode": 99,
   "month": "2026-05",
   "monthly_count": 67,
-  "warned_80": false
+  "warned_80": false,
+  "next_joke": {
+    "setup": "My sister bet me $15 that I couldn't build a car out of spaghetti.",
+    "punchline": "You should have seen the look on her face as I drove pasta.",
+    "source": "icanhazdadjoke"
+  }
 }
