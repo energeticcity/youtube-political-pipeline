@@ -1,11 +1,6 @@
 {
-  "episode": 98,
+  "episode": 99,
   "month": "2026-05",
-  "monthly_count": 66,
-  "warned_80": false,
-  "next_joke": {
-    "setup": "Don't tell secrets in corn fields.",
-    "punchline": "Too many ears around.",
-    "source": "icanhazdadjoke"
-  }
+  "monthly_count": 67,
+  "warned_80": false
 }
