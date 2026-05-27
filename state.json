@@ -2,5 +2,10 @@
   "episode": 101,
   "month": "2026-05",
   "monthly_count": 69,
-  "warned_80": false
+  "warned_80": false,
+  "next_joke": {
+    "setup": "Why did the worker get fired from the orange juice factory?",
+    "punchline": "Lack of concentration.",
+    "source": "icanhazdadjoke"
+  }
 }
