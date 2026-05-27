@@ -1,11 +1,6 @@
 {
-  "episode": 102,
+  "episode": 103,
   "month": "2026-05",
-  "monthly_count": 70,
-  "warned_80": false,
-  "next_joke": {
-    "setup": "What's the difference between a rooster and a crow?",
-    "punchline": "A rooster can crow but a crow cannot rooster.",
-    "source": "icanhazdadjoke"
-  }
+  "monthly_count": 71,
+  "warned_80": false
 }
