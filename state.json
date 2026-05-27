@@ -1,11 +1,6 @@
 {
-  "episode": 100,
+  "episode": 101,
   "month": "2026-05",
-  "monthly_count": 68,
-  "warned_80": false,
-  "next_joke": {
-    "setup": "What kind of dog lives in a particle accelerator?",
-    "punchline": "A Fermilabrador Retriever.",
-    "source": "icanhazdadjoke"
-  }
+  "monthly_count": 69,
+  "warned_80": false
 }
