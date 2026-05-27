@@ -2,5 +2,10 @@
   "episode": 103,
   "month": "2026-05",
   "monthly_count": 71,
-  "warned_80": false
+  "warned_80": false,
+  "next_joke": {
+    "setup": "What did the digital clock say to the grandfather clock?",
+    "punchline": "Look, no hands!",
+    "source": "icanhazdadjoke"
+  }
 }
