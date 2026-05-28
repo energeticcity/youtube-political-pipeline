@@ -2,5 +2,10 @@
   "episode": 105,
   "month": "2026-05",
   "monthly_count": 73,
-  "warned_80": false
+  "warned_80": false,
+  "next_joke": {
+    "setup": "Did you know you should always take an extra pair of pants golfing?",
+    "punchline": "Just in case you get a hole in one.",
+    "source": "icanhazdadjoke"
+  }
 }
