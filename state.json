@@ -1,11 +1,6 @@
 {
-  "episode": 104,
+  "episode": 105,
   "month": "2026-05",
-  "monthly_count": 72,
-  "warned_80": false,
-  "next_joke": {
-    "setup": "A book just fell on my head.",
-    "punchline": "I only have my shelf to blame.",
-    "source": "icanhazdadjoke"
-  }
+  "monthly_count": 73,
+  "warned_80": false
 }
