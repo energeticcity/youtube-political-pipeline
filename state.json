@@ -2,5 +2,10 @@
   "episode": 107,
   "month": "2026-05",
   "monthly_count": 75,
-  "warned_80": false
+  "warned_80": false,
+  "next_joke": {
+    "setup": "What did one snowman say to the other snow man?",
+    "punchline": "Do you smell carrot?",
+    "source": "icanhazdadjoke"
+  }
 }
