@@ -2,5 +2,10 @@
   "episode": 108,
   "month": "2026-05",
   "monthly_count": 76,
-  "warned_80": false
+  "warned_80": false,
+  "next_joke": {
+    "setup": "Someone asked me, what's the ninth letter of the alphabet?",
+    "punchline": "It was a complete guess, but I was right.",
+    "source": "icanhazdadjoke"
+  }
 }
