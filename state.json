@@ -1,11 +1,6 @@
 {
-  "episode": 106,
+  "episode": 107,
   "month": "2026-05",
-  "monthly_count": 74,
-  "warned_80": false,
-  "next_joke": {
-    "setup": "\"Dad, do you think it's going to snow this winter?",
-    "punchline": "\" \"I dont know, its all up in the air\"",
-    "source": "icanhazdadjoke"
-  }
+  "monthly_count": 75,
+  "warned_80": false
 }
