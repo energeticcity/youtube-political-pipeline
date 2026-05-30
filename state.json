@@ -1,11 +1,6 @@
 {
-  "episode": 111,
+  "episode": 112,
   "month": "2026-05",
-  "monthly_count": 79,
-  "warned_80": false,
-  "next_joke": {
-    "setup": "My boss told me to attach two pieces of wood together...",
-    "punchline": "I totally nailed it!",
-    "source": "icanhazdadjoke"
-  }
+  "monthly_count": 80,
+  "warned_80": false
 }
