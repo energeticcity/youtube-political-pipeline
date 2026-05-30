@@ -1,11 +1,6 @@
 {
-  "episode": 110,
+  "episode": 111,
   "month": "2026-05",
-  "monthly_count": 78,
-  "warned_80": false,
-  "next_joke": {
-    "setup": "You will never guess what Elsa did to the balloon.",
-    "punchline": "She let it go.",
-    "source": "icanhazdadjoke"
-  }
+  "monthly_count": 79,
+  "warned_80": false
 }
