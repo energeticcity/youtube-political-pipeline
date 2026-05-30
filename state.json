@@ -1,11 +1,6 @@
 {
-  "episode": 109,
+  "episode": 110,
   "month": "2026-05",
-  "monthly_count": 77,
-  "warned_80": false,
-  "next_joke": {
-    "setup": "Is there a hole in your shoe?",
-    "punchline": "No\u2026 Then how\u2019d you get your foot in it?",
-    "source": "icanhazdadjoke"
-  }
+  "monthly_count": 78,
+  "warned_80": false
 }
