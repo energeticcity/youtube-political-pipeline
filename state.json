@@ -2,5 +2,10 @@
   "episode": 114,
   "month": "2026-05",
   "monthly_count": 82,
-  "warned_80": true
+  "warned_80": true,
+  "next_joke": {
+    "setup": "Why are ghosts bad liars?",
+    "punchline": "Because you can see right through them!",
+    "source": "icanhazdadjoke"
+  }
 }
