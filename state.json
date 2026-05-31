@@ -2,5 +2,10 @@
   "episode": 115,
   "month": "2026-05",
   "monthly_count": 83,
-  "warned_80": true
+  "warned_80": true,
+  "next_joke": {
+    "setup": "How come the stadium got hot after the game?",
+    "punchline": "Because all of the fans left.",
+    "source": "icanhazdadjoke"
+  }
 }
