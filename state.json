@@ -2,5 +2,10 @@
   "episode": 113,
   "month": "2026-05",
   "monthly_count": 81,
-  "warned_80": true
+  "warned_80": true,
+  "next_joke": {
+    "setup": "Why did the burglar hang his mugshot on the wall?",
+    "punchline": "To prove that he was framed!",
+    "source": "icanhazdadjoke"
+  }
 }
