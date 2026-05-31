@@ -1,11 +1,6 @@
 {
-  "episode": 112,
+  "episode": 113,
   "month": "2026-05",
-  "monthly_count": 80,
-  "warned_80": true,
-  "next_joke": {
-    "setup": "I made a belt out of watches once...",
-    "punchline": "It was a waist of time.",
-    "source": "icanhazdadjoke"
-  }
+  "monthly_count": 81,
+  "warned_80": true
 }
