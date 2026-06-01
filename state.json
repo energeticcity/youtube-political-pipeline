@@ -1,11 +1,6 @@
 {
-  "episode": 117,
+  "episode": 118,
   "month": "2026-06",
-  "monthly_count": 2,
-  "warned_80": false,
-  "next_joke": {
-    "setup": "What's blue and not very heavy?",
-    "punchline": "Light blue.",
-    "source": "icanhazdadjoke"
-  }
+  "monthly_count": 3,
+  "warned_80": false
 }
