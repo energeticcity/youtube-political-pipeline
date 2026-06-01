@@ -2,5 +2,10 @@
   "episode": 116,
   "month": "2026-06",
   "monthly_count": 1,
-  "warned_80": false
+  "warned_80": false,
+  "next_joke": {
+    "setup": "Did you know that protons have mass?",
+    "punchline": "I didn't even know they were catholic.",
+    "source": "icanhazdadjoke"
+  }
 }
