@@ -1,11 +1,6 @@
 {
-  "episode": 118,
+  "episode": 119,
   "month": "2026-06",
-  "monthly_count": 3,
-  "warned_80": false,
-  "next_joke": {
-    "setup": "What do you get if you cross a turkey with a ghost?",
-    "punchline": "A poultry-geist!",
-    "source": "icanhazdadjoke"
-  }
+  "monthly_count": 4,
+  "warned_80": false
 }
