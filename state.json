@@ -2,5 +2,10 @@
   "episode": 120,
   "month": "2026-06",
   "monthly_count": 5,
-  "warned_80": false
+  "warned_80": false,
+  "next_joke": {
+    "setup": "I dreamed about drowning in an ocean made out of orange soda last night.",
+    "punchline": "It took me a while to work out it was just a Fanta sea.",
+    "source": "icanhazdadjoke"
+  }
 }
