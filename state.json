@@ -2,5 +2,10 @@
   "episode": 119,
   "month": "2026-06",
   "monthly_count": 4,
-  "warned_80": false
+  "warned_80": false,
+  "next_joke": {
+    "setup": "The word queue is ironic.",
+    "punchline": "It's just q with a bunch of silent letters waiting in line.",
+    "source": "icanhazdadjoke"
+  }
 }
