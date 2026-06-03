@@ -1,11 +1,6 @@
 {
-  "episode": 123,
+  "episode": 124,
   "month": "2026-06",
-  "monthly_count": 8,
-  "warned_80": false,
-  "next_joke": {
-    "setup": "Why was the picture sent to prison?",
-    "punchline": "It was framed.",
-    "source": "icanhazdadjoke"
-  }
+  "monthly_count": 9,
+  "warned_80": false
 }
