@@ -2,5 +2,10 @@
   "episode": 122,
   "month": "2026-06",
   "monthly_count": 7,
-  "warned_80": false
+  "warned_80": false,
+  "next_joke": {
+    "setup": "Why was it called the dark ages?",
+    "punchline": "Because of all the knights.",
+    "source": "icanhazdadjoke"
+  }
 }
