@@ -1,11 +1,6 @@
 {
-  "episode": 124,
+  "episode": 125,
   "month": "2026-06",
-  "monthly_count": 9,
-  "warned_80": false,
-  "next_joke": {
-    "setup": "what happens when you cross a sheep with a kangaroo ?",
-    "punchline": "A woolly jumper!",
-    "source": "icanhazdadjoke"
-  }
+  "monthly_count": 10,
+  "warned_80": false
 }
