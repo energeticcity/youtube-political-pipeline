@@ -1,11 +1,6 @@
 {
-  "episode": 126,
+  "episode": 127,
   "month": "2026-06",
-  "monthly_count": 11,
-  "warned_80": false,
-  "next_joke": {
-    "setup": "Past, present, and future walked into a bar....",
-    "punchline": "It was tense.",
-    "source": "icanhazdadjoke"
-  }
+  "monthly_count": 12,
+  "warned_80": false
 }
