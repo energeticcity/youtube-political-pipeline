@@ -69,3 +69,32 @@ class AutofillTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'policy changed'):
                 archive.publish(Mock(catalog=archive.CATALOG, output=tmp, approved=True, automatic=False))
             publish.assert_not_called()
+
+    @patch('clipping.verify_run', return_value={'head_sha': 'test'})
+    @patch('archive_pipeline.check_rights')
+    @patch('clipping.publish_one')
+    def test_generated_story_reaches_checked_publisher(self, publish, rights, verify):
+        data, _ = archive.catalog()
+        source = copy.deepcopy(data['sources'][0])
+        episode = copy.deepcopy(data['episodes'][0])
+        source['id'] = fill.source_key(source['archive_id'])
+        episode['id'] = episode['source_id'] = source['id']
+        manifest = {'version': 1, 'commit': 'test', 'catalog_digest': clipping.digest(data),
+            'generated': {'policy_digest': clipping.digest(fill.policy()), 'episode': episode,
+                          'source': source, 'checks': {'review': {'pass': True, 'issues': []}}},
+            'clips': [{'id': episode['id']}]}
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {'CLIP_PUBLISH_ENABLED': 'true'}):
+            (Path(tmp) / 'manifest.json').write_text(json.dumps(manifest))
+            archive.publish(Mock(catalog=archive.CATALOG, output=tmp, approved=True, automatic=False, episode=''))
+            rights.assert_called_once_with(source)
+            publish.assert_called_once()
+
+    @patch('archive_autofill.frames', return_value=[])
+    @patch('clipping.probe', return_value=({}, 180))
+    @patch('archive_autofill.validate_story', return_value={'beats': [{'start': 5}]})
+    @patch('archive_autofill.generate_json', side_effect=[{}, {'pass': False, 'issues': ['unsupported claim']}])
+    def test_editorial_rejection_blocks_story(self, generate, validate, probe, frames):
+        source = fill.source_from_metadata('film', self.document, self.settings)
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaisesRegex(ValueError, 'editorial check rejected'):
+                fill.make_story(source, Path(tmp) / 'source.mp4', self.settings, 'test', Path(tmp), [])

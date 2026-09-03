@@ -1,6 +1,6 @@
 # The Past Was Ridiculous
 
-The scheduled workflow now produces narrated archival-story previews. Publishing is separately gated and starts disabled. See [Archive pipeline setup and operation](ARCHIVE_PIPELINE.md) for the source queue, review process, destination configuration, and duplicate protection.
+The scheduled workflow automatically creates original narrated archival shorts, refills from checked Prelinger sources, and publishes to configured channels on the existing three daily slots. Master publishing switches and verification checks remain in place; no per-video approval is required. See [Archive pipeline setup and operation](ARCHIVE_PIPELINE.md).
 
 ## Legacy dad-joke pipeline (retained for reference)
 

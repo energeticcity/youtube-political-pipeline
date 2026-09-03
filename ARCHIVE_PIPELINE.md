@@ -1,15 +1,17 @@
 # The Past Was Ridiculous
 
-Replaces the dad-joke schedule with original historical commentary over reviewed archival footage. No Vyro, HeyGen, Gemini, or transcription service is needed. Existing ElevenLabs credentials supply the narrator. Existing Post for Me credentials are used only in the separate publishing workflow.
+Replaces the dad-joke schedule with original historical commentary over checked archival footage. No Vyro or HeyGen account is needed. Existing Gemini credentials supply source-grounded story writing and automated editorial checks; existing ElevenLabs credentials supply the narrator. Existing Post for Me credentials are used only in the separate publishing workflow.
 
 ## What runs
 
 - Three daily automatic production/posting opportunities at 14:07, 18:07 and 22:07 UTC (07:07, 11:07 and 15:07 Dawson Creek time). At most one story per run. GitHub queuing and rendering can delay the actual publication time.
-- Two curated pilot stories currently exist. This is a finite editorial queue, not unlimited automatic discovery. Add reviewed stories to `archives/episodes.json` to continue.
+- The two curated starter stories run first. When those are exhausted, automatic refill discovers unused Prelinger films, requires an explicit public-domain label, samples footage, writes an original story, and independently checks its selected shots and claims. No manual story entry or per-video approval is required.
 - Check the live Prelinger rights label, download the pinned file, verify SHA-256, generate original narration with exact timestamps, assemble 1080×1920 H.264 video and captions, and save an Actions artifact for 30 days.
 - Original film sound/music is never included. Narration is AI-generated and disclosed. No impersonation, cloned celebrity voice, or synthetic historical footage.
-- After successful artifact upload, a GitHub issue records the episode as previewed. Future scheduled runs skip it. Empty queues purchase no narration and publish nothing. Explicit manual episode selection regenerates expired/rejected previews.
-- Historical claims are written and checked in the catalogue. We do not ask an LLM to invent facts or ingest arbitrary upload descriptions as instructions.
+- After artifact upload, a GitHub issue records the episode as previewed. Source reservation issues prevent automatic film reuse, even after failure. Explicit manual episode selection regenerates catalogue previews; `episode=auto` forces a fresh generated preview. Branch previews cannot publish or reserve production sources.
+- Metadata and footage are evidence, never instructions. The generator rejects unsupported claims and unsuitable footage and compares recent scripts for repetition. Automated review is imperfect and cannot guarantee historical accuracy, monetization, or worldwide rights clearance.
+- Discovery is bounded to 30 item checks and at most 3 qualified generation attempts per run, with 250 MiB/30-minute source limits. A failed main-branch slot creates an issue. API outages, exhausted suitable sources, or rejected stories can leave a slot empty.
+- Generated stories, source fingerprints and editorial evidence travel in the trusted preview manifest. Publication checks the originating workflow, main branch, catalogue fingerprint, current refill policy, source rights and video fingerprint.
 
 ## Publication controls
 
