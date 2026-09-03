@@ -32,6 +32,8 @@ class ArchiveTests(unittest.TestCase):
     def test_public_domain_validation_no_fake_campaign_expiry(self):
         source = archive.publication_source(self.episode, self.source)
         clipping.validate_source(source, publishing=True)
+        clipping.validate_source(source, automatic=True)
+        source['auto_publish_approved'] = False
         with self.assertRaises(ValueError):
             clipping.validate_source(source, automatic=True)
 
@@ -122,6 +124,21 @@ class ArchiveTests(unittest.TestCase):
             args = Mock(approved=True, automatic=False, run_id='123', catalog=archive.CATALOG, output=tmp)
             with self.assertRaisesRegex(ValueError, 'mismatch'):
                 archive.publish(args)
+
+    @patch('archive_pipeline.clips.api_json')
+    def test_delivery_distinguishes_pending_failure_and_success(self, api):
+        api.return_value = {'data': [
+            {'post_id': 'sp_test', 'social_account_id': 'a', 'success': True, 'platform_data': {'url': 'https://youtube.com/shorts/test'}},
+            {'post_id': 'sp_test', 'social_account_id': 'b', 'success': False, 'id': 'result_b', 'error': {'sensitive': 'not exported'}}]}
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {
+                'POSTFORME_API_KEY': 'test', 'CLIP_DESTINATIONS_JSON': json.dumps({'youtube': 'a', 'instagram': 'b', 'tiktok': 'c'})}):
+            archive.delivery(Mock(post_id='sp_test', output=tmp))
+            result = (Path(tmp) / 'delivery.json').read_text()
+            self.assertNotIn('sensitive', result)
+            data = json.loads(result)
+            self.assertEqual(data['youtube']['status'], 'published')
+            self.assertEqual(data['instagram']['status'], 'failed')
+            self.assertEqual(data['tiktok']['status'], 'pending')
 
 
 if __name__ == '__main__':

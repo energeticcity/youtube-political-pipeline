@@ -241,18 +241,49 @@ def publish(args):
         clips.publish_one(args, clip, publication_source(episode, sources[episode["source_id"]]))
 
 
+def delivery(args):
+    """Read provider results without exposing account tokens or raw diagnostic payloads."""
+    clips.identifier(args.post_id)
+    accounts = json.loads(os.environ['CLIP_DESTINATIONS_JSON'])
+    data = clips.api_json('GET', 'https://api.postforme.dev/v1/social-post-results',
+        os.environ['POSTFORME_API_KEY'], params={'post_id': args.post_id, 'limit': 100})
+    rows = data if isinstance(data, list) else data.get('data', [])
+    result = {}
+    for platform, account in accounts.items():
+        matches = [r for r in rows if r.get('post_id') == args.post_id and r.get('social_account_id') == account]
+        successes = [r for r in matches if r.get('success') is True]
+        if successes:
+            url = (successes[-1].get('platform_data') or {}).get('url')
+            result[platform] = {'status': 'published', 'url': url}
+        elif matches:
+            result[platform] = {'status': 'failed', 'result_id': matches[-1].get('id'),
+                                'note': 'Inspect provider diagnostics; do not blindly retry the batch.'}
+        else:
+            result[platform] = {'status': 'pending'}
+    print(json.dumps(result, indent=2))
+    out = Path(args.output)
+    out.mkdir(parents=True, exist_ok=True)
+    (out / 'delivery.json').write_text(json.dumps(result, indent=2))
+    if os.environ.get('GITHUB_STEP_SUMMARY'):
+        with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
+            f.write('## Archive delivery\n\n' + '\n'.join(f"- {p}: {r['status']}" for p, r in result.items()) + '\n')
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("command", choices=["preview", "publish", "mark-preview", "check", "accounts"])
+    p.add_argument("command", choices=["preview", "publish", "mark-preview", "check", "accounts", "delivery"])
     p.add_argument("--catalog", default=str(CATALOG))
     p.add_argument("--episode", default="")
     p.add_argument("--output", default="clip-output")
     p.add_argument("--media")
     p.add_argument("--run-id")
+    p.add_argument("--post-id")
     p.add_argument("--approved", action="store_true")
     p.add_argument("--automatic", action="store_true")
     args = p.parse_args()
-    if args.command == "accounts":
+    if args.command == "delivery":
+        delivery(args)
+    elif args.command == "accounts":
         accounts = []
         for offset in range(0, 1000, 50):
             payload = clips.api_json("GET", "https://api.postforme.dev/v1/social-accounts",
