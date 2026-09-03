@@ -256,7 +256,15 @@ def delivery(args):
             url = (successes[-1].get('platform_data') or {}).get('url')
             result[platform] = {'status': 'published', 'url': url}
         elif matches:
+            error = matches[-1].get('error') or {}
+            # Only provider error labels, never raw request/response diagnostics or credentials.
+            summary = {k: str(error[k])[:700] for k in ('message', 'code', 'type', 'error_user_title', 'error_user_msg')
+                       if k in error and isinstance(error[k], (str, int))}
+            summary = {k: re.sub(r'https?://\S+', '[provider URL]', v) for k, v in summary.items()}
+            summary = {k: re.sub(r'(?i)(bearer\s+|access_token[=: ]+|refresh_token[=: ]+)[^\s,]+', r'\1[redacted]', v)
+                       for k, v in summary.items()}
             result[platform] = {'status': 'failed', 'result_id': matches[-1].get('id'),
+                                'error_summary': summary,
                                 'note': 'Inspect provider diagnostics; do not blindly retry the batch.'}
         else:
             result[platform] = {'status': 'pending'}
