@@ -17,7 +17,7 @@
     "id": "kitchen-of-tomorrow",
     "source_id": "design-for-dreaming-1956",
     "enabled": true,
-    "auto_publish_approved": false,
+    "auto_publish_approved": true,
     "title": "In 1956, the future kitchen looked like this",
     "headline": "THE FUTURE KITCHEN\nACCORDING TO 1956",
     "beats": [
@@ -32,7 +32,7 @@
     "id": "highway-of-tomorrow",
     "source_id": "design-for-dreaming-1956",
     "enabled": true,
-    "auto_publish_approved": false,
+    "auto_publish_approved": true,
     "title": "In 1956, tomorrow's commute looked like science fiction",
     "headline": "YOUR FUTURE COMMUTE\nACCORDING TO 1956",
     "beats": [

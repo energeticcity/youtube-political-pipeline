@@ -11,7 +11,9 @@ Replaces the dad-joke schedule with original historical commentary over reviewed
 - After successful artifact upload, a GitHub issue records the episode as previewed. Future scheduled runs skip it. Empty queues purchase no narration and publish nothing. Explicit manual episode selection regenerates expired/rejected previews.
 - Historical claims are written and checked in the catalogue. We do not ask an LLM to invent facts or ingest arbitrary upload descriptions as instructions.
 
-## Publication stays off initially
+## Publication controls
+
+The user approved the pilot and this format on 2026-09-03. Both starter episodes are approved for automatic posting; the repository publishing switches are enabled. Future episodes still need explicit editorial approval in the catalogue. The pilot was first submitted through the manual workflow. Use **Check Archive Delivery** with its Post for Me ID to read per-platform results without reposting.
 
 Review the MP4, script, source evidence, caption alignment and account destinations first. Monetization is neither enabled nor guaranteed by this change. Public-domain archive labels are evidence, not worldwide legal clearance. Check territory-specific rights when necessary. YouTube independently assesses original value and repetitive/reused content.
 
