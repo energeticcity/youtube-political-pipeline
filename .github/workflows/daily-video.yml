@@ -1,61 +1,55 @@
-name: Daily Dad Joke Pipeline
-
+name: The Past Was Ridiculous
 on:
   schedule:
-    # Three jokes a day, off the top of the hour to dodge GitHub queue congestion.
-    # Spreads across morning, lunch, and evening US viewing windows. Sustainable
-    # with Avatar IV enabled because the HeyGen budget was topped up to $50/mo
-    # (90 renders/mo at ~$0.50 each).
-    - cron: '7 14 * * *'   # ~10:07am ET / 7:07am PT  (morning commute)
-    - cron: '7 18 * * *'   # ~2:07pm ET  / 11:07am PT (lunch / afternoon scroll)
-    - cron: '7 22 * * *'   # ~6:07pm ET  / 3:07pm PT  (after work / dinner)
+    - cron: '7 14,18,22 * * *'
   workflow_dispatch:
-
+    inputs:
+      episode:
+        description: Optional episode ID to regenerate; blank selects next story
+        required: false
+        type: string
 permissions:
-  contents: write
+  contents: read
   issues: write
-
+concurrency:
+  group: archive-previews
+  cancel-in-progress: false
 jobs:
-  generate-dad-joke:
+  preview:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-
-      - name: Install system dependencies
-        run: |
+      - run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq ffmpeg
-
-      - name: Install Python dependencies
-        run: pip install -r requirements.txt
-
-      - name: Run pipeline
+          pip install 'requests>=2.32,<3'
+      - run: python -m unittest discover -s tests -v
+      - name: Build the next archival story
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GH_TOKEN: ${{ github.token }}
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
           ELEVENLABS_VOICE_ID: ${{ secrets.ELEVENLABS_VOICE_ID }}
-          HEYGEN_API_KEY: ${{ secrets.HEYGEN_API_KEY }}
-          HEYGEN_AVATAR_ID: ${{ secrets.HEYGEN_AVATAR_ID }}
-          HEYGEN_AVATAR_IDS_EXTRA: ${{ secrets.HEYGEN_AVATAR_IDS_EXTRA }}
-          HEYGEN_USE_AVATAR_IV: ${{ secrets.HEYGEN_USE_AVATAR_IV }}
-          HEYGEN_TALKING_STYLE: ${{ secrets.HEYGEN_TALKING_STYLE }}
-          HEYGEN_EXPRESSION: ${{ secrets.HEYGEN_EXPRESSION }}
-          HEYGEN_MOTION_PROMPT: ${{ secrets.HEYGEN_MOTION_PROMPT }}
-          ELEVENLABS_MODEL_ID: ${{ secrets.ELEVENLABS_MODEL_ID }}
+          EPISODE: ${{ inputs.episode }}
+        run: python archive_pipeline.py preview --episode "$EPISODE"
+      - name: Identify existing destinations (read only)
+        continue-on-error: true
+        env:
           POSTFORME_API_KEY: ${{ secrets.POSTFORME_API_KEY }}
-          POSTFORME_TIKTOK_ACCOUNT_ID: ${{ secrets.POSTFORME_TIKTOK_ACCOUNT_ID }}
-          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
-          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
-          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
-          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
-          YOUTUBE_CHANNEL_ID: ${{ secrets.YOUTUBE_CHANNEL_ID }}
-          GITHUB_TOKEN: ${{ github.token }}
-        run: python pipeline.py
+        run: python archive_pipeline.py accounts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: archive-preview
+          path: clip-output/
+          retention-days: 30
+          if-no-files-found: error
+      - name: Record preview completion
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python archive_pipeline.py mark-preview

@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "series": "The Past Was Ridiculous",
+  "sources": [{
+    "id": "design-for-dreaming-1956",
+    "archive_id": "Designfo1956",
+    "filename": "Designfo1956.mp4",
+    "title": "Design for Dreaming (1956)",
+    "creator": "MPO Productions",
+    "url": "https://archive.org/details/Designfo1956",
+    "license_url": "http://creativecommons.org/licenses/publicdomain/",
+    "rights_checked": "2026-09-03",
+    "rights_note": "Prelinger collection item metadata explicitly marks this version public domain. Original soundtrack is excluded. This is an archival promotional fantasy, not evidence that its concepts were sold to consumers. Public-domain status can vary by territory; this archive label is evidence, not a worldwide legal guarantee.",
+    "sha256": "b89182df52aa00ee80565c2eaf1fcd2997d4afb1a5f29329f1da3bc838b72b20"
+  }],
+  "episodes": [{
+    "id": "kitchen-of-tomorrow",
+    "source_id": "design-for-dreaming-1956",
+    "enabled": true,
+    "auto_publish_approved": false,
+    "title": "In 1956, the future kitchen looked like this",
+    "headline": "THE FUTURE KITCHEN\nACCORDING TO 1956",
+    "beats": [
+      {"start": 204, "text": "In 1956, the kitchen of tomorrow came with a recipe screen. The touchscreen? Not included."},
+      {"start": 209, "text": "In this General Motors promotional fantasy, you insert a card, see the dish, and let the push-button spectacle begin."},
+      {"start": 221, "text": "The mixer drops from a cabinet. The refrigerator puts its contents on a rotating display."},
+      {"start": 238, "text": "Even the oven opens like a tiny spaceship. Subtle? Absolutely not."},
+      {"start": 252, "text": "The promise wasn't just dinner. It was freedom from housework, with time left over for fun."},
+      {"start": 230, "text": "They imagined a kitchen that performed for you. Somehow, we still ended up arguing about who loads the dishwasher."}
+    ]
+  }, {
+    "id": "highway-of-tomorrow",
+    "source_id": "design-for-dreaming-1956",
+    "enabled": true,
+    "auto_publish_approved": false,
+    "title": "In 1956, tomorrow's commute looked like science fiction",
+    "headline": "YOUR FUTURE COMMUTE\nACCORDING TO 1956",
+    "beats": [
+      {"start": 490, "text": "This is what a 1956 promotional film imagined your future commute would look like. Apparently, traffic wasn't invited."},
+      {"start": 362, "text": "Design for Dreaming presents General Motors dream cars like stars on a fashion runway."},
+      {"start": 390, "text": "The shapes are theatrical. The reveal is a performance. Getting somewhere is only half the fantasy."},
+      {"start": 460, "text": "Before the final drive, the couple contacts a control tower. Even a road trip gets the airport treatment."},
+      {"start": 500, "text": "Then we enter a miniature city of tomorrow, with sweeping roads and gleaming buildings."},
+      {"start": 515, "text": "It's a sales pitch, not a forecast. But there's one prediction I still want: a commute that feels like the ending of a musical."}
+    ]
+  }]
+}
