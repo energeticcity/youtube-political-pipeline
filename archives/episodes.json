@@ -29,19 +29,19 @@
       {"start": 230, "text": "They imagined a kitchen that performed for you. Somehow, we still ended up arguing about who loads the dishwasher."}
     ]
   }, {
-    "id": "push-button-future",
+    "id": "highway-of-tomorrow",
     "source_id": "design-for-dreaming-1956",
     "enabled": true,
     "auto_publish_approved": false,
-    "title": "The smart kitchen before apps existed",
-    "headline": "SMART KITCHEN?\nTRY 1956.",
+    "title": "In 1956, tomorrow's commute looked like science fiction",
+    "headline": "YOUR FUTURE COMMUTE\nACCORDING TO 1956",
     "beats": [
-      {"start": 204, "text": "Forget downloading a recipe app. This imagined kitchen wanted you to insert a card."},
-      {"start": 209, "text": "Design for Dreaming, a 1956 promotional film, turns cooking into a parade of buttons, screens, and moving appliances."},
-      {"start": 221, "text": "Notice the trick: the complicated work seems to disappear into the cabinets."},
-      {"start": 232, "text": "The food itself becomes a display. Even opening the fridge looks like a product launch."},
-      {"start": 239, "text": "This isn't a documentary about an ordinary home. It's a carefully staged dream of convenience."},
-      {"start": 248, "text": "The gadgets look strange today. But the sales pitch sounds familiar: buy the future, and get your time back."}
+      {"start": 490, "text": "This is what a 1956 promotional film imagined your future commute would look like. Apparently, traffic wasn't invited."},
+      {"start": 362, "text": "Design for Dreaming presents General Motors dream cars like stars on a fashion runway."},
+      {"start": 390, "text": "The shapes are theatrical. The reveal is a performance. Getting somewhere is only half the fantasy."},
+      {"start": 460, "text": "Before the final drive, the couple contacts a control tower. Even a road trip gets the airport treatment."},
+      {"start": 500, "text": "Then we enter a miniature city of tomorrow, with sweeping roads and gleaming buildings."},
+      {"start": 515, "text": "It's a sales pitch, not a forecast. But there's one prediction I still want: a commute that feels like the ending of a musical."}
     ]
   }]
 }

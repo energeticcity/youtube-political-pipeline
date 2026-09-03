@@ -82,6 +82,47 @@ class ArchiveTests(unittest.TestCase):
         github.return_value = [{'title': '[clip-publication] test', 'state': 'closed'}]
         self.assertTrue(clipping.reserved('test'))
 
+    @patch('archive_pipeline.narration')
+    @patch('archive_pipeline.check_rights')
+    def test_wrong_file_blocked_before_paid_narration(self, rights, narration):
+        with tempfile.TemporaryDirectory() as tmp:
+            media = Path(tmp) / 'wrong.mp4'
+            media.write_bytes(b'not the approved source')
+            args = Mock(catalog=archive.CATALOG, episode=self.episode['id'], output=tmp, media=str(media))
+            with self.assertRaisesRegex(ValueError, 'fingerprint'):
+                archive.preview(args)
+            narration.assert_not_called()
+
+    @patch('archive_pipeline.previewed', return_value=True)
+    @patch('archive_pipeline.narration')
+    @patch('archive_pipeline.check_rights')
+    def test_empty_queue_has_no_external_cost(self, rights, narration, previewed):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {'GH_TOKEN': 'test'}):
+            args = Mock(catalog=archive.CATALOG, episode='', output=tmp, media=None)
+            archive.preview(args)
+            manifest = json.loads((Path(tmp) / 'manifest.json').read_text())
+            self.assertEqual(manifest['clips'], [])
+            narration.assert_not_called()
+            rights.assert_not_called()
+
+    @patch('archive_pipeline.requests.post')
+    def test_wrong_tts_alignment_rejected(self, post):
+        post.return_value = Mock(ok=True)
+        post.return_value.json.return_value = {'alignment': {'characters': ['wrong']}}
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ,
+                {'ELEVENLABS_API_KEY': 'test', 'ELEVENLABS_VOICE_ID': 'testvoice'}):
+            with self.assertRaisesRegex(ValueError, 'alignment'):
+                archive.narration(self.episode, Path(tmp))
+
+    @patch('archive_pipeline.clips.verify_run')
+    def test_catalogue_change_blocks_publication(self, verify):
+        verify.return_value = {'head_sha': 'abc'}
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {'CLIP_PUBLISH_ENABLED': 'true'}):
+            (Path(tmp) / 'manifest.json').write_text(json.dumps({'version': 1, 'commit': 'abc', 'catalog_digest': 'changed'}))
+            args = Mock(approved=True, automatic=False, run_id='123', catalog=archive.CATALOG, output=tmp)
+            with self.assertRaisesRegex(ValueError, 'mismatch'):
+                archive.publish(args)
+
 
 if __name__ == '__main__':
     unittest.main()
