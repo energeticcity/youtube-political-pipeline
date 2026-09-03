@@ -1,0 +1,61 @@
+name: Publish Reviewed Archive Story
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Successful main-branch archive preview run ID
+        required: true
+        type: string
+  workflow_run:
+    workflows: [The Past Was Ridiculous]
+    types: [completed]
+permissions:
+  contents: read
+  actions: read
+  issues: write
+concurrency:
+  group: archive-publication
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: >-
+      vars.CLIP_PUBLISH_ENABLED == 'true' &&
+      (github.event_name == 'workflow_dispatch' ||
+      (vars.CLIP_AUTO_PUBLISH_ENABLED == 'true' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install 'requests>=2.32,<3'
+      - name: Verify trusted preview before downloading
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.run_id || github.event.workflow_run.id }}
+        run: python clipping.py verify-run --run-id "$RUN_ID"
+      - uses: actions/download-artifact@v4
+        with:
+          name: archive-preview
+          path: clip-output
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.run_id || github.event.workflow_run.id }}
+      - name: Publish checked story
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.run_id || github.event.workflow_run.id }}
+          EVENT_NAME: ${{ github.event_name }}
+          CLIP_PUBLISH_ENABLED: ${{ vars.CLIP_PUBLISH_ENABLED }}
+          CLIP_AUTO_PUBLISH_ENABLED: ${{ vars.CLIP_AUTO_PUBLISH_ENABLED }}
+          CLIP_DESTINATIONS_JSON: ${{ vars.CLIP_DESTINATIONS_JSON }}
+          POSTFORME_API_KEY: ${{ secrets.POSTFORME_API_KEY }}
+        run: |
+          if [ "$EVENT_NAME" = workflow_run ]; then
+            python archive_pipeline.py publish --run-id "$RUN_ID" --approved --automatic
+          else
+            python archive_pipeline.py publish --run-id "$RUN_ID" --approved
+          fi

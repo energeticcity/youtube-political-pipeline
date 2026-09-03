@@ -1,4 +1,8 @@
-# Two Dad Jokes Daily
+# The Past Was Ridiculous
+
+The scheduled workflow now produces narrated archival-story previews. Publishing is separately gated and starts disabled. See [Archive pipeline setup and operation](ARCHIVE_PIPELINE.md) for the source queue, review process, destination configuration, and duplicate protection.
+
+## Legacy dad-joke pipeline (retained for reference)
 
 Automated pipeline that posts two dad joke videos a day to YouTube Shorts, then auto-cross-posts to TikTok and Instagram via Publer reading the RSS feed.
 

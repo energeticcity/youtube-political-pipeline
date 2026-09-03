@@ -9,3 +9,5 @@ __pycache__/
 !dad_avatar.jpg
 !videos/**
 output_*/
+clip-output/
+.venv-clipping/
