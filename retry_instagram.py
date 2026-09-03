@@ -31,6 +31,8 @@ def retry(post_id):
     data = clipping.api_json('GET', f'{base}/social-post-results', key,
         params={'post_id': post_id, 'limit': 100})
     rows = data if isinstance(data, list) else data.get('data', [])
+    print('Original delivery identities: ' + json.dumps([
+        {k: r.get(k) for k in ('post_id', 'social_account_id', 'success')} for r in rows]))
     rows = [r for r in rows if r.get('post_id') == post_id and r.get('social_account_id') == account_id]
     print('Original Instagram results: ' + json.dumps([
         {'id': r.get('id'), 'success': r.get('success'), 'platform_url': (r.get('platform_data') or {}).get('url')}
