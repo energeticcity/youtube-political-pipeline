@@ -1,0 +1,40 @@
+name: Retry Failed Instagram Only
+on:
+  workflow_dispatch:
+    inputs:
+      post_id:
+        description: Original Post for Me post with a confirmed Instagram failure
+        required: true
+        type: string
+permissions:
+  contents: read
+  issues: write
+concurrency:
+  group: archive-publication
+  cancel-in-progress: false
+jobs:
+  retry:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install 'requests>=2.32,<3'
+      - name: Retry Instagram once and check delivery
+        env:
+          POST_ID: ${{ inputs.post_id }}
+          POSTFORME_API_KEY: ${{ secrets.POSTFORME_API_KEY }}
+          GH_TOKEN: ${{ github.token }}
+          CLIP_PAUSED_DESTINATIONS_JSON: ${{ vars.CLIP_PAUSED_DESTINATIONS_JSON }}
+        run: python retry_instagram.py --post-id "$POST_ID"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: instagram-retry-delivery
+          path: delivery-output/
+          retention-days: 7
