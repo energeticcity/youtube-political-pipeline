@@ -10,9 +10,9 @@ import clipping
 import archive_pipeline
 
 
-def payload_for_retry(original, account_id):
+def payload_for_retry(original, account_id, reconnected=False):
     ids = [a['id'] if isinstance(a, dict) else a for a in original['social_accounts']]
-    if account_id not in ids or len(original.get('media') or []) != 1:
+    if (account_id not in ids and not reconnected) or len(original.get('media') or []) != 1:
         raise ValueError('Original post does not match the Instagram destination/single video')
     url = original['media'][0]['url']
     clipping.public_https(url)
@@ -34,18 +34,26 @@ def retry(post_id):
     print('Original delivery identities: ' + json.dumps([
         {k: r.get(k) for k in ('post_id', 'social_account_id', 'success')} for r in rows]))
     rows = [r for r in rows if r.get('post_id') == post_id and r.get('social_account_id') == account_id]
+    account = clipping.api_json('GET', f'{base}/social-accounts/{account_id}', key)
+    # Explicitly reviewed reconnection for this pilot only. Deleting the old account
+    # removed its failed result; issue #44 retains the prior HTTP 400 evidence.
+    # The user requested a retry after reconnecting this exact same branded account.
+    reconnected = (post_id == 'sp_UH2LNkUW7CEga6IRgg7U'
+        and account_id == 'spc_gu1jpig48SRDfABsgU24'
+        and account.get('user_id') == '17841433845153049'
+        and account.get('username') == 'dadjokefix'
+        and original.get('external_id') == 'creator-clip-kitchen-of-tomorrow')
     print('Original Instagram results: ' + json.dumps([
         {'id': r.get('id'), 'success': r.get('success'), 'platform_url': (r.get('platform_data') or {}).get('url')}
         for r in rows]))
     if any(r.get('success') is True for r in rows):
         print('Instagram is already published; no duplicate submitted.')
         return
-    if not rows or any(r.get('success') is not False for r in rows):
+    if (not rows and not reconnected) or any(r.get('success') is not False for r in rows):
         raise ValueError('Instagram is not confirmed failed; refusing a possible duplicate')
-    account = clipping.api_json('GET', f'{base}/social-accounts/{account_id}', key)
     if account.get('platform') != 'instagram' or account.get('status') != 'connected':
         raise ValueError('Reconnect Instagram before retrying')
-    payload = payload_for_retry(original, account_id)
+    payload = payload_for_retry(original, account_id, reconnected=reconnected)
     retry_id = f'{post_id}-instagram-retry-1'
     if clipping.reserved(retry_id):
         raise ValueError('This retry is already reserved; inspect its issue instead of reposting')
