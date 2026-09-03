@@ -150,6 +150,12 @@ class ArchiveTests(unittest.TestCase):
             result = json.loads((Path(tmp) / 'delivery.json').read_text())
             self.assertEqual(result['instagram']['error_summary']['message'], 'Token expired')
 
+    def test_nested_diagnostics_do_not_export_transport_credentials(self):
+        labels = archive.error_labels({'config': {'message': 'SECRET'}, 'response': {'data': {
+            'error': {'message': 'Unsupported media', 'code': 100}}}})
+        self.assertNotIn('message: SECRET', labels)
+        self.assertIn('message: Unsupported media', labels)
+
 
 if __name__ == '__main__':
     unittest.main()
