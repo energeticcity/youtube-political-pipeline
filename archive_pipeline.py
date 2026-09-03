@@ -241,6 +241,32 @@ def publish(args):
         clips.publish_one(args, clip, publication_source(episode, sources[episode["source_id"]]))
 
 
+def error_labels(value, depth=0):
+    """Collect error labels, not transport configuration, headers or credentials."""
+    if depth > 8:
+        return []
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except (ValueError, TypeError):
+            return []
+    if isinstance(value, list):
+        return [label for v in value[:10] for label in error_labels(v, depth+1)][:15]
+    if not isinstance(value, dict):
+        return []
+    result = []
+    for key, child in value.items():
+        if key.lower() in ('config', 'headers', 'request', 'access_token', 'refresh_token', 'authorization'):
+            continue
+        if key in ('message', 'code', 'error_user_title', 'error_user_msg', 'error_subcode') and isinstance(child, (str, int)):
+            label = re.sub(r'https?://\S+', '[provider URL]', str(child)[:700])
+            label = re.sub(r'(?i)(bearer\s+|access_token[=: ]+|refresh_token[=: ]+)[^\s,]+', r'\1[redacted]', label)
+            result.append(f'{key}: {label}')
+        elif isinstance(child, (dict, list)) or (isinstance(child, str) and child.startswith(('{', '['))):
+            result.extend(error_labels(child, depth+1))
+    return result[:15]
+
+
 def delivery(args):
     """Read provider results without exposing account tokens or raw diagnostic payloads."""
     clips.identifier(args.post_id)
@@ -275,6 +301,7 @@ def delivery(args):
                        for k, v in summary.items()}
             result[platform] = {'status': 'failed', 'result_id': matches[-1].get('id'),
                                 'error_summary': summary,
+                                'provider_labels': error_labels({'error': matches[-1].get('error'), 'details': matches[-1].get('details')}),
                                 'note': 'Inspect provider diagnostics; do not blindly retry the batch.'}
         else:
             result[platform] = {'status': 'pending'}
