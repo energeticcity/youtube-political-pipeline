@@ -106,7 +106,7 @@ class ArchiveTests(unittest.TestCase):
     @patch('archive_pipeline.narration')
     @patch('archive_pipeline.check_rights')
     def test_empty_queue_has_no_external_cost(self, rights, narration, previewed):
-        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {'GH_TOKEN': 'test'}):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {'GH_TOKEN': 'test', 'GITHUB_ACTIONS': '', 'GEMINI_API_KEY': ''}):
             args = Mock(catalog=archive.CATALOG, episode='', output=tmp, media=None)
             archive.preview(args)
             manifest = json.loads((Path(tmp) / 'manifest.json').read_text())
