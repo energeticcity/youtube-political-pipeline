@@ -29,9 +29,17 @@ def retry(post_id):
     key, base = os.environ['POSTFORME_API_KEY'], 'https://api.postforme.dev/v1'
     original = clipping.api_json('GET', f'{base}/social-posts/{post_id}', key)
     data = clipping.api_json('GET', f'{base}/social-post-results', key,
-        params={'post_id': post_id, 'social_account_id': account_id, 'limit': 100})
+        params={'post_id': post_id, 'limit': 100})
     rows = data if isinstance(data, list) else data.get('data', [])
+    print('Original delivery identities: ' + json.dumps([
+        {k: r.get(k) for k in ('post_id', 'social_account_id', 'success')} for r in rows]))
     rows = [r for r in rows if r.get('post_id') == post_id and r.get('social_account_id') == account_id]
+    print('Original Instagram results: ' + json.dumps([
+        {'id': r.get('id'), 'success': r.get('success'), 'platform_url': (r.get('platform_data') or {}).get('url')}
+        for r in rows]))
+    if any(r.get('success') is True for r in rows):
+        print('Instagram is already published; no duplicate submitted.')
+        return
     if not rows or any(r.get('success') is not False for r in rows):
         raise ValueError('Instagram is not confirmed failed; refusing a possible duplicate')
     account = clipping.api_json('GET', f'{base}/social-accounts/{account_id}', key)
