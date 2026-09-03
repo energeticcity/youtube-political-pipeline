@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       episode:
-        description: Optional episode ID to regenerate; blank selects next story
+        description: Optional episode ID; auto tests refill; blank selects next story or refills
         required: false
         type: string
 permissions:
@@ -35,6 +35,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
           ELEVENLABS_VOICE_ID: ${{ secrets.ELEVENLABS_VOICE_ID }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           EPISODE: ${{ inputs.episode }}
         run: python archive_pipeline.py preview --episode "$EPISODE"
       - name: Identify existing destinations (read only)
@@ -53,3 +54,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: python archive_pipeline.py mark-preview
+      - name: Report a failed scheduled slot
+        if: failure() && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: gh issue create --title "Archive video slot failed (run $GITHUB_RUN_ID)" --body "Automatic preparation failed. No unchecked video was submitted. Inspect $RUN_URL before retrying."

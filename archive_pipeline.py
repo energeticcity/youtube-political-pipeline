@@ -20,6 +20,10 @@ CATALOG = Path(__file__).parent / "archives/episodes.json"
 
 def catalog(path=CATALOG):
     data = json.loads(Path(path).read_text())
+    return validate_catalog(data)
+
+
+def validate_catalog(data):
     if data.get("version") != 1:
         raise ValueError("Unsupported archive catalogue")
     sources = {s["id"]: s for s in data["sources"]}
@@ -124,8 +128,8 @@ def render(source_file, episode, source, directory, audio, duration, segments, b
         end = clips.ass_time(duration)
         lines = [(r"{\an8\pos(540,155)\fs34\c&H60D6FF&}", "THE PAST WAS RIDICULOUS"),
                  (r"{\an8\pos(540,270)\fs62}", episode["headline"]),
-                 (r"{\an8\pos(540,1720)\fs27}", "ARCHIVAL FILM • 1956 | ORIGINAL COMMENTARY"),
-                 (r"{\an8\pos(540,1770)\fs23}", "MPO Productions / Prelinger Archives")]
+                 (r"{\an8\pos(540,1720)\fs27}", f"ARCHIVAL FILM • {source.get('year', '1956')} | ORIGINAL COMMENTARY"),
+                 (r"{\an8\pos(540,1770)\fs23}", source['creator'][:65] + " / Prelinger Archives")]
         for style, text in lines:
             text = r"\N".join(clips.safe_ass(line) for line in text.splitlines())
             f.write(f"Dialogue: 1,0:00:00.00,{end},Default,,0,0,0,,{style}{text}\n")
@@ -133,6 +137,8 @@ def render(source_file, episode, source, directory, audio, duration, segments, b
     shot_files = []
     for i, beat in enumerate(episode["beats"]):
         length = boundaries[i+1] - boundaries[i]
+        if episode['id'].startswith('archive-') and length > 14:
+            raise ValueError("Generated shot exceeds inspected interval")
         if length <= 0 or beat["start"] + length > source_duration:
             raise ValueError("Shot exceeds source bounds")
         name = f"shot-{i}.mp4"
@@ -179,22 +185,40 @@ def previewed(episode_id):
 
 
 def preview(args):
+    with tempfile.TemporaryDirectory(prefix="archive-refill-") as scratch:
+        return build_preview(args, Path(scratch))
+
+
+def build_preview(args, scratch):
     data, sources = catalog(args.catalog)
+    import archive_autofill as autofill
+    generated = None
     episodes = [e for e in data["episodes"] if e.get("enabled") and (not args.episode or e["id"] == args.episode)]
-    if args.episode and not episodes:
+    if args.episode and args.episode != 'auto' and not episodes:
         raise ValueError("Unknown/disabled episode")
     if not args.episode and os.environ.get("GH_TOKEN"):
         episodes = [e for e in episodes if not previewed(e["id"]) and not clips.reserved(e["id"])]
     out = Path(args.output).resolve()
     out.mkdir(parents=True, exist_ok=True)
     manifest = {"version": 1, "commit": os.environ.get("GITHUB_SHA", "local"), "catalog_digest": clips.digest(data), "clips": []}
+    if not episodes and (args.episode == 'auto' or os.environ.get('GEMINI_API_KEY')):
+        episode, source, media, checks = autofill.prepare(data, scratch)
+        generated = {'episode': episode, 'source': source, 'checks': checks,
+                     'policy_digest': clips.digest(autofill.policy())}
+        validate_catalog({'version': 1, 'sources': [source], 'episodes': [episode]})
+        manifest['generated'] = generated
+        episodes = [episode]
+        sources[source['id']] = source
+        generated_media = media
+    elif not episodes and os.environ.get('GITHUB_ACTIONS') == 'true':
+        raise ValueError('Queue empty and automatic refill credentials unavailable')
     for episode in episodes[:1]:
         source = sources[episode["source_id"]]
         evidence = check_rights(source)
         with tempfile.TemporaryDirectory(prefix="archive-story-") as scratch:
             directory = Path(scratch)
-            media = Path(args.media).resolve() if args.media else directory / "source.mp4"
-            if not args.media:
+            media = generated_media if generated else Path(args.media).resolve() if args.media else directory / "source.mp4"
+            if not args.media and not generated:
                 clips.download(f"https://archive.org/download/{source['archive_id']}/{quote(source['filename'])}", media)
             if clips.file_hash(media) != source["sha256"]:
                 raise ValueError("Archive source fingerprint changed")
@@ -207,7 +231,7 @@ def preview(args):
             (dest / "script.txt").write_text(script(episode) + "\n")
             (dest / "rights.json").write_text(json.dumps({"catalogue": source, "live_metadata": evidence}, indent=2))
             pub = publication_source(episode, source)
-            caption = episode["title"] + "\n\nOriginal historical commentary. Archival promotional fantasy, not a current product.\n" + pub["attribution"] + "\nNarration generated with AI. #History #RetroFuture"
+            caption = episode["title"] + "\n\nOriginal commentary on archival footage, not current events or product advice.\n" + pub["attribution"] + "\nNarration generated with AI. #History #RetroFuture"
             manifest["clips"].append({"id": episode["id"], "source_id": source["id"], "source_digest": clips.digest(pub),
                 "sha256": clips.file_hash(video), "title": episode["title"], "caption": caption, "duration": duration})
     (out / "manifest.json").write_text(json.dumps(manifest, indent=2))
@@ -229,6 +253,18 @@ def publish(args):
     manifest = json.loads((Path(args.output) / "manifest.json").read_text())
     if manifest.get("version") != 1 or manifest["commit"] != run["head_sha"] or manifest["catalog_digest"] != clips.digest(data):
         raise ValueError("Preview provenance/catalogue mismatch; regenerate preview")
+    generated = manifest.get('generated')
+    if generated:
+        import archive_autofill as autofill
+        if generated.get('policy_digest') != clips.digest(autofill.policy()):
+            raise ValueError('Automatic editorial policy changed; regenerate')
+        episode, source = generated['episode'], generated['source']
+        if (episode['id'] != autofill.source_key(source['archive_id']) or episode['source_id'] != source['id']
+                or episode['id'] != source['id'] or generated['checks']['review'] != {'pass': True, 'issues': []}):
+            raise ValueError('Invalid generated story evidence')
+        validate_catalog({'version': 1, 'sources': [source], 'episodes': [episode]})
+        data['episodes'].append(episode)
+        sources[source['id']] = source
     for clip in manifest["clips"]:
         if args.episode and clip["id"] != args.episode:
             continue
