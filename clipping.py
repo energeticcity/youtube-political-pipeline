@@ -105,7 +105,7 @@ def public_https(url):
         raise ValueError("Non-public media hosts are not permitted")
 
 
-def download(url, target):
+def download(url, target, max_bytes=MAX_BYTES):
     # Do not log signed URLs, response bodies or request exceptions.
     for _ in range(6):
         public_https(url)
@@ -115,13 +115,13 @@ def download(url, target):
                 continue
             if response.status_code != 200:
                 raise RuntimeError(f"Source download HTTP {response.status_code}; refresh signed URL")
-            if int(response.headers.get("Content-Length", "0")) > MAX_BYTES:
+            if int(response.headers.get("Content-Length", "0")) > max_bytes:
                 raise ValueError("Source exceeds 2 GiB")
             size = 0
             with open(target, "wb") as stream:
                 for chunk in response.iter_content(1024 * 1024):
                     size += len(chunk)
-                    if size > MAX_BYTES:
+                    if size > max_bytes:
                         raise ValueError("Source exceeds 2 GiB")
                     stream.write(chunk)
             return
