@@ -4,7 +4,7 @@ Replaces the dad-joke schedule with original historical commentary over reviewed
 
 ## What runs
 
-- Three daily preview opportunities at the previous schedule times. At most one approved story per run.
+- Three daily automatic production/posting opportunities at 14:07, 18:07 and 22:07 UTC (07:07, 11:07 and 15:07 Dawson Creek time). At most one story per run. GitHub queuing and rendering can delay the actual publication time.
 - Two curated pilot stories currently exist. This is a finite editorial queue, not unlimited automatic discovery. Add reviewed stories to `archives/episodes.json` to continue.
 - Check the live Prelinger rights label, download the pinned file, verify SHA-256, generate original narration with exact timestamps, assemble 1080×1920 H.264 video and captions, and save an Actions artifact for 30 days.
 - Original film sound/music is never included. Narration is AI-generated and disclosed. No impersonation, cloned celebrity voice, or synthetic historical footage.
@@ -13,7 +13,7 @@ Replaces the dad-joke schedule with original historical commentary over reviewed
 
 ## Publication controls
 
-The user approved the pilot and this format on 2026-09-03. Both starter episodes are approved for automatic posting; the repository publishing switches are enabled. Future episodes still need explicit editorial approval in the catalogue. The pilot was first submitted through the manual workflow. Use **Check Archive Delivery** with its Post for Me ID to read per-platform results without reposting.
+On 2026-09-03 the user explicitly requested automatic posting without per-video approval on the previous schedule. All enabled catalogue stories publish automatically after successful generation and verification while both master publishing switches are enabled. There is no per-episode approval gate. Rights verification, source fingerprints, narration checks and duplicate locks remain enforced. The pilot was first submitted through the manual workflow. Use **Check Archive Delivery** with its Post for Me ID to read per-platform results without reposting.
 
 Review the MP4, script, source evidence, caption alignment and account destinations first. Monetization is neither enabled nor guaranteed by this change. Public-domain archive labels are evidence, not worldwide legal clearance. Check territory-specific rights when necessary. YouTube independently assesses original value and repetitive/reused content.
 
@@ -21,7 +21,7 @@ Configure repository variables after review:
 
 1. `CLIP_DESTINATIONS_JSON`: explicit existing Post for Me IDs, e.g. `{"youtube":"account_id","instagram":"account_id","tiktok":"account_id"}`. No default or first-account selection: every configured ID is checked against its platform. Connect/verify the same YouTube channel in Post for Me before using that route; the legacy direct YouTube uploader is not invoked.
 2. `CLIP_PUBLISH_ENABLED=true` permits the manual **Publish Reviewed Archive Story** action. Supply a successful main-branch preview run ID. No public post is created by the preview action.
-3. Optional ongoing automatic publishing also requires `CLIP_AUTO_PUBLISH_ENABLED=true` and `auto_publish_approved: true` on each episode. Change approval before generating its preview, because the catalogue fingerprint must match. A successful scheduled/main preview then triggers publishing.
+3. Ongoing automatic publishing requires `CLIP_AUTO_PUBLISH_ENABLED=true`. Every enabled catalogue episode is eligible without a separate user approval. A successful scheduled/main preview triggers publishing. Catalogue changes still require a fresh preview so its fingerprint matches.
 
 Publish runs are serialized. Before any upload/post, an issue `[clip-publication] EPISODE` reserves the episode. That lock remains even when the issue is closed or a provider fails. Check Post for Me per-platform delivery before manually resolving an ambiguous failure; never blindly repost. Provider acceptance means queued, not confirmed published. Issues must remain enabled and ledger issues must not be deleted. Artifact expiration requires a new preview.
 

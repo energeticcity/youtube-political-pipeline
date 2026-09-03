@@ -43,6 +43,13 @@ class ArchiveTests(unittest.TestCase):
         changed['beats'][0]['text'] = 'Different narration'
         self.assertNotEqual(clipping.digest(original), clipping.digest(archive.publication_source(changed, self.source)))
 
+    def test_no_per_episode_user_approval_required(self):
+        episode = copy.deepcopy(self.episode)
+        episode.pop('auto_publish_approved', None)
+        source = archive.publication_source(episode, self.source)
+        clipping.validate_source(source, publishing=True, automatic=True)
+        self.assertTrue(source['auto_publish_approved'])
+
     @patch('archive_pipeline.requests.get')
     def test_changed_rights_block(self, get):
         response = Mock()

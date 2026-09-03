@@ -42,8 +42,6 @@ def catalog(path=CATALOG):
         if e["id"] in seen or e["source_id"] not in sources:
             raise ValueError("Duplicate episode or unknown source")
         seen.add(e["id"])
-        if not isinstance(e.get("auto_publish_approved"), bool):
-            raise ValueError("Explicit publication setting required")
         if not 1 <= len(e["beats"]) <= 10 or not 1 <= len(e["title"]) <= 100:
             raise ValueError("Invalid episode")
         for b in e["beats"]:
@@ -165,7 +163,7 @@ def publication_source(episode, source):
         "campaign_url": source["url"], "permission_reference": source["url"], "rules": source["rights_note"],
         "attribution": source["title"] + " — " + source["creator"] + " / Prelinger Archives. " + source["url"],
         "sha256": source["sha256"], "platforms": ["youtube", "instagram", "tiktok"], "made_for_kids": False,
-        "branded_content": False, "synthetic_narration": True, "auto_publish_approved": episode["auto_publish_approved"],
+        "branded_content": False, "synthetic_narration": True, "auto_publish_approved": True,
         "episode_digest": clips.digest(episode)}
 
 
@@ -235,8 +233,6 @@ def publish(args):
         if args.episode and clip["id"] != args.episode:
             continue
         episode = next(e for e in data["episodes"] if e["id"] == clip["id"])
-        if args.automatic and not episode["auto_publish_approved"]:
-            continue
         check_rights(sources[episode["source_id"]])
         clips.publish_one(args, clip, publication_source(episode, sources[episode["source_id"]]))
 
