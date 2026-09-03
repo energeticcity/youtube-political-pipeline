@@ -140,6 +140,16 @@ class ArchiveTests(unittest.TestCase):
             self.assertEqual(data['instagram']['status'], 'failed')
             self.assertEqual(data['tiktok']['status'], 'pending')
 
+    @patch('archive_pipeline.clips.api_json')
+    def test_delivery_handles_stringified_provider_errors(self, api):
+        api.return_value = {'data': [{'post_id': 'sp_test', 'social_account_id': 'b', 'success': False,
+            'error': '{"error":{"message":"Token expired","code":190}}'}]}
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {
+                'POSTFORME_API_KEY': 'test', 'CLIP_DESTINATIONS_JSON': '{"instagram":"b"}'}):
+            archive.delivery(Mock(post_id='sp_test', output=tmp))
+            result = json.loads((Path(tmp) / 'delivery.json').read_text())
+            self.assertEqual(result['instagram']['error_summary']['message'], 'Token expired')
+
 
 if __name__ == '__main__':
     unittest.main()

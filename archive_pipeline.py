@@ -257,6 +257,16 @@ def delivery(args):
             result[platform] = {'status': 'published', 'url': url}
         elif matches:
             error = matches[-1].get('error') or {}
+            if isinstance(error, str):
+                try:
+                    parsed = json.loads(error)
+                except (ValueError, TypeError):
+                    parsed = None
+                error = parsed if isinstance(parsed, dict) else {'message': error}
+            if not isinstance(error, dict):
+                error = {'message': 'Provider returned an unrecognized error format.'}
+            if isinstance(error.get('error'), dict):
+                error = error['error']
             # Only provider error labels, never raw request/response diagnostics or credentials.
             summary = {k: str(error[k])[:700] for k in ('message', 'code', 'type', 'error_user_title', 'error_user_msg')
                        if k in error and isinstance(error[k], (str, int))}
