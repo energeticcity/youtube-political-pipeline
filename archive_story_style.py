@@ -78,7 +78,11 @@ def caption_lines(text, max_chars=29):
 
 def shot_filter(width, height, reframe=None):
     reframe = reframe or {'zoom': 1, 'x': .5}
+    if not isinstance(reframe,dict) or set(reframe)-{'zoom','x'}:
+        raise ValueError('Invalid framing settings')
     zoom, center = reframe.get('zoom', 1), reframe.get('x', .5)
+    if isinstance(zoom,bool) or isinstance(center,bool) or not isinstance(zoom,(int,float)) or not isinstance(center,(int,float)):
+        raise ValueError('Framing must use finite numeric values')
     if not math.isfinite(zoom) or not 1 <= zoom <= 1.2 or not 0 <= center <= 1:
         raise ValueError('Only reviewed modest horizontal reframing allowed')
     crop_width = int(width / zoom) // 2 * 2

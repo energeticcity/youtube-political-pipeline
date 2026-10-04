@@ -108,7 +108,7 @@ class AutofillTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             fill.validate_story(story, source, times, 180, [])
 
-    def test_flexible_story_keeps_grounding_and_rejects_padding_or_crop(self):
+    def test_flexible_story_keeps_grounding_and_rejects_padding_or_uninspected_cuts(self):
         fixture = json.loads((Path(__file__).parent/'fixtures/bart-private.json').read_text())
         story = dict(fixture['episode'], suitable=True)
         for beat in story['beats']:
@@ -116,8 +116,11 @@ class AutofillTests(unittest.TestCase):
             beat['evidence']='Source footage and narration identify the tunnel construction.'
         times=[b['start'] for b in story['beats']]
         fill.validate_story(story,fixture['source'],times,821,[])
-        bad=copy.deepcopy(story);bad['beats'][0]['reframe']={'zoom':1.2}
-        with self.assertRaisesRegex(ValueError,'unreviewed'):
+        bad=copy.deepcopy(story);bad['beats'][0]['visual_cuts']=[{'start':999}]
+        with self.assertRaisesRegex(ValueError,'uninspected'):
+            fill.validate_story(bad,fixture['source'],times,821,[])
+        bad=copy.deepcopy(story);bad['beats'][0]['reframe']={'zoom':1.5}
+        with self.assertRaises(ValueError):
             fill.validate_story(bad,fixture['source'],times,821,[])
         bad=copy.deepcopy(story);bad['beats']*=2
         with self.assertRaisesRegex(ValueError,'Three to six'):

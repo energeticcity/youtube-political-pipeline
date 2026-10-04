@@ -35,6 +35,8 @@ class StoryStyleTests(unittest.TestCase):
         zoom=style.shot_filter(640,480,{'zoom':1.18,'x':.5})
         self.assertIn('crop=542:480:48:0',zoom)
         with self.assertRaises(ValueError):style.shot_filter(640,480,{'zoom':1.5})
+        for framing in [{'zoom':float('nan')},{'x':float('inf')},{'zoom':True},{'portrait':True}]:
+            with self.assertRaises(ValueError):style.shot_filter(640,480,framing)
 
     def test_caption_bounds_and_disclosure(self):
         source={'title':'Practical Dreamer','year':'1957','creator':'Handy (Jam) Organization'}

@@ -189,12 +189,12 @@ def build_preview(args, scratch):
                 clips.download(f"https://archive.org/download/{source['archive_id']}/{quote(source['filename'])}", media)
             if clips.file_hash(media) != source["sha256"]:
                 raise ValueError("Archive source fingerprint changed")
-            audio, duration, segments, boundaries = narration(episode, directory)
             render_source=dict(source)
             if not render_source.get('year'):
                 year=re.match(r'^(18\d\d|19\d\d|20\d\d)(?:\D|$)',str(evidence.get('date') or ''))
                 if not year:raise ValueError('No reliable live year for source credit')
                 render_source['year']=year[1]
+            audio, duration, segments, boundaries = narration(episode, directory)
             video = render(media, episode, render_source, directory, audio, duration, segments, boundaries)
             from archive_audio_quality import review_final
             quality=review_final(video,script(episode),render_source['year'],directory)

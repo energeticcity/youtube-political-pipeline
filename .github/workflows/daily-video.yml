@@ -1,4 +1,5 @@
 name: The Past Was Ridiculous
+run-name: ${{ inputs.episode == 'audio-review' && 'Archive audio review (no publication)' || 'The Past Was Ridiculous' }}
 on:
   schedule:
     - cron: '7 14,18,22 * * *'
