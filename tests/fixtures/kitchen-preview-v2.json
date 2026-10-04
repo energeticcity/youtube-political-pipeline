@@ -27,7 +27,20 @@
         "reframe": {
           "zoom": 1.18,
           "x": 0.5
-        }
+        },
+        "visual_cuts": [
+          {
+            "start": 590.78,
+            "length": 2
+          },
+          {
+            "start": 598.78,
+            "length": 3.5
+          },
+          {
+            "start": 564.15
+          }
+        ]
       },
       {
         "start": 377.77,
@@ -51,7 +64,16 @@
         "reframe": {
           "zoom": 1.18,
           "x": 0.5
-        }
+        },
+        "visual_cuts": [
+          {
+            "start": 590.78,
+            "length": 2.2
+          },
+          {
+            "start": 598.78
+          }
+        ]
       },
       {
         "start": 723.91,

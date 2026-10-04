@@ -27,7 +27,23 @@ def phrase_segments(text, starts, ends):
             group = []
     if group:
         segments.append(make_segment(text, group, starts, ends))
-    return segments
+    balanced = []
+    for segment in segments:
+        if balanced and len(segment['text'].split()) == 1 and segment['start']-balanced[-1]['end'] < .35 and not re.search(r'[.!?,;:]$', balanced[-1]['text']):
+            combined = balanced[-1]['text'] + ' ' + segment['text']
+            try:
+                caption_lines(combined)
+            except ValueError:
+                previous = [w for w in words if starts[w.start()] >= balanced[-1]['start'] and ends[w.end()-1] <= balanced[-1]['end']]
+                current = [w for w in words if starts[w.start()] == segment['start']]
+                if len(previous) > 3 and current:
+                    balanced[-1] = make_segment(text, previous[:-2], starts, ends)
+                    segment = make_segment(text, previous[-2:] + current, starts, ends)
+            else:
+                balanced[-1].update(text=combined, end=segment['end'])
+                continue
+        balanced.append(segment)
+    return balanced
 
 
 def make_segment(text, group, starts, ends):
@@ -107,8 +123,18 @@ def render(source_file, episode, source, directory, audio, duration, segments, b
     directory.mkdir(parents=True, exist_ok=True)
     write_captions(directory/'captions.ass', segments, duration, source)
     shots = []
+    planned = []
     for i, beat in enumerate(episode['beats']):
-        length = boundaries[i+1]-boundaries[i]
+        remaining = boundaries[i+1]-boundaries[i]
+        for cut in beat.get('visual_cuts', [beat]):
+            length = cut.get('length', remaining)
+            if not 0 < length <= remaining + 1e-6:
+                raise ValueError('Visual cut exceeds narration beat')
+            planned.append((dict(beat, **cut), length))
+            remaining -= length
+        if abs(remaining) > .001:
+            raise ValueError('Visual cuts do not cover narration beat')
+    for i, (beat, length) in enumerate(planned):
         if not 0 < length <= 14 or beat['start']+length > source_duration:
             raise ValueError('Shot exceeds verified source interval')
         name = f'shot-{i}.mp4'

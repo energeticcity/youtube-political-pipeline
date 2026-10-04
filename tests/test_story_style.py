@@ -14,6 +14,14 @@ class StoryStyleTests(unittest.TestCase):
         self.assertEqual(segments[1]['start'],starts[text.index('In')])
         self.assertTrue(all(a['end']<=b['start'] for a,b in zip(segments,segments[1:])))
 
+    def test_avoids_orphan_caption_tail(self):
+        text='It’s an elaborate fantasy about making housework simpler.'
+        starts=[i*.05 for i in range(len(text))];ends=[t+.04 for t in starts]
+        segments=style.phrase_segments(text,starts,ends)
+        self.assertEqual(' '.join(s['text'] for s in segments),text)
+        self.assertTrue(all(len(s['text'].split()) > 1 for s in segments))
+        self.assertTrue(all(len(style.caption_lines(s['text'])) <= 2 for s in segments))
+
     def test_line_breaks_preserve_words_and_safe_width(self):
         text='This nineteen fifty-seven kitchen ad turned cabinets'
         lines=style.caption_lines(text)
