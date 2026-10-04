@@ -75,3 +75,12 @@ public-domain/year/credit/size gates. Rotating search results are considered
 before the popular-page fallback, and results rotate within each page. The
 `archive-refill-diagnostics` artifact records only counts and outcome, including
 bounded discovery exhaustion; it contains no provider error bodies or credentials.
+
+For deeper YouTube recovery evidence, dispatch the same read-only workflow with
+`-f inspect_recovery=true`. Its `recovery-check.json` reads the original post,
+configured YouTube account, paginated results and existing post references. It
+extracts fixed quota labels without exporting transport diagnostics or media
+URLs. The check always holds recovery: it cannot verify live project quota,
+source rights, video fingerprints, all GitHub locks, external manual recovery or
+billing allowance. It never submits, updates or retries a post. A provider
+`external_id` is a reference, not a verified API idempotency guarantee.

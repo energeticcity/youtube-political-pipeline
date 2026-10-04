@@ -6,6 +6,11 @@ on:
         description: Post for Me post ID from publication issue
         required: true
         type: string
+      inspect_recovery:
+        description: Read-only YouTube quota and duplicate-reference evidence
+        required: false
+        default: false
+        type: boolean
 permissions:
   contents: read
 jobs:
@@ -27,6 +32,13 @@ jobs:
           POSTFORME_API_KEY: ${{ secrets.POSTFORME_API_KEY }}
           CLIP_DESTINATIONS_JSON: ${{ vars.CLIP_DESTINATIONS_JSON }}
         run: python archive_pipeline.py delivery --post-id "$POST_ID" --output delivery-output
+      - name: Inspect YouTube recovery evidence (read only)
+        if: inputs.inspect_recovery
+        env:
+          POST_ID: ${{ inputs.post_id }}
+          POSTFORME_API_KEY: ${{ secrets.POSTFORME_API_KEY }}
+          CLIP_DESTINATIONS_JSON: ${{ vars.CLIP_DESTINATIONS_JSON }}
+        run: python archive_recovery_check.py --post-id "$POST_ID" --output delivery-output
       - uses: actions/upload-artifact@v4
         with:
           name: archive-delivery
