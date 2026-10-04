@@ -1,0 +1,66 @@
+{
+  "source": {
+    "id": "archive-621c5d1eccf799206b3d",
+    "archive_id": "Practica1957",
+    "filename": "Practica1957.mp4",
+    "title": "Practical Dreamer",
+    "creator": "Handy (Jam) Organization",
+    "year": "1957",
+    "url": "https://archive.org/details/Practica1957",
+    "license_url": "http://creativecommons.org/licenses/publicdomain/",
+    "rights_checked": "2026-09-29",
+    "rights_note": "Automatically checked explicit public-domain label on this Prelinger item. Original soundtrack excluded. Archive labels are evidence, not worldwide legal guarantees.",
+    "sha256": "86f9bca082de5472f9e60a5c6a496df007cf4a507524a22c43e03e69437072e6",
+    "description": "A fantasy of kitchen planning and modernization. With Augusta Roeland and Rege Cordic. Produced by Haford Kerbawy.",
+    "subjects": "Houses and homes: Kitchens;Occupations: Housework"
+  },
+  "episode": {
+    "id": "kitchen-v2-private-test",
+    "source_id": "archive-621c5d1eccf799206b3d",
+    "enabled": true,
+    "title": "This 1957 Kitchen Ad Went Into Orbit",
+    "headline": "WHY ARE THE\nCABINETS FLYING?",
+    "beats": [
+      {
+        "start": 590.78,
+        "text": "This nineteen fifty-seven kitchen ad turned cabinets into flying saucers. All to sell a better kitchen.",
+        "reframe": {
+          "zoom": 1.18,
+          "x": 0.5
+        }
+      },
+      {
+        "start": 377.77,
+        "text": "In this dream, even the floor plan gets dramatic: look at all those extra steps.",
+        "reframe": {
+          "zoom": 1,
+          "x": 0.5
+        }
+      },
+      {
+        "start": 564.15,
+        "text": "Then a gleaming kitchen appears,",
+        "reframe": {
+          "zoom": 1.12,
+          "x": 0.5
+        }
+      },
+      {
+        "start": 590.78,
+        "text": "and the cabinets head into orbit. It\u2019s an elaborate fantasy about making housework simpler.",
+        "reframe": {
+          "zoom": 1.18,
+          "x": 0.5
+        }
+      },
+      {
+        "start": 723.91,
+        "text": "And the grand finale of this cosmic adventure? A kitchen-planning booklet.",
+        "reframe": {
+          "zoom": 1.12,
+          "x": 1
+        }
+      }
+    ]
+  }
+}

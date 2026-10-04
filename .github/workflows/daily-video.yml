@@ -37,7 +37,12 @@ jobs:
           ELEVENLABS_VOICE_ID: ${{ secrets.ELEVENLABS_VOICE_ID }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           EPISODE: ${{ inputs.episode }}
-        run: python archive_pipeline.py preview --episode "$EPISODE"
+        run: |
+          if [ "$EPISODE" = kitchen-v2-test ]; then
+            python preview_kitchen_v2.py
+          else
+            python archive_pipeline.py preview --episode "$EPISODE"
+          fi
       - name: Identify existing destinations (read only)
         continue-on-error: true
         env:

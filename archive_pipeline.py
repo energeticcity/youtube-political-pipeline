@@ -100,6 +100,7 @@ def narration(episode, directory):
     for i, (start, end) in enumerate(zip(starts, ends)):
         if not math.isfinite(start) or not math.isfinite(end) or not 0 <= start <= end or (i and start < starts[i-1]):
             raise ValueError("Nonmonotonic narration timestamps")
+    (directory / "narration-alignment.json").write_text(json.dumps({"starts": starts, "ends": ends}))
     audio = directory / "narration.mp3"
     audio.write_bytes(base64.b64decode(data["audio_base64"], validate=True))
     duration = float(subprocess.check_output(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", str(audio)]))
