@@ -15,36 +15,31 @@
     "subjects": "Houses and homes: Kitchens;Occupations: Housework"
   },
   "episode": {
-    "id": "kitchen-v2-private-test",
+    "id": "kitchen-v3-private-test",
     "source_id": "archive-621c5d1eccf799206b3d",
     "enabled": true,
-    "title": "This 1957 Kitchen Ad Went Into Orbit",
-    "headline": "WHY ARE THE\nCABINETS FLYING?",
+    "title": "Why This 1957 Kitchen Ad Sends a Stove Into Orbit",
+    "headline": "A KITCHEN AD.\nA STOVE IN SPACE?",
     "beats": [
       {
-        "start": 590.78,
-        "text": "This nineteen fifty-seven kitchen ad turned cabinets into flying saucers. All to sell a better kitchen.",
+        "start": 609.3,
+        "text": "Why does a kitchen ad send a stove into orbit?",
         "reframe": {
-          "zoom": 1.18,
+          "zoom": 1,
           "x": 0.5
-        },
-        "visual_cuts": [
-          {
-            "start": 590.78,
-            "length": 2
-          },
-          {
-            "start": 598.78,
-            "length": 3.5
-          },
-          {
-            "start": 564.15
-          }
-        ]
+        }
+      },
+      {
+        "start": 680,
+        "text": "This is a nineteen fifty-seven dream of the perfect kitchen.",
+        "reframe": {
+          "zoom": 1.08,
+          "x": 0.5
+        }
       },
       {
         "start": 377.77,
-        "text": "In this dream, even the floor plan gets dramatic: look at all those extra steps.",
+        "text": "First, it diagrams the wasted footsteps.",
         "reframe": {
           "zoom": 1,
           "x": 0.5
@@ -52,32 +47,36 @@
       },
       {
         "start": 564.15,
-        "text": "Then a gleaming kitchen appears,",
+        "text": "Then the cabinets appear... and the whole kitchen starts orbiting.",
         "reframe": {
-          "zoom": 1.12,
-          "x": 0.5
-        }
-      },
-      {
-        "start": 590.78,
-        "text": "and the cabinets head into orbit. It\u2019s an elaborate fantasy about making housework simpler.",
-        "reframe": {
-          "zoom": 1.18,
+          "zoom": 1.08,
           "x": 0.5
         },
         "visual_cuts": [
           {
-            "start": 590.78,
-            "length": 2.2
+            "start": 564.15,
+            "length": 1.8
           },
           {
-            "start": 598.78
+            "start": 590.78,
+            "length": 1.6
+          },
+          {
+            "start": 609.3
           }
         ]
       },
       {
+        "start": 680,
+        "text": "So what does thirteen minutes of this fantasy lead to?",
+        "reframe": {
+          "zoom": 1.08,
+          "x": 0.5
+        }
+      },
+      {
         "start": 723.91,
-        "text": "And the grand finale of this cosmic adventure? A kitchen-planning booklet.",
+        "text": "A kitchen-planning booklet. All that spectacle. For a floor plan.",
         "reframe": {
           "zoom": 1.12,
           "x": 1

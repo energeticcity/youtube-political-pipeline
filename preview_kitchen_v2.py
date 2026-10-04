@@ -22,10 +22,14 @@ def main():
     clipping.download(f"https://archive.org/download/{source['archive_id']}/{source['filename']}",media,max_bytes=262144000)
     if clipping.file_hash(media)!=source['sha256']:raise ValueError('Source fingerprint mismatch')
     model=fill.choose_model(fill.policy())
-    selected=sorted({round(b['start']+offset,2) for b in episode['beats'] for offset in [0,4,9,13]})
+    shot_starts={b['start'] for b in episode['beats']} | {cut['start'] for b in episode['beats'] for cut in b.get('visual_cuts',[])}
+    selected=sorted({round(start+offset,2) for start in shot_starts for offset in [0,2,4,9,13]})
+    if len(selected)>fill.policy()['scan_frames']:raise ValueError('Private review exceeds existing frame budget')
     review=fill.generate_json(model,fill.policy()['policy']+'''\nIndependently audit this proposed private preview against metadata and actual source frames.
-The flying-saucer/orbit language is an explicit metaphor in this promotional dream, not a claim of real flight.
-Verify the 1957 date, floor-plan/walking-path diagram, kitchen reveal, swirling cabinets and final planning booklet.
+The space/orbit language is an explicit metaphor for the swirling dream animation, not a claim of real flight.
+Verify the 1957 date, floor-plan/walking-path diagram, kitchen reveal, swirling cabinets AND visible stove/appliance group, and final planning booklet.
+The full pinned source runtime is 797.16 seconds (13 minutes 17 seconds); the thirteen-minute claim refers to the source, not this short.
+Verify a single question-to-booklet payoff without invented historical claims.
 Reject misleading claims or unsuitable footage. Return JSON {pass:boolean,issues:[string]}.''',
         [{'text':json.dumps({'source':evidence,'proposed_story':episode})}]+fill.frames(media,selected,directory))
     if review!={'pass':True,'issues':[]}:raise ValueError('Editorial review rejected private preview')

@@ -88,7 +88,7 @@ def shot_filter(width, height, reframe=None):
             'pad=1080:1920:(ow-iw)/2:340:color=0x101826,setsar=1')
 
 
-def write_captions(path, segments, duration, source):
+def write_captions(path, segments, duration, source, headline="WHY ARE THE\nCABINETS FLYING?"):
     header = '''[Script Info]
 ScriptType: v4.00+
 PlayResX: 1080
@@ -113,7 +113,8 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             (1516, 19, f"{source['creator']} / Prelinger Archives"),
             (1550, 19, 'Original commentary · AI-generated narration')]:
         lines.append(f'Dialogue: 1,0:00:00.00,{clipping.ass_time(duration)},Default,,0,0,0,,{{\\an8\\pos(492,{y})\\fs{size}}}{clipping.safe_ass(label)}')
-    lines.append('Dialogue: 1,0:00:00.00,0:00:03.00,Default,,0,0,0,,{\\an8\\pos(492,190)\\fs48}WHY ARE THE\\NCABINETS FLYING?')
+    hook = r'\N'.join(clipping.safe_ass(line) for line in headline.splitlines())
+    lines.append(f'Dialogue: 1,0:00:00.00,0:00:03.00,Default,,0,0,0,,{{\\an8\\pos(492,190)\\fs48}}{hook}')
     Path(path).write_text(header+'\n'.join(lines)+'\n')
 
 
@@ -121,7 +122,7 @@ def render(source_file, episode, source, directory, audio, duration, segments, b
     info, source_duration = clipping.probe(source_file)
     video = next(s for s in info['streams'] if s['codec_type'] == 'video')
     directory.mkdir(parents=True, exist_ok=True)
-    write_captions(directory/'captions.ass', segments, duration, source)
+    write_captions(directory/'captions.ass', segments, duration, source, episode['headline'])
     shots = []
     planned = []
     for i, beat in enumerate(episode['beats']):
