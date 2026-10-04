@@ -324,7 +324,8 @@ def verify_run(run_id):
     run = github("GET", f"actions/runs/{run_id}")
     if (run["head_repository"]["full_name"] != os.environ["GITHUB_REPOSITORY"] or run["head_branch"] != "main"
             or run["path"] != ".github/workflows/daily-video.yml" or run["conclusion"] != "success"
-            or run["event"] not in ("schedule", "workflow_dispatch")):
+            or run["event"] not in ("schedule", "workflow_dispatch")
+            or run.get("display_title") == "Archive audio review (no publication)"):
         raise ValueError("Only successful main-branch clip previews may publish")
     return run
 

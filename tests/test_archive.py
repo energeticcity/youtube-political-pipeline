@@ -87,6 +87,15 @@ class ArchiveTests(unittest.TestCase):
                 clipping.verify_run('123')
 
     @patch('clipping.github')
+    def test_audio_only_run_cannot_be_manually_published(self,github):
+        repo='energeticcity/youtube-political-pipeline'
+        github.return_value={'head_repository':{'full_name':repo},'head_branch':'main',
+            'path':'.github/workflows/daily-video.yml','conclusion':'success','event':'workflow_dispatch',
+            'display_title':'Archive audio review (no publication)'}
+        with patch.dict(os.environ,{'GITHUB_REPOSITORY':repo}):
+            with self.assertRaises(ValueError):clipping.verify_run('123')
+
+    @patch('clipping.github')
     def test_closed_publication_issue_still_locks(self, github):
         github.return_value = [{'title': '[clip-publication] test', 'state': 'closed'}]
         self.assertTrue(clipping.reserved('test'))
