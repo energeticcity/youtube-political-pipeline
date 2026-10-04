@@ -167,7 +167,7 @@ def build_preview(args, scratch):
         episodes = [e for e in episodes if not previewed(e["id"]) and not clips.reserved(e["id"])]
     out = Path(args.output).resolve()
     out.mkdir(parents=True, exist_ok=True)
-    manifest = {"version": 1, "commit": os.environ.get("GITHUB_SHA", "local"), "catalog_digest": clips.digest(data), "clips": []}
+    manifest = {"version": 1, "format_version": "archive-story-v2", "commit": os.environ.get("GITHUB_SHA", "local"), "catalog_digest": clips.digest(data), "clips": []}
     if not episodes and (args.episode == 'auto' or os.environ.get('GEMINI_API_KEY')):
         episode, source, media, checks = autofill.prepare(data, scratch, diagnostics_path=out / 'refill-diagnostics.json')
         generated = {'episode': episode, 'source': source, 'checks': checks,
@@ -190,7 +190,14 @@ def build_preview(args, scratch):
             if clips.file_hash(media) != source["sha256"]:
                 raise ValueError("Archive source fingerprint changed")
             audio, duration, segments, boundaries = narration(episode, directory)
-            video = render(media, episode, source, directory, audio, duration, segments, boundaries)
+            render_source=dict(source)
+            if not render_source.get('year'):
+                year=re.match(r'^(18\d\d|19\d\d|20\d\d)(?:\D|$)',str(evidence.get('date') or ''))
+                if not year:raise ValueError('No reliable live year for source credit')
+                render_source['year']=year[1]
+            video = render(media, episode, render_source, directory, audio, duration, segments, boundaries)
+            from archive_audio_quality import review_final
+            quality=review_final(video,script(episode),render_source['year'],directory)
             dest = out / episode["id"]
             dest.mkdir(exist_ok=True)
             for name in ("clip.mp4", "captions.ass", "narration.mp3", "narration-alignment.json"):
@@ -200,7 +207,7 @@ def build_preview(args, scratch):
             pub = publication_source(episode, source)
             caption = episode["title"] + "\n\nOriginal commentary on archival footage, not current events or product advice.\n" + pub["attribution"] + "\nNarration generated with AI. #History #RetroFuture"
             manifest["clips"].append({"id": episode["id"], "source_id": source["id"], "source_digest": clips.digest(pub),
-                "sha256": clips.file_hash(video), "title": episode["title"], "caption": caption, "duration": duration})
+                "sha256": clips.file_hash(video), "title": episode["title"], "caption": caption, "duration": duration, "audio_quality": quality})
     (out / "manifest.json").write_text(json.dumps(manifest, indent=2))
     summary = "# The Past Was Ridiculous\n\n" + ("Preview ready. Check footage, narration, captions and rights before publication.\n" if manifest["clips"] else "Queue exhausted. Add reviewed stories; no narration purchased or video posted.\n")
     (out / "REVIEW.md").write_text(summary)
@@ -235,6 +242,10 @@ def publish(args):
     for clip in manifest["clips"]:
         if args.episode and clip["id"] != args.episode:
             continue
+        if manifest.get('format_version')=='archive-story-v2':
+            quality=clip.get('audio_quality') or {}
+            if quality.get('pass') is not True or quality.get('video_sha256')!=clip.get('sha256'):
+                raise ValueError('Missing or mismatched actual-audio review')
         episode = next(e for e in data["episodes"] if e["id"] == clip["id"])
         check_rights(sources[episode["source_id"]])
         clips.publish_one(args, clip, publication_source(episode, sources[episode["source_id"]]))

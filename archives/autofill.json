@@ -28,5 +28,6 @@
       35
     ],
     "premise": "immediate genuine visual question with one grounded payoff"
-  }
+  },
+  "max_audio_reviews_per_run": 1
 }

@@ -132,6 +132,20 @@ class ArchiveTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'mismatch'):
                 archive.publish(args)
 
+    @patch('clipping.verify_run',return_value={'head_sha':'test'})
+    @patch('clipping.publish_one')
+    def test_new_format_requires_audio_review_bound_to_video(self,publish,verify):
+        manifest={'version':1,'format_version':'archive-story-v2','commit':'test',
+                  'catalog_digest':clipping.digest(self.data),
+                  'clips':[{'id':self.episode['id'],'sha256':'video'}]}
+        with tempfile.TemporaryDirectory() as tmp,patch.dict(os.environ,{'CLIP_PUBLISH_ENABLED':'true'}):
+            path=Path(tmp)/'manifest.json'
+            for quality in [None,{'pass':True,'video_sha256':'other'}]:
+                manifest['clips'][0]['audio_quality']=quality;path.write_text(json.dumps(manifest))
+                with self.assertRaisesRegex(ValueError,'audio review'):
+                    archive.publish(Mock(catalog=archive.CATALOG,output=tmp,approved=True,automatic=False,episode='',run_id='123'))
+            publish.assert_not_called()
+
     @patch('archive_pipeline.clips.api_json')
     def test_delivery_distinguishes_pending_failure_and_success(self, api):
         api.return_value = {'data': [

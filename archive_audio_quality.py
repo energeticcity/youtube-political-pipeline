@@ -52,9 +52,20 @@ Use pass:true only if entire narration is clear, complete and has no material au
     audio.unlink()
     return result
 
+def fetch_existing(run_id, directory):
+    import os
+    if not str(run_id).isdigit():raise ValueError('Invalid run ID')
+    repo=os.environ['GITHUB_REPOSITORY']
+    run=json.loads(subprocess.check_output(['gh','api',f'repos/{repo}/actions/runs/{run_id}']))
+    if run['conclusion']!='success' or run['head_repository']['full_name']!=repo or run['head_branch'] not in ('main','feature/archive-story-preview-v2'):
+        raise ValueError('Untrusted preview')
+    subprocess.run(['gh','run','download',str(run_id),'--repo',repo,'-n','archive-preview','-D',str(directory)],check=True,timeout=120)
+
+
 def main():
     import argparse
-    p=argparse.ArgumentParser();p.add_argument('--output',default='clip-output');args=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('--output',default='clip-output');p.add_argument('--run-id');args=p.parse_args()
+    if args.run_id:fetch_existing(args.run_id,args.output)
     root=Path(args.output);validation=root/'preview-validation.json'
     if validation.exists():
         data=json.loads(validation.read_text())
