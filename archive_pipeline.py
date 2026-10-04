@@ -123,45 +123,11 @@ def narration(episode, directory):
 
 
 def render(source_file, episode, source, directory, audio, duration, segments, boundaries):
-    _, source_duration = clips.probe(source_file)
-    clips.captions({"start": 0, "segments": segments}, directory / "captions.ass")
-    with open(directory / "captions.ass", "a") as f:
-        end = clips.ass_time(duration)
-        lines = [(r"{\an8\pos(540,155)\fs34\c&H60D6FF&}", "THE PAST WAS RIDICULOUS"),
-                 (r"{\an8\pos(540,270)\fs62}", episode["headline"]),
-                 (r"{\an8\pos(540,1720)\fs27}", f"ARCHIVAL FILM • {source.get('year', '1956')} | ORIGINAL COMMENTARY"),
-                 (r"{\an8\pos(540,1770)\fs23}", source['creator'][:65] + " / Prelinger Archives")]
-        for style, text in lines:
-            text = r"\N".join(clips.safe_ass(line) for line in text.splitlines())
-            f.write(f"Dialogue: 1,0:00:00.00,{end},Default,,0,0,0,,{style}{text}\n")
-    shutil.copytree(clips.ROOT / "fonts", directory / "fonts", dirs_exist_ok=True)
-    shot_files = []
-    for i, beat in enumerate(episode["beats"]):
-        length = boundaries[i+1] - boundaries[i]
-        if episode['id'].startswith('archive-') and length > 14:
-            raise ValueError("Generated shot exceeds inspected interval")
-        if length <= 0 or beat["start"] + length > source_duration:
-            raise ValueError("Shot exceeds source bounds")
-        name = f"shot-{i}.mp4"
-        subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-ss", str(beat["start"]),
-            "-i", str(Path(source_file).resolve()), "-t", str(length), "-an",
-            "-vf", "scale=1080:900:force_original_aspect_ratio=decrease:force_divisible_by=2,pad=1080:1920:(ow-iw)/2:520:color=0x101826,setsar=1",
-            "-r", "30", "-c:v", "libx264", "-preset", "fast", "-crf", "21", "-pix_fmt", "yuv420p", name],
-            cwd=directory, check=True, timeout=300)
-        shot_files.append(f"file '{name}'")
-    (directory / "shots.txt").write_text("\n".join(shot_files))
-    output = directory / "clip.mp4"
-    subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "concat", "-safe", "1",
-        "-i", "shots.txt", "-i", str(audio.resolve()), "-map", "0:v:0", "-map", "1:a:0", "-t", str(duration),
-        "-vf", "ass=captions.ass:fontsdir=fonts", "-af", "loudnorm=I=-16:TP=-1.5:LRA=11",
-        "-c:v", "libx264", "-preset", "fast", "-crf", "21", "-pix_fmt", "yuv420p",
-        "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", str(output.resolve())],
-        cwd=directory, check=True, timeout=600)
-    info, actual = clips.probe(output)
-    video = next(s for s in info["streams"] if s["codec_type"] == "video")
-    if (video["width"], video["height"]) != (1080, 1920) or abs(actual-duration) > 0.3:
-        raise ValueError("Output verification failed")
-    return output
+    import archive_story_style as style
+    shutil.copytree(clips.ROOT / 'fonts', directory / 'fonts', dirs_exist_ok=True)
+    alignment = json.loads((directory / 'narration-alignment.json').read_text())
+    phrases = style.phrase_segments(script(episode), alignment['starts'], alignment['ends'])
+    return style.render(source_file, episode, source, directory, audio, duration, phrases, boundaries)
 
 
 def publication_source(episode, source):
@@ -227,7 +193,7 @@ def build_preview(args, scratch):
             video = render(media, episode, source, directory, audio, duration, segments, boundaries)
             dest = out / episode["id"]
             dest.mkdir(exist_ok=True)
-            for name in ("clip.mp4", "captions.ass", "narration.mp3"):
+            for name in ("clip.mp4", "captions.ass", "narration.mp3", "narration-alignment.json"):
                 shutil.copy(directory / name, dest / name)
             (dest / "script.txt").write_text(script(episode) + "\n")
             (dest / "rights.json").write_text(json.dumps({"catalogue": source, "live_metadata": evidence}, indent=2))

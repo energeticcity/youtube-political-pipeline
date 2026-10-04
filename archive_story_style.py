@@ -150,7 +150,7 @@ def render(source_file, episode, source, directory, audio, duration, segments, b
     subprocess.run(['ffmpeg','-hide_banner','-loglevel','error','-y','-f','concat','-safe','1',
         '-i','shots.txt','-i',str(audio.resolve()),'-map','0:v:0','-map','1:a:0','-t',str(duration),
         '-vf','ass=captions.ass:fontsdir=fonts','-af','loudnorm=I=-16:TP=-1.5:LRA=11',
-        '-c:v','libx264','-preset','fast','-crf','21','-pix_fmt','yuv420p','-c:a','aac','-b:a','160k',
+        '-c:v','libx264','-preset','fast','-crf','21','-pix_fmt','yuv420p','-c:a','aac','-ar','48000','-b:a','160k',
         '-movflags','+faststart',str(output.resolve())],cwd=directory,check=True,timeout=600)
     data,actual=clipping.probe(output)
     final=next(s for s in data['streams'] if s['codec_type']=='video')

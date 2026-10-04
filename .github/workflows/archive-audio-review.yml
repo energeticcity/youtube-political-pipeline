@@ -1,0 +1,49 @@
+name: Review Existing Archive Audio
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Existing preview; no new voice, publication or transcript export
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: read
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          pip install 'requests>=2.32,<3'
+      - name: Verify existing preview identity
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.run_id }}
+        run: |
+          python - <<'PY'
+          import os,json,subprocess
+          run_id=os.environ['RUN_ID']
+          if not run_id.isdigit():raise ValueError('Invalid run ID')
+          repo=os.environ['GITHUB_REPOSITORY']
+          run=json.loads(subprocess.check_output(['gh','api',f'repos/{repo}/actions/runs/{run_id}']))
+          if run['conclusion']!='success' or run['head_repository']['full_name']!=repo or run['head_branch'] not in ('main','feature/archive-story-preview-v2'):raise ValueError('Untrusted preview')
+          PY
+      - uses: actions/download-artifact@v4
+        with:
+          name: archive-preview
+          path: clip-output
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.run_id }}
+      - name: Review actual rendered narration; no transcript or notes exported
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python archive_audio_quality.py
