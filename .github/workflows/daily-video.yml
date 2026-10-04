@@ -54,6 +54,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: python archive_pipeline.py mark-preview
+      - name: Save refill diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: archive-refill-diagnostics
+          path: clip-output/refill-diagnostics.json
+          retention-days: 7
+          if-no-files-found: ignore
       - name: Report a failed scheduled slot
         if: failure() && github.ref == 'refs/heads/main'
         env:

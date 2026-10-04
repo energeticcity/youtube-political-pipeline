@@ -19,6 +19,70 @@ class AutofillTests(unittest.TestCase):
             'title': 'Old technology', 'creator': 'Film studio'},
             'files': [{'name': 'film.mp4', 'size': '50000'}]}
 
+    @patch('archive_autofill.requests.get')
+    def test_rotating_pages_reach_metadata_budget(self, get):
+        popular = [{'identifier': f'popular{i}'} for i in range(50)]
+        rotating = [{'identifier': f'rotating{i}'} for i in range(50)]
+        get.side_effect = [Mock(json=lambda: {'response': {'numFound': 1000, 'docs': popular}}),
+                           Mock(json=lambda: {'response': {'docs': rotating}}),
+                           Mock(json=lambda: {'response': {'docs': rotating}})]
+        settings = dict(self.settings, preferred_candidates=[])
+        pool = list(fill.candidates(settings, set()))
+        self.assertTrue(all(i.startswith('rotating') for i in pool[:30]))
+        self.assertEqual(len(pool), len(set(pool)))
+
+    @patch('archive_autofill.requests.get')
+    def test_single_page_rotates_and_excludes_reserved_sources(self, get):
+        from datetime import datetime, timezone
+        docs = [{'identifier': f'film{i}'} for i in range(50)]
+        get.return_value.json.return_value = {'response': {'numFound': 50, 'docs': docs}}
+        settings = dict(self.settings, preferred_candidates=['film0', 'invalid/id'])
+        used = {fill.source_key('film0')}
+        with patch('archive_autofill.datetime') as clock:
+            clock.now.return_value = datetime(2026, 10, 4, 14, tzinfo=timezone.utc)
+            first = list(fill.candidates(settings, used))
+            clock.now.return_value = datetime(2026, 10, 4, 18, tzinfo=timezone.utc)
+            second = list(fill.candidates(settings, used))
+        self.assertNotEqual(first[:30], second[:30])
+        self.assertNotIn('film0', first)
+        self.assertNotIn('invalid/id', first)
+
+    @patch('archive_autofill.choose_model', return_value='test')
+    @patch('archive_autofill.ledger', return_value=[])
+    @patch('archive_autofill.candidates', return_value=[f'film{i}' for i in range(40)])
+    @patch('archive_autofill.requests.get')
+    def test_metadata_exhaustion_is_bounded_and_diagnosable(self, get, candidates, ledger, model):
+        get.return_value.json.return_value = {}
+        with tempfile.TemporaryDirectory() as tmp:
+            diagnostic = Path(tmp) / 'diagnostics.json'
+            with self.assertRaisesRegex(ValueError, 'bounded checks'):
+                fill.prepare({'sources': [], 'episodes': []}, Path(tmp), diagnostics_path=diagnostic)
+            report = json.loads(diagnostic.read_text())
+        self.assertEqual(get.call_count, 30)
+        self.assertEqual(report['metadata_gate_rejections'], 30)
+        self.assertEqual(report['generation_attempts'], 0)
+        self.assertEqual(report['outcome'], 'exhausted')
+
+    @patch('archive_autofill.choose_model', return_value='test')
+    @patch('archive_autofill.ledger', return_value=[])
+    @patch('archive_autofill.candidates', return_value=[f'film{i}' for i in range(40)])
+    @patch('archive_autofill.requests.get')
+    @patch('archive_autofill.source_from_metadata')
+    @patch('clipping.download')
+    @patch('clipping.file_hash', return_value='test')
+    @patch('archive_autofill.make_story', side_effect=ValueError('secret-error-body'))
+    def test_generation_budget_and_private_errors(self, story, file_hash, download, source, get, candidates, ledger, model):
+        source.side_effect = lambda identifier, *args: {'id': fill.source_key(identifier), 'filename': 'film.mp4'}
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {'GITHUB_REF': 'refs/heads/test'}):
+            diagnostic = Path(tmp) / 'diagnostics.json'
+            with self.assertRaisesRegex(ValueError, 'bounded checks'):
+                fill.prepare({'sources': [], 'episodes': []}, Path(tmp), diagnostics_path=diagnostic)
+            report = json.loads(diagnostic.read_text())
+        self.assertEqual(story.call_count, self.settings['max_candidates_per_run'])
+        self.assertEqual(report['generation_attempts'], 3)
+        self.assertEqual(report['generation_rejections'], 3)
+        self.assertNotIn('secret-error-body', json.dumps(report))
+
     def test_explicit_rights_and_size_required(self):
         source = fill.source_from_metadata('film', self.document, self.settings)
         self.assertEqual(source['year'], '1937')

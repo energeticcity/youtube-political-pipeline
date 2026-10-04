@@ -202,7 +202,7 @@ def build_preview(args, scratch):
     out.mkdir(parents=True, exist_ok=True)
     manifest = {"version": 1, "commit": os.environ.get("GITHUB_SHA", "local"), "catalog_digest": clips.digest(data), "clips": []}
     if not episodes and (args.episode == 'auto' or os.environ.get('GEMINI_API_KEY')):
-        episode, source, media, checks = autofill.prepare(data, scratch)
+        episode, source, media, checks = autofill.prepare(data, scratch, diagnostics_path=out / 'refill-diagnostics.json')
         generated = {'episode': episode, 'source': source, 'checks': checks,
                      'policy_digest': clips.digest(autofill.policy())}
         validate_catalog({'version': 1, 'sources': [source], 'episodes': [episode]})
