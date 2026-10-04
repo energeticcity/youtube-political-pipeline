@@ -10,7 +10,7 @@ import re
 import shutil
 import subprocess
 import tempfile
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit, parse_qs
 
 import requests
 import clipping as clips
@@ -277,6 +277,32 @@ def error_labels(value, depth=0):
     return result[:15]
 
 
+def individual_video_url(platform, url):
+    if not isinstance(url,str):return False
+    parsed=urlsplit(url)
+    if parsed.scheme!='https':return False
+    host=parsed.hostname or ''
+    if platform=='tiktok':return host in ('tiktok.com','www.tiktok.com') and bool(re.fullmatch(r'/@[^/]+/video/\d+/?',parsed.path))
+    if platform=='instagram':return host in ('instagram.com','www.instagram.com') and bool(re.fullmatch(r'/(reel|p)/[A-Za-z0-9_-]+/?',parsed.path))
+    if platform=='youtube':
+        return (host in ('youtube.com','www.youtube.com','m.youtube.com') and ((parsed.path=='/watch' and bool(parse_qs(parsed.query).get('v'))) or parsed.path.startswith('/shorts/'))) or (host=='youtu.be' and len(parsed.path)>1)
+    return False
+
+
+def public_feed_reference(platform, account_id, post_id):
+    # No metrics expansion, account feed export, captions or media payloads.
+    feed=clips.api_json('GET','https://api.postforme.dev/v1/social-account-feeds/'+account_id,
+                       os.environ['POSTFORME_API_KEY'],params={'social_post_id':post_id,'limit':5})
+    rows=feed if isinstance(feed,list) else feed.get('data',[]) if isinstance(feed,dict) else []
+    if not isinstance(rows,list):return None
+    for item in rows:
+        if not isinstance(item,dict):continue
+        if (item.get('platform')==platform and item.get('social_account_id')==account_id
+                and item.get('social_post_id')==post_id and individual_video_url(platform,item.get('platform_url'))):
+            return {'url':item['platform_url'],'published_at':item.get('posted_at')}
+    return None
+
+
 def delivery(args):
     """Read provider results without exposing account tokens or raw diagnostic payloads."""
     clips.identifier(args.post_id)
@@ -290,7 +316,17 @@ def delivery(args):
         successes = [r for r in matches if r.get('success') is True]
         if successes:
             url = (successes[-1].get('platform_data') or {}).get('url')
-            result[platform] = {'status': 'published', 'url': url}
+            if individual_video_url(platform,url):
+                result[platform] = {'status': 'published', 'url': url}
+            else:
+                reference=None
+                try:
+                    reference=public_feed_reference(platform,account,args.post_id)
+                except (requests.RequestException,RuntimeError,ValueError):
+                    pass  # Existing access can lack feed support; never request new grants.
+                result[platform] = ({'status':'published',**reference} if reference else
+                    {'status':'provider_success_unverified_video','url':url,
+                     'note':'Provider reports success, but no matching individual-video reference is verified. Do not repost.'})
         elif matches:
             error = matches[-1].get('error') or {}
             if isinstance(error, str):

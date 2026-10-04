@@ -147,6 +147,22 @@ class ArchiveTests(unittest.TestCase):
             publish.assert_not_called()
 
     @patch('archive_pipeline.clips.api_json')
+    def test_profile_url_is_not_confirmed_delivery_and_feed_is_scoped(self,api):
+        provider={'data':[{'post_id':'sp_test','social_account_id':'a','success':True,
+                           'platform_data':{'url':'https://www.tiktok.com/@dadjokefix'}}]}
+        wrong={'data':[{'platform':'tiktok','social_account_id':'other','social_post_id':'sp_test',
+                       'platform_url':'https://www.tiktok.com/@other/video/123'}]}
+        good={'data':[{'platform':'tiktok','social_account_id':'a','social_post_id':'sp_test',
+                       'platform_url':'https://www.tiktok.com/@dadjokefix/video/123','posted_at':'2026-10-04T21:00:00Z','metrics':{'views':'PRIVATE'}}]}
+        with tempfile.TemporaryDirectory() as tmp,patch.dict(os.environ,{'POSTFORME_API_KEY':'test','CLIP_DESTINATIONS_JSON':'{"tiktok":"a"}'}):
+            for feed,status in [(wrong,'provider_success_unverified_video'),(good,'published')]:
+                api.side_effect=[provider,feed]
+                archive.delivery(Mock(post_id='sp_test',output=tmp))
+                text=(Path(tmp)/'delivery.json').read_text();data=json.loads(text)
+                self.assertEqual(data['tiktok']['status'],status);self.assertNotIn('PRIVATE',text)
+                params=api.call_args.kwargs['params'];self.assertEqual(params['social_post_id'],'sp_test');self.assertNotIn('expand',params)
+
+    @patch('archive_pipeline.clips.api_json')
     def test_delivery_distinguishes_pending_failure_and_success(self, api):
         api.return_value = {'data': [
             {'post_id': 'sp_test', 'social_account_id': 'a', 'success': True, 'platform_data': {'url': 'https://youtube.com/shorts/test'}},
