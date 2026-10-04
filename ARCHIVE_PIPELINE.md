@@ -47,3 +47,31 @@ Design for Dreaming (1956), MPO Productions / General Motors, Prelinger Archives
 https://archive.org/details/Designfo1956
 
 The checked item metadata identifies its licence as `http://creativecommons.org/licenses/publicdomain/`. This catalogue is an allowlist, not a claim that all Internet Archive uploads are reusable. Source hash changes and rights-label changes fail closed.
+
+## Read-only operational health check
+
+Run `python archive_healthcheck.py` from an authorized checkout with an existing
+`gh` login. It reads publishing switches, 100 recent Actions runs, the complete
+publication ledger (including closed locks), and up to five completed delivery
+checks. It never generates a story, spends narration credits, submits a post,
+changes a switch, or creates a monitor. Missing delivery evidence remains
+unverified, even when a publish workflow succeeded.
+
+For a queued or ambiguous post, use the existing read-only workflow:
+
+```
+gh workflow run archive-delivery.yml --repo energeticcity/youtube-political-pipeline -f post_id=POST_ID
+```
+
+Wait for that run to finish before taking another snapshot. Inspect per-platform
+results and individual video URLs. A TikTok profile URL does not identify a
+specific published video. A failed provider upload quota cannot be repaired by
+blind retries or by switching credentials/providers. Preserve publication locks;
+only consider an existing platform-specific recovery after its failure is
+confirmed and its cause is resolved.
+
+Refill keeps the same 30 metadata-check / three generation-attempt limits and
+public-domain/year/credit/size gates. Rotating search results are considered
+before the popular-page fallback, and results rotate within each page. The
+`archive-refill-diagnostics` artifact records only counts and outcome, including
+bounded discovery exhaustion; it contains no provider error bodies or credentials.
