@@ -13,7 +13,8 @@ import clipping
 def main():
     if os.environ.get('GITHUB_REF') == 'refs/heads/main':
         raise ValueError('This test is private branch-preview only')
-    fixture = json.loads(Path('tests/fixtures/kitchen-preview-v2.json').read_text())
+    is_bart=os.environ.get('EPISODE')=='bart-private-test'
+    fixture = json.loads(Path('tests/fixtures/bart-private.json' if is_bart else 'tests/fixtures/kitchen-preview-v2.json').read_text())
     source, episode = fixture['source'], fixture['episode']
     archive.validate_catalog({'version':1,'sources':[source],'episodes':[episode]})
     directory=Path('clip-output').resolve();directory.mkdir(exist_ok=True)
@@ -25,12 +26,8 @@ def main():
     shot_starts={b['start'] for b in episode['beats']} | {cut['start'] for b in episode['beats'] for cut in b.get('visual_cuts',[])}
     selected=sorted({round(start+offset,2) for start in shot_starts for offset in [0,2,4,9,13]})
     if len(selected)>fill.policy()['scan_frames']:raise ValueError('Private review exceeds existing frame budget')
-    review=fill.generate_json(model,fill.policy()['policy']+'''\nIndependently audit this proposed private preview against metadata and actual source frames.
-The space/orbit language is an explicit metaphor for the swirling dream animation, not a claim of real flight.
-Verify the 1957 date, floor-plan/walking-path diagram, kitchen reveal, swirling cabinets AND visible stove/appliance group, and final planning booklet.
-The full pinned source runtime is 797.16 seconds (13 minutes 17 seconds); the thirteen-minute claim refers to the source, not this short.
-Verify a single question-to-booklet payoff without invented historical claims.
-Reject misleading claims or unsuitable footage. Return JSON {pass:boolean,issues:[string]}.''',
+    context = ('Verify the 1967 date and BART identity from metadata. Actual source shows a Transbay tube section sliding into water, floating with two circular ends, a tug and bay construction. The original source transcript describes building sections on land, launching, towing and lowering them to form a link between Oakland and San Francisco. This short describes the film’s construction plan, not completed 1967 train service. Reject any unsupported claim or unsuitable content. ' if is_bart else 'The space/orbit language is an explicit metaphor for the swirling dream animation, not a claim of real flight. Verify the 1957 date, diagram, kitchen reveal, visible stove, swirling cabinets and final booklet. Full source runtime is 797.16 seconds; thirteen minutes refers to the source. ')
+    review=fill.generate_json(model,fill.policy()['policy']+'\nIndependently audit this private preview against metadata, script and actual source frames. '+context+' Return JSON {pass:boolean,issues:[string]}.',
         [{'text':json.dumps({'source':evidence,'proposed_story':episode})}]+fill.frames(media,selected,directory))
     if review!={'pass':True,'issues':[]}:raise ValueError('Editorial review rejected private preview')
     # Retain exact character timings, then group natural phrases instead of six-word chunks.

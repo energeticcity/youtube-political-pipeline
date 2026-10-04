@@ -38,7 +38,7 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           EPISODE: ${{ inputs.episode }}
         run: |
-          if [ "$EPISODE" = kitchen-v2-test ]; then
+          if [ "$EPISODE" = kitchen-v2-test ] || [ "$EPISODE" = bart-private-test ]; then
             python preview_kitchen_v2.py
           else
             python archive_pipeline.py preview --episode "$EPISODE"
