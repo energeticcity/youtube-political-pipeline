@@ -316,17 +316,18 @@ def delivery(args):
         successes = [r for r in matches if r.get('success') is True]
         if successes:
             url = (successes[-1].get('platform_data') or {}).get('url')
-            if individual_video_url(platform,url):
-                result[platform] = {'status': 'published', 'url': url}
+            reference=None
+            try:
+                reference=public_feed_reference(platform,account,args.post_id)
+            except (requests.RequestException,RuntimeError,ValueError):
+                pass  # Existing access can lack feed support; never request new grants.
+            if reference:
+                result[platform]={'status':'published',**reference}
+            elif individual_video_url(platform,url):
+                result[platform]={'status':'published','url':url,'published_at':None}
             else:
-                reference=None
-                try:
-                    reference=public_feed_reference(platform,account,args.post_id)
-                except (requests.RequestException,RuntimeError,ValueError):
-                    pass  # Existing access can lack feed support; never request new grants.
-                result[platform] = ({'status':'published',**reference} if reference else
-                    {'status':'provider_success_unverified_video','url':url,
-                     'note':'Provider reports success, but no matching individual-video reference is verified. Do not repost.'})
+                result[platform]={'status':'provider_success_unverified_video','url':url,
+                    'note':'Provider reports success, but no matching individual-video reference is verified. Do not repost.'}
         elif matches:
             error = matches[-1].get('error') or {}
             if isinstance(error, str):
