@@ -1,0 +1,87 @@
+{
+  "source": {
+    "id": "archive-621c5d1eccf799206b3d",
+    "archive_id": "Practica1957",
+    "filename": "Practica1957.mp4",
+    "title": "Practical Dreamer",
+    "creator": "Handy (Jam) Organization",
+    "year": "1957",
+    "url": "https://archive.org/details/Practica1957",
+    "license_url": "http://creativecommons.org/licenses/publicdomain/",
+    "rights_checked": "2026-09-29",
+    "rights_note": "Automatically checked explicit public-domain label on this Prelinger item. Original soundtrack excluded. Archive labels are evidence, not worldwide legal guarantees.",
+    "sha256": "86f9bca082de5472f9e60a5c6a496df007cf4a507524a22c43e03e69437072e6",
+    "description": "A fantasy of kitchen planning and modernization. With Augusta Roeland and Rege Cordic. Produced by Haford Kerbawy.",
+    "subjects": "Houses and homes: Kitchens;Occupations: Housework"
+  },
+  "episode": {
+    "id": "kitchen-v3-private-test",
+    "source_id": "archive-621c5d1eccf799206b3d",
+    "enabled": true,
+    "title": "Why This 1957 Kitchen Ad Sends a Stove Into Orbit",
+    "headline": "A KITCHEN AD.\nA STOVE IN SPACE?",
+    "beats": [
+      {
+        "start": 609.3,
+        "text": "Why does a kitchen ad send a stove into orbit?",
+        "reframe": {
+          "zoom": 1,
+          "x": 0.5
+        }
+      },
+      {
+        "start": 680,
+        "text": "This is a nineteen fifty-seven dream of the perfect kitchen.",
+        "reframe": {
+          "zoom": 1.08,
+          "x": 0.5
+        }
+      },
+      {
+        "start": 377.77,
+        "text": "First, it diagrams the wasted footsteps.",
+        "reframe": {
+          "zoom": 1,
+          "x": 0.5
+        }
+      },
+      {
+        "start": 564.15,
+        "text": "Then the cabinets appear... and the whole kitchen starts orbiting.",
+        "reframe": {
+          "zoom": 1.08,
+          "x": 0.5
+        },
+        "visual_cuts": [
+          {
+            "start": 564.15,
+            "length": 1.8
+          },
+          {
+            "start": 590.78,
+            "length": 1.6
+          },
+          {
+            "start": 609.3
+          }
+        ]
+      },
+      {
+        "start": 680,
+        "text": "So what does thirteen minutes of this fantasy lead to?",
+        "reframe": {
+          "zoom": 1.08,
+          "x": 0.5
+        }
+      },
+      {
+        "start": 723.91,
+        "text": "A kitchen-planning booklet. All that spectacle. For a floor plan.",
+        "reframe": {
+          "zoom": 1.12,
+          "x": 1
+        }
+      }
+    ]
+  }
+}

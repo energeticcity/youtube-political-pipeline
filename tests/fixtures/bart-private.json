@@ -1,0 +1,79 @@
+{
+  "source": {
+    "id": "archive-45a66251d7bb5f390477",
+    "archive_id": "ThreetoG1967",
+    "filename": "ThreetoG1967.mp4",
+    "title": "Three to Get Ready: A Progress Report from BART",
+    "creator": "Levene (Carol)",
+    "year": "1967",
+    "url": "https://archive.org/details/ThreetoG1967",
+    "license_url": "http://creativecommons.org/licenses/publicdomain/",
+    "rights_checked": "2026-10-04",
+    "rights_note": "Automatically checked explicit public-domain label on this Prelinger item. Original soundtrack excluded. Archive labels are evidence, not worldwide legal guarantees.",
+    "sha256": "07e316f7a0723750202159f67e092ba7f82a6160f1f933e4302949ae145c2a78",
+    "description": "Shows stages in the construction of the San Francisco Bay Area Rapid Transit system.",
+    "subjects": "San Francisco Bay Area: BART;Transportation: Subways and metros;San Francisco Bay Area: Infrastructure"
+  },
+  "episode": {
+    "id": "bart-tube-private-test",
+    "source_id": "archive-45a66251d7bb5f390477",
+    "enabled": true,
+    "title": "Why They Launched a Subway Tunnel Like a Ship",
+    "headline": "WHY LAUNCH\nA SUBWAY TUNNEL?",
+    "beats": [
+      {
+        "start": 248,
+        "text": "Why are they launching a tunnel like a ship?",
+        "reframe": {
+          "zoom": 1,
+          "x": 0.5
+        }
+      },
+      {
+        "start": 263,
+        "text": "This is nineteen sixty-seven, and these are pieces of BART\u2019s Transbay Tube.",
+        "reframe": {
+          "zoom": 1,
+          "x": 0.5
+        }
+      },
+      {
+        "start": 274,
+        "text": "Built on land. Launched into the bay. Then towed into position.",
+        "reframe": {
+          "zoom": 1,
+          "x": 0.5
+        },
+        "visual_cuts": [
+          {
+            "start": 274,
+            "length": 1.4
+          },
+          {
+            "start": 248,
+            "length": 1.4
+          },
+          {
+            "start": 274
+          }
+        ]
+      },
+      {
+        "start": 181,
+        "text": "The plan: lower the sections to make a railway tunnel between Oakland and San Francisco.",
+        "reframe": {
+          "zoom": 1,
+          "x": 0.5
+        }
+      },
+      {
+        "start": 269,
+        "text": "So that strange floating object? Part of a future train ride under the bay.",
+        "reframe": {
+          "zoom": 1,
+          "x": 0.5
+        }
+      }
+    ]
+  }
+}

@@ -96,7 +96,7 @@ class AutofillTests(unittest.TestCase):
             fill.source_from_metadata('film', self.document, self.settings)
 
     def test_story_bounds_and_duplicates(self):
-        text = 'Here the camera shows another unusual machine performing a task with surprisingly elaborate moving parts.'
+        text = 'Here the camera shows a machine performing a task with elaborate moving parts.'
         story = {'suitable': True, 'title': 'Yesterday imagined tomorrow', 'headline': 'A VERY ODD FUTURE',
                  'beats': [{'start': i * 20, 'text': text, 'evidence': 'Visible machine in the source frame.'} for i in range(6)]}
         source = {'id': 'archive-example'}
@@ -107,6 +107,28 @@ class AutofillTests(unittest.TestCase):
         story['beats'][0]['start'] = 1
         with self.assertRaises(ValueError):
             fill.validate_story(story, source, times, 180, [])
+
+    def test_flexible_story_keeps_grounding_and_rejects_padding_or_uninspected_cuts(self):
+        fixture = json.loads((Path(__file__).parent/'fixtures/bart-private.json').read_text())
+        story = dict(fixture['episode'], suitable=True)
+        for beat in story['beats']:
+            beat.pop('reframe',None);beat.pop('visual_cuts',None)
+            beat['evidence']='Source footage and narration identify the tunnel construction.'
+        times=[b['start'] for b in story['beats']]
+        fill.validate_story(story,fixture['source'],times,821,[])
+        bad=copy.deepcopy(story);bad['beats'][0]['visual_cuts']=[{'start':999}]
+        with self.assertRaisesRegex(ValueError,'uninspected'):
+            fill.validate_story(bad,fixture['source'],times,821,[])
+        bad=copy.deepcopy(story);bad['beats'][0]['reframe']={'zoom':1.5}
+        with self.assertRaises(ValueError):
+            fill.validate_story(bad,fixture['source'],times,821,[])
+        bad=copy.deepcopy(story);bad['beats']*=2
+        with self.assertRaisesRegex(ValueError,'Three to six'):
+            fill.validate_story(bad,fixture['source'],times,821,[])
+        bad=copy.deepcopy(story)
+        for beat in bad['beats']:beat['start']=times[0]
+        with self.assertRaisesRegex(ValueError,'visual variety'):
+            fill.validate_story(bad,fixture['source'],times,821,[])
 
     @patch('archive_pipeline.previewed', return_value=True)
     @patch('archive_autofill.prepare', side_effect=ValueError('refill called'))

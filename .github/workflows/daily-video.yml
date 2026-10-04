@@ -1,4 +1,5 @@
 name: The Past Was Ridiculous
+run-name: ${{ inputs.episode == 'audio-review' && 'Archive audio review (no publication)' || 'The Past Was Ridiculous' }}
 on:
   schedule:
     - cron: '7 14,18,22 * * *'
@@ -8,7 +9,12 @@ on:
         description: Optional episode ID; auto tests refill; blank selects next story or refills
         required: false
         type: string
+      audio_review_run:
+        description: Existing run to audition when episode is audio-review; no new video or export
+        required: false
+        type: string
 permissions:
+  actions: read
   contents: read
   issues: write
 concurrency:
@@ -37,25 +43,35 @@ jobs:
           ELEVENLABS_VOICE_ID: ${{ secrets.ELEVENLABS_VOICE_ID }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           EPISODE: ${{ inputs.episode }}
-        run: python archive_pipeline.py preview --episode "$EPISODE"
+          AUDIO_REVIEW_RUN: ${{ inputs.audio_review_run }}
+        run: |
+          if [ "$EPISODE" = audio-review ]; then
+            python archive_audio_quality.py --run-id "$AUDIO_REVIEW_RUN"
+          elif [ "$EPISODE" = kitchen-v2-test ] || [ "$EPISODE" = bart-private-test ]; then
+            python preview_kitchen_v2.py
+          else
+            python archive_pipeline.py preview --episode "$EPISODE"
+          fi
       - name: Identify existing destinations (read only)
+        if: inputs.episode != 'audio-review'
         continue-on-error: true
         env:
           POSTFORME_API_KEY: ${{ secrets.POSTFORME_API_KEY }}
         run: python archive_pipeline.py accounts
       - uses: actions/upload-artifact@v4
+        if: inputs.episode != 'audio-review'
         with:
           name: archive-preview
           path: clip-output/
           retention-days: 30
           if-no-files-found: error
       - name: Record preview completion
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && inputs.episode != 'audio-review'
         env:
           GH_TOKEN: ${{ github.token }}
         run: python archive_pipeline.py mark-preview
       - name: Save refill diagnostics
-        if: always()
+        if: always() && inputs.episode != 'audio-review'
         uses: actions/upload-artifact@v4
         with:
           name: archive-refill-diagnostics
@@ -63,7 +79,7 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
       - name: Report a failed scheduled slot
-        if: failure() && github.ref == 'refs/heads/main'
+        if: failure() && github.ref == 'refs/heads/main' && inputs.episode != 'audio-review'
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}

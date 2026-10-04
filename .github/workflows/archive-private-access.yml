@@ -1,0 +1,39 @@
+name: Probe Private Archive Read Access
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    strategy:
+      matrix:
+        platform: [youtube, instagram, tiktok]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install 'requests>=2.32,<3'
+      - name: Read existing configured posts privately; no values exported
+        id: access
+        env:
+          PLATFORM: ${{ matrix.platform }}
+          POSTFORME_API_KEY: ${{ secrets.POSTFORME_API_KEY }}
+          CLIP_DESTINATIONS_JSON: ${{ vars.CLIP_DESTINATIONS_JSON }}
+        run: python archive_private_access.py
+      - name: Existing feed read is available
+        if: steps.access.outputs.readable == 'true'
+        run: echo 'Read access available; records stayed in memory.'
+      - name: View-count access is available
+        if: steps.access.outputs.views == 'true'
+        run: echo 'View-count access available; no values exported.'
+      - name: Engagement access is available
+        if: steps.access.outputs.engagement == 'true'
+        run: echo 'Engagement access available; no values exported.'
+      - name: Watch metric access is available
+        if: steps.access.outputs.watch == 'true'
+        run: echo 'Watch metric access available; no values exported.'

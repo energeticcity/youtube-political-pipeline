@@ -10,7 +10,7 @@ import re
 import shutil
 import subprocess
 import tempfile
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit, parse_qs
 
 import requests
 import clipping as clips
@@ -100,6 +100,7 @@ def narration(episode, directory):
     for i, (start, end) in enumerate(zip(starts, ends)):
         if not math.isfinite(start) or not math.isfinite(end) or not 0 <= start <= end or (i and start < starts[i-1]):
             raise ValueError("Nonmonotonic narration timestamps")
+    (directory / "narration-alignment.json").write_text(json.dumps({"starts": starts, "ends": ends}))
     audio = directory / "narration.mp3"
     audio.write_bytes(base64.b64decode(data["audio_base64"], validate=True))
     duration = float(subprocess.check_output(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", str(audio)]))
@@ -122,45 +123,11 @@ def narration(episode, directory):
 
 
 def render(source_file, episode, source, directory, audio, duration, segments, boundaries):
-    _, source_duration = clips.probe(source_file)
-    clips.captions({"start": 0, "segments": segments}, directory / "captions.ass")
-    with open(directory / "captions.ass", "a") as f:
-        end = clips.ass_time(duration)
-        lines = [(r"{\an8\pos(540,155)\fs34\c&H60D6FF&}", "THE PAST WAS RIDICULOUS"),
-                 (r"{\an8\pos(540,270)\fs62}", episode["headline"]),
-                 (r"{\an8\pos(540,1720)\fs27}", f"ARCHIVAL FILM • {source.get('year', '1956')} | ORIGINAL COMMENTARY"),
-                 (r"{\an8\pos(540,1770)\fs23}", source['creator'][:65] + " / Prelinger Archives")]
-        for style, text in lines:
-            text = r"\N".join(clips.safe_ass(line) for line in text.splitlines())
-            f.write(f"Dialogue: 1,0:00:00.00,{end},Default,,0,0,0,,{style}{text}\n")
-    shutil.copytree(clips.ROOT / "fonts", directory / "fonts", dirs_exist_ok=True)
-    shot_files = []
-    for i, beat in enumerate(episode["beats"]):
-        length = boundaries[i+1] - boundaries[i]
-        if episode['id'].startswith('archive-') and length > 14:
-            raise ValueError("Generated shot exceeds inspected interval")
-        if length <= 0 or beat["start"] + length > source_duration:
-            raise ValueError("Shot exceeds source bounds")
-        name = f"shot-{i}.mp4"
-        subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-ss", str(beat["start"]),
-            "-i", str(Path(source_file).resolve()), "-t", str(length), "-an",
-            "-vf", "scale=1080:900:force_original_aspect_ratio=decrease:force_divisible_by=2,pad=1080:1920:(ow-iw)/2:520:color=0x101826,setsar=1",
-            "-r", "30", "-c:v", "libx264", "-preset", "fast", "-crf", "21", "-pix_fmt", "yuv420p", name],
-            cwd=directory, check=True, timeout=300)
-        shot_files.append(f"file '{name}'")
-    (directory / "shots.txt").write_text("\n".join(shot_files))
-    output = directory / "clip.mp4"
-    subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "concat", "-safe", "1",
-        "-i", "shots.txt", "-i", str(audio.resolve()), "-map", "0:v:0", "-map", "1:a:0", "-t", str(duration),
-        "-vf", "ass=captions.ass:fontsdir=fonts", "-af", "loudnorm=I=-16:TP=-1.5:LRA=11",
-        "-c:v", "libx264", "-preset", "fast", "-crf", "21", "-pix_fmt", "yuv420p",
-        "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", str(output.resolve())],
-        cwd=directory, check=True, timeout=600)
-    info, actual = clips.probe(output)
-    video = next(s for s in info["streams"] if s["codec_type"] == "video")
-    if (video["width"], video["height"]) != (1080, 1920) or abs(actual-duration) > 0.3:
-        raise ValueError("Output verification failed")
-    return output
+    import archive_story_style as style
+    shutil.copytree(clips.ROOT / 'fonts', directory / 'fonts', dirs_exist_ok=True)
+    alignment = json.loads((directory / 'narration-alignment.json').read_text())
+    phrases = style.phrase_segments(script(episode), alignment['starts'], alignment['ends'])
+    return style.render(source_file, episode, source, directory, audio, duration, phrases, boundaries)
 
 
 def publication_source(episode, source):
@@ -200,7 +167,7 @@ def build_preview(args, scratch):
         episodes = [e for e in episodes if not previewed(e["id"]) and not clips.reserved(e["id"])]
     out = Path(args.output).resolve()
     out.mkdir(parents=True, exist_ok=True)
-    manifest = {"version": 1, "commit": os.environ.get("GITHUB_SHA", "local"), "catalog_digest": clips.digest(data), "clips": []}
+    manifest = {"version": 1, "format_version": "archive-story-v2", "commit": os.environ.get("GITHUB_SHA", "local"), "catalog_digest": clips.digest(data), "clips": []}
     if not episodes and (args.episode == 'auto' or os.environ.get('GEMINI_API_KEY')):
         episode, source, media, checks = autofill.prepare(data, scratch, diagnostics_path=out / 'refill-diagnostics.json')
         generated = {'episode': episode, 'source': source, 'checks': checks,
@@ -222,18 +189,25 @@ def build_preview(args, scratch):
                 clips.download(f"https://archive.org/download/{source['archive_id']}/{quote(source['filename'])}", media)
             if clips.file_hash(media) != source["sha256"]:
                 raise ValueError("Archive source fingerprint changed")
+            render_source=dict(source)
+            if not render_source.get('year'):
+                year=re.match(r'^(18\d\d|19\d\d|20\d\d)(?:\D|$)',str(evidence.get('date') or ''))
+                if not year:raise ValueError('No reliable live year for source credit')
+                render_source['year']=year[1]
             audio, duration, segments, boundaries = narration(episode, directory)
-            video = render(media, episode, source, directory, audio, duration, segments, boundaries)
+            video = render(media, episode, render_source, directory, audio, duration, segments, boundaries)
+            from archive_audio_quality import review_final
+            quality=review_final(video,script(episode),render_source['year'],directory)
             dest = out / episode["id"]
             dest.mkdir(exist_ok=True)
-            for name in ("clip.mp4", "captions.ass", "narration.mp3"):
+            for name in ("clip.mp4", "captions.ass", "narration.mp3", "narration-alignment.json"):
                 shutil.copy(directory / name, dest / name)
             (dest / "script.txt").write_text(script(episode) + "\n")
             (dest / "rights.json").write_text(json.dumps({"catalogue": source, "live_metadata": evidence}, indent=2))
             pub = publication_source(episode, source)
             caption = episode["title"] + "\n\nOriginal commentary on archival footage, not current events or product advice.\n" + pub["attribution"] + "\nNarration generated with AI. #History #RetroFuture"
             manifest["clips"].append({"id": episode["id"], "source_id": source["id"], "source_digest": clips.digest(pub),
-                "sha256": clips.file_hash(video), "title": episode["title"], "caption": caption, "duration": duration})
+                "sha256": clips.file_hash(video), "title": episode["title"], "caption": caption, "duration": duration, "audio_quality": quality})
     (out / "manifest.json").write_text(json.dumps(manifest, indent=2))
     summary = "# The Past Was Ridiculous\n\n" + ("Preview ready. Check footage, narration, captions and rights before publication.\n" if manifest["clips"] else "Queue exhausted. Add reviewed stories; no narration purchased or video posted.\n")
     (out / "REVIEW.md").write_text(summary)
@@ -268,6 +242,10 @@ def publish(args):
     for clip in manifest["clips"]:
         if args.episode and clip["id"] != args.episode:
             continue
+        if manifest.get('format_version')=='archive-story-v2':
+            quality=clip.get('audio_quality') or {}
+            if quality.get('pass') is not True or quality.get('video_sha256')!=clip.get('sha256'):
+                raise ValueError('Missing or mismatched actual-audio review')
         episode = next(e for e in data["episodes"] if e["id"] == clip["id"])
         check_rights(sources[episode["source_id"]])
         clips.publish_one(args, clip, publication_source(episode, sources[episode["source_id"]]))
@@ -299,6 +277,32 @@ def error_labels(value, depth=0):
     return result[:15]
 
 
+def individual_video_url(platform, url):
+    if not isinstance(url,str):return False
+    parsed=urlsplit(url)
+    if parsed.scheme!='https':return False
+    host=parsed.hostname or ''
+    if platform=='tiktok':return host in ('tiktok.com','www.tiktok.com') and bool(re.fullmatch(r'/@[^/]+/video/\d+/?',parsed.path))
+    if platform=='instagram':return host in ('instagram.com','www.instagram.com') and bool(re.fullmatch(r'/(reel|p)/[A-Za-z0-9_-]+/?',parsed.path))
+    if platform=='youtube':
+        return (host in ('youtube.com','www.youtube.com','m.youtube.com') and ((parsed.path=='/watch' and bool(parse_qs(parsed.query).get('v'))) or parsed.path.startswith('/shorts/'))) or (host=='youtu.be' and len(parsed.path)>1)
+    return False
+
+
+def public_feed_reference(platform, account_id, post_id):
+    # No metrics expansion, account feed export, captions or media payloads.
+    feed=clips.api_json('GET','https://api.postforme.dev/v1/social-account-feeds/'+account_id,
+                       os.environ['POSTFORME_API_KEY'],params={'social_post_id':post_id,'limit':5})
+    rows=feed if isinstance(feed,list) else feed.get('data',[]) if isinstance(feed,dict) else []
+    if not isinstance(rows,list):return None
+    for item in rows:
+        if not isinstance(item,dict):continue
+        if (item.get('platform')==platform and item.get('social_account_id')==account_id
+                and item.get('social_post_id')==post_id and individual_video_url(platform,item.get('platform_url'))):
+            return {'url':item['platform_url'],'published_at':item.get('posted_at')}
+    return None
+
+
 def delivery(args):
     """Read provider results without exposing account tokens or raw diagnostic payloads."""
     clips.identifier(args.post_id)
@@ -312,7 +316,18 @@ def delivery(args):
         successes = [r for r in matches if r.get('success') is True]
         if successes:
             url = (successes[-1].get('platform_data') or {}).get('url')
-            result[platform] = {'status': 'published', 'url': url}
+            reference=None
+            try:
+                reference=public_feed_reference(platform,account,args.post_id)
+            except (requests.RequestException,RuntimeError,ValueError):
+                pass  # Existing access can lack feed support; never request new grants.
+            if reference:
+                result[platform]={'status':'published',**reference}
+            elif individual_video_url(platform,url):
+                result[platform]={'status':'published','url':url,'published_at':None}
+            else:
+                result[platform]={'status':'provider_success_unverified_video','url':url,
+                    'note':'Provider reports success, but no matching individual-video reference is verified. Do not repost.'}
         elif matches:
             error = matches[-1].get('error') or {}
             if isinstance(error, str):

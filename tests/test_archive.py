@@ -87,6 +87,15 @@ class ArchiveTests(unittest.TestCase):
                 clipping.verify_run('123')
 
     @patch('clipping.github')
+    def test_audio_only_run_cannot_be_manually_published(self,github):
+        repo='energeticcity/youtube-political-pipeline'
+        github.return_value={'head_repository':{'full_name':repo},'head_branch':'main',
+            'path':'.github/workflows/daily-video.yml','conclusion':'success','event':'workflow_dispatch',
+            'display_title':'Archive audio review (no publication)'}
+        with patch.dict(os.environ,{'GITHUB_REPOSITORY':repo}):
+            with self.assertRaises(ValueError):clipping.verify_run('123')
+
+    @patch('clipping.github')
     def test_closed_publication_issue_still_locks(self, github):
         github.return_value = [{'title': '[clip-publication] test', 'state': 'closed'}]
         self.assertTrue(clipping.reserved('test'))
@@ -131,6 +140,36 @@ class ArchiveTests(unittest.TestCase):
             args = Mock(approved=True, automatic=False, run_id='123', catalog=archive.CATALOG, output=tmp)
             with self.assertRaisesRegex(ValueError, 'mismatch'):
                 archive.publish(args)
+
+    @patch('clipping.verify_run',return_value={'head_sha':'test'})
+    @patch('clipping.publish_one')
+    def test_new_format_requires_audio_review_bound_to_video(self,publish,verify):
+        manifest={'version':1,'format_version':'archive-story-v2','commit':'test',
+                  'catalog_digest':clipping.digest(self.data),
+                  'clips':[{'id':self.episode['id'],'sha256':'video'}]}
+        with tempfile.TemporaryDirectory() as tmp,patch.dict(os.environ,{'CLIP_PUBLISH_ENABLED':'true'}):
+            path=Path(tmp)/'manifest.json'
+            for quality in [None,{'pass':True,'video_sha256':'other'}]:
+                manifest['clips'][0]['audio_quality']=quality;path.write_text(json.dumps(manifest))
+                with self.assertRaisesRegex(ValueError,'audio review'):
+                    archive.publish(Mock(catalog=archive.CATALOG,output=tmp,approved=True,automatic=False,episode='',run_id='123'))
+            publish.assert_not_called()
+
+    @patch('archive_pipeline.clips.api_json')
+    def test_profile_url_is_not_confirmed_delivery_and_feed_is_scoped(self,api):
+        provider={'data':[{'post_id':'sp_test','social_account_id':'a','success':True,
+                           'platform_data':{'url':'https://www.tiktok.com/@dadjokefix'}}]}
+        wrong={'data':[{'platform':'tiktok','social_account_id':'other','social_post_id':'sp_test',
+                       'platform_url':'https://www.tiktok.com/@other/video/123'}]}
+        good={'data':[{'platform':'tiktok','social_account_id':'a','social_post_id':'sp_test',
+                       'platform_url':'https://www.tiktok.com/@dadjokefix/video/123','posted_at':'2026-10-04T21:00:00Z','metrics':{'views':'PRIVATE'}}]}
+        with tempfile.TemporaryDirectory() as tmp,patch.dict(os.environ,{'POSTFORME_API_KEY':'test','CLIP_DESTINATIONS_JSON':'{"tiktok":"a"}'}):
+            for feed,status in [(wrong,'provider_success_unverified_video'),(good,'published')]:
+                api.side_effect=[provider,feed]
+                archive.delivery(Mock(post_id='sp_test',output=tmp))
+                text=(Path(tmp)/'delivery.json').read_text();data=json.loads(text)
+                self.assertEqual(data['tiktok']['status'],status);self.assertNotIn('PRIVATE',text)
+                params=api.call_args.kwargs['params'];self.assertEqual(params['social_post_id'],'sp_test');self.assertNotIn('expand',params)
 
     @patch('archive_pipeline.clips.api_json')
     def test_delivery_distinguishes_pending_failure_and_success(self, api):

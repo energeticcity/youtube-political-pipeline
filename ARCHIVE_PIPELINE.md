@@ -84,3 +84,13 @@ URLs. The check always holds recovery: it cannot verify live project quota,
 source rights, video fingerprints, all GitHub locks, external manual recovery or
 billing allowance. It never submits, updates or retries a post. A provider
 `external_id` is a reference, not a verified API idempotency guarantee.
+
+## Creative format and quality
+
+New generated stories use3–6grounded beats/50–85words, targeting25–35seconds, with an immediately visible premise and one earned payoff. Modest horizontal framing up to1.2×may be proposed only when subject/context are retained; independent editorial review sees the actual framed source images. No blind portrait crop or uninspected extra cuts. Exact TTS character timings drive phrase captions. Permanent branding/headlines are reduced, with source credits and AI disclosure preserved.
+
+After rendering, the existing configured Gemini model independently hears the actual final soundtrack and transcribes without the proposed script. Material audible issues or transcript mismatch block publication; no automatic paid regeneration. This is limited to one20–60second audio review per run. Transcript/listening notes stay off artifacts/logs; only pass/model/video fingerprint evidence enters the manifest. Publishing requires the audio pass fingerprint to match the clip. This check is audio quality evidence, not a view-uplift measurement.
+
+Existing previews can be auditioned with archive-audio-review.yml without generating a new voice or publishing. Temporary daily-video audio-review dispatches suppress artifact upload and publication. Private platform analytics must use an approved private execution path; never export them to this public repository.
+
+Compare creative outcomes by platform at24hours and7days after actual publication. Treat upload failures separately from creative performance; unavailable metrics are missing, never zero. Use engaged views, stayed-to-watch and retention/average duration where authorized access supplies them. Sparse public view counts do not prove a winning approach. No extra public cadence slots or source-lock resets are permitted.
