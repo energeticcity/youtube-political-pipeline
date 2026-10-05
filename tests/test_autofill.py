@@ -133,6 +133,7 @@ class AutofillTests(unittest.TestCase):
     @patch('archive_pipeline.previewed', return_value=True)
     @patch('archive_autofill.prepare', side_effect=ValueError('refill called'))
     def test_empty_queue_refills(self, prepare, previewed):
+        self.enterContext(patch('archive_slots.require_generation', return_value=None))
         with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {'GH_TOKEN': 'test', 'GEMINI_API_KEY': 'test'}):
             with self.assertRaisesRegex(ValueError, 'refill called'):
                 archive.preview(Mock(catalog=archive.CATALOG, episode='', output=tmp, media=None))
@@ -140,6 +141,7 @@ class AutofillTests(unittest.TestCase):
 
     @patch('archive_pipeline.previewed', return_value=True)
     def test_missing_credentials_fails_scheduled_slot(self, previewed):
+        self.enterContext(patch('archive_slots.require_generation', return_value=None))
         with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {'GH_TOKEN': 'test', 'GEMINI_API_KEY': '', 'GITHUB_ACTIONS': 'true'}):
             with self.assertRaisesRegex(ValueError, 'credentials unavailable'):
                 archive.preview(Mock(catalog=archive.CATALOG, episode='', output=tmp, media=None))
