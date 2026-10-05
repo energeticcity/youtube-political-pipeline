@@ -96,6 +96,8 @@ def trusted_live_run(run_id):
 
 
 def admit(output):
+    if os.environ.get('CLIP_PUBLISH_ENABLED') != 'true' or os.environ.get('CLIP_AUTO_PUBLISH_ENABLED') != 'true':
+        return None, 'Existing publishing switches are disabled; no paid work admitted'
     run = trusted_live_run(os.environ['GITHUB_RUN_ID'])
     event = json.loads(Path(os.environ['GITHUB_EVENT_PATH']).read_text())
     slot, reason = resolve(run['event'], event.get('schedule'), os.environ.get('ARCHIVE_SLOT_REQUEST'),

@@ -48,6 +48,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           ARCHIVE_SLOT_REQUEST: ${{ inputs.slot_utc }}
+          CLIP_PUBLISH_ENABLED: ${{ vars.CLIP_PUBLISH_ENABLED }}
+          CLIP_AUTO_PUBLISH_ENABLED: ${{ vars.CLIP_AUTO_PUBLISH_ENABLED }}
         run: python archive_slots.py admit
       - name: Build the next archival story
         if: github.ref != 'refs/heads/main' || inputs.episode == 'audio-review' || steps.admission.outputs.allowed == 'true'

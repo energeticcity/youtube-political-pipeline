@@ -13,7 +13,7 @@ import clipping
 NOW = datetime(2026, 10, 5, 15, 30, tzinfo=timezone.utc)
 SLOT = '2026-10-05T14:07:00Z'
 ENV = {'GITHUB_REF': 'refs/heads/main', 'GITHUB_ACTIONS': 'true', 'GITHUB_REPOSITORY': 'owner/repo',
-       'GITHUB_RUN_ID': '100', 'GITHUB_RUN_ATTEMPT': '1', 'ARCHIVE_SLOT_REQUEST': SLOT}
+       'CLIP_PUBLISH_ENABLED': 'true', 'CLIP_AUTO_PUBLISH_ENABLED': 'true', 'GITHUB_RUN_ID': '100', 'GITHUB_RUN_ATTEMPT': '1', 'ARCHIVE_SLOT_REQUEST': SLOT}
 
 
 class SlotTests(unittest.TestCase):
@@ -116,3 +116,27 @@ class SlotTests(unittest.TestCase):
         self.assertIn('group: archive-previews',daily)
         self.assertIn('group: archive-publication',publish)
         self.assertIn('publication-candidate',publish)
+
+    @patch('archive_slots.trusted_live_run')
+    def test_disabled_switch_never_claims_or_spends(self, run):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {**ENV, 'CLIP_PUBLISH_ENABLED':'false'}):
+            proof, reason = slots.admit(tmp)
+        self.assertIsNone(proof)
+        self.assertIn('disabled', reason)
+        run.assert_not_called()
+
+    def test_ready_transition_requires_uploaded_unchanged_owner_media(self):
+        proof={'issue':7,'version':1,'slot':SLOT,'owner_run_id':'100','owner_attempt':'1','nonce':'original'}
+        data={**proof,'phase':'claimed'}
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, ENV), patch('archive_slots.get_claim', return_value=({'number':7},data)), patch('archive_slots.patch_record') as update:
+            root=Path(tmp);(root/'clip').mkdir();video=root/'clip/clip.mp4';video.write_bytes(b'checked-video')
+            manifest={'slot_admission':proof,'clips':[{'id':'clip','sha256':clipping.file_hash(video)}]}
+            (root/'manifest.json').write_text(json.dumps(manifest))
+            video.write_bytes(b'tampered')
+            with self.assertRaisesRegex(ValueError,'fingerprint'):
+                slots.mark_ready(tmp)
+            update.assert_not_called()
+            video.write_bytes(b'checked-video')
+            slots.mark_ready(tmp)
+            self.assertEqual(data['phase'],'preview_ready')
+            self.assertEqual(data['manifest_digest'],clipping.digest(manifest))
