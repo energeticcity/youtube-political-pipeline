@@ -1,0 +1,81 @@
+name: Validate or Recover Failed YouTube Only
+on:
+  workflow_dispatch:
+    inputs:
+      post_id:
+        description: Original partially delivered Post for Me post ID
+        required: true
+        type: string
+      run_id:
+        description: Successful original main preview run ID
+        required: true
+        type: string
+      submit:
+        description: Submit once only after all current-policy and factual-evidence gates pass
+        default: false
+        type: boolean
+      evidence_issue:
+        description: Administrator-authored fresh capacity, billing, cadence and manual-duplicate evidence issue
+        required: false
+        type: string
+permissions:
+  contents: read
+  actions: read
+  issues: write
+concurrency:
+  group: archive-publication
+  cancel-in-progress: false
+jobs:
+  recovery:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+          pip install 'requests>=2.32,<3'
+      - name: Verify trusted original preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.run_id }}
+        run: python clipping.py verify-run --run-id "$RUN_ID"
+      - uses: actions/download-artifact@v4
+        with:
+          name: archive-preview
+          path: original-preview
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.run_id }}
+      - name: Revalidate exact video and optionally recover YouTube once
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          POSTFORME_API_KEY: ${{ secrets.POSTFORME_API_KEY }}
+          CLIP_PUBLISH_ENABLED: ${{ vars.CLIP_PUBLISH_ENABLED }}
+          CLIP_AUTO_PUBLISH_ENABLED: ${{ vars.CLIP_AUTO_PUBLISH_ENABLED }}
+          CLIP_DESTINATIONS_JSON: ${{ vars.CLIP_DESTINATIONS_JSON }}
+          CLIP_PAUSED_DESTINATIONS_JSON: ${{ vars.CLIP_PAUSED_DESTINATIONS_JSON }}
+          POST_ID: ${{ inputs.post_id }}
+          RUN_ID: ${{ inputs.run_id }}
+          SUBMIT: ${{ inputs.submit }}
+          EVIDENCE_ISSUE: ${{ inputs.evidence_issue }}
+        run: |
+          if [ "$SUBMIT" = true ]; then
+            python retry_youtube.py --post-id "$POST_ID" --run-id "$RUN_ID" --submit --evidence-issue "$EVIDENCE_ISSUE"
+          else
+            python retry_youtube.py --post-id "$POST_ID" --run-id "$RUN_ID"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: youtube-recovery-public-evidence
+          path: delivery-output/
+          retention-days: 7
+          if-no-files-found: ignore

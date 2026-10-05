@@ -94,3 +94,46 @@ After rendering, the existing configured Gemini model independently hears the ac
 Existing previews can be auditioned with archive-audio-review.yml without generating a new voice or publishing. Temporary daily-video audio-review dispatches suppress artifact upload and publication. Private platform analytics must use an approved private execution path; never export them to this public repository.
 
 Compare creative outcomes by platform at24hours and7days after actual publication. Treat upload failures separately from creative performance; unavailable metrics are missing, never zero. Use engaged views, stayed-to-watch and retention/average duration where authorized access supplies them. Sparse public view counts do not prove a winning approach. No extra public cadence slots or source-lock resets are permitted.
+
+## Guarded YouTube-only recovery
+
+`archive-youtube-recovery.yml` is manual and defaults to validation only. It shares
+`archive-publication` serialization. It never regenerates narration/video, changes
+an old manifest/digest, uploads replacement media, edits an original provider post,
+or includes Instagram/TikTok. A successful validation is not publication.
+
+The original successful main preview must match its catalogue, source/rules,
+video hash and durable publication ledger. A changed policy triggers actual
+revalidation rather than accepting the old digest: current word/beat/source bounds,
+fresh explicit rights and downloaded source hash, recent-story duplication,
+independent current-policy review of the actual rendered frames, and actual-audio
+review bound to exact MP4 bytes. At most one editorial and one audio review; no
+voice generation or automatic retries. Cheap structural failures stop before paid
+reviews. Private review notes/transcripts stay in memory.
+
+Submission additionally requires publishing switches enabled and YouTube unpaused,
+connected exact configured account, terminal daily-quota failure before upload with
+no video reference, no matching feed video, complete provider pagination, no original
+or recovery duplicate and no durable retry lock (including closed issues). Original
+provider media is downloaded and its hash must match the reviewed artifact. A
+reservation is written before exactly one new YouTube-only POST; ambiguity retains
+it. Check the new post's individual video URL separately; queued is not published.
+
+Reset time does not prove capacity or allowance. An existing repository administrator
+must provide fresh factual evidence in an issue titled
+`[archive-youtube-recovery-evidence] ORIGINAL_POST_ID`. Its JSON body binds
+`post_id`, `youtube_account_id`, `youtube_channel_id`, `video_sha256`, `current_policy_digest`,
+`project_number` (currently `823315471809`), timezone-aware `verified_at` within an
+hour, numeric `available_uploads` >=1, and true facts `no_extra_spend`,
+`within_existing_cadence_and_budget`, `no_manual_channel_duplicate`.
+`capacity_evidence_url`, `billing_evidence_url`, `channel_review_url` identify the
+read-only evidence; do not include tokens, private analytics or signed media URLs.
+`replacement_failed_run_id` must be an actual failed scheduled main preview within
+24hours. That failed slot can be used only once, including closed reservation history.
+This records external facts that the API cannot verify; it is not routine per-video
+creative approval or permission to purchase/expand access. If the facts are unknown,
+keep submission held.
+
+The original Oct4 long-distance clip has99words and fails the current50–85word rule.
+Its unchanged artifact cannot be recovered through this path. Do not edit the proof,
+weaken the gate, clear its source lock or re-render it simply to fill a missed slot.

@@ -90,7 +90,7 @@ def inspect(post_id, output):
     recoveries = pages('social-posts', external_id=retry_reference)
     report = {'read_only': True, 'post_id': post_id, 'original_status': original.get('status'),
               'original_external_id': external,
-              'youtube_account': {k: account.get(k) for k in ('id', 'platform', 'username', 'status')},
+              'youtube_account': {k: account.get(k) for k in ('id', 'platform', 'username', 'user_id', 'status')},
               'youtube_results': summaries,
               'same_reference_post_ids': [p['id'] for p in originals if p.get('external_id') == external],
               'recovery_reference': retry_reference,
