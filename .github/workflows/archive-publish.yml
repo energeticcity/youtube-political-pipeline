@@ -38,13 +38,21 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RUN_ID: ${{ inputs.run_id || github.event.workflow_run.id }}
         run: python clipping.py verify-run --run-id "$RUN_ID"
+      - name: Require exclusive ready calendar slot
+        id: slot
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.run_id || github.event.workflow_run.id }}
+        run: python archive_slots.py publication-candidate --run-id "$RUN_ID"
       - uses: actions/download-artifact@v4
+        if: steps.slot.outputs.allowed == 'true'
         with:
           name: archive-preview
           path: clip-output
           github-token: ${{ github.token }}
           run-id: ${{ inputs.run_id || github.event.workflow_run.id }}
       - name: Publish checked story
+        if: steps.slot.outputs.allowed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_ID: ${{ inputs.run_id || github.event.workflow_run.id }}

@@ -144,6 +144,9 @@ class ArchiveTests(unittest.TestCase):
     @patch('clipping.verify_run',return_value={'head_sha':'test'})
     @patch('clipping.publish_one')
     def test_new_format_requires_audio_review_bound_to_video(self,publish,verify):
+        self.enterContext(patch('archive_slots.verify_publication'))
+        self.enterContext(patch('archive_slots.begin_publication'))
+        self.enterContext(patch('archive_slots.finish_publication'))
         manifest={'version':1,'format_version':'archive-story-v2','commit':'test',
                   'catalog_digest':clipping.digest(self.data),
                   'clips':[{'id':self.episode['id'],'sha256':'video'}]}

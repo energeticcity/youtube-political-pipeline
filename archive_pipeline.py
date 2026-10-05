@@ -157,6 +157,8 @@ def preview(args):
 
 
 def build_preview(args, scratch):
+    import archive_slots
+    slot_proof = archive_slots.require_generation(args.output)
     data, sources = catalog(args.catalog)
     import archive_autofill as autofill
     generated = None
@@ -168,6 +170,8 @@ def build_preview(args, scratch):
     out = Path(args.output).resolve()
     out.mkdir(parents=True, exist_ok=True)
     manifest = {"version": 1, "format_version": "archive-story-v2", "commit": os.environ.get("GITHUB_SHA", "local"), "catalog_digest": clips.digest(data), "clips": []}
+    if slot_proof is not None:
+        manifest['slot_admission'] = slot_proof
     if not episodes and (args.episode == 'auto' or os.environ.get('GEMINI_API_KEY')):
         episode, source, media, checks = autofill.prepare(data, scratch, diagnostics_path=out / 'refill-diagnostics.json')
         generated = {'episode': episode, 'source': source, 'checks': checks,
@@ -227,6 +231,8 @@ def publish(args):
     manifest = json.loads((Path(args.output) / "manifest.json").read_text())
     if manifest.get("version") != 1 or manifest["commit"] != run["head_sha"] or manifest["catalog_digest"] != clips.digest(data):
         raise ValueError("Preview provenance/catalogue mismatch; regenerate preview")
+    import archive_slots
+    archive_slots.verify_publication(manifest, args.run_id, run)
     generated = manifest.get('generated')
     if generated:
         import archive_autofill as autofill
@@ -248,7 +254,9 @@ def publish(args):
                 raise ValueError('Missing or mismatched actual-audio review')
         episode = next(e for e in data["episodes"] if e["id"] == clip["id"])
         check_rights(sources[episode["source_id"]])
+        archive_slots.begin_publication(manifest, args.run_id)
         clips.publish_one(args, clip, publication_source(episode, sources[episode["source_id"]]))
+        archive_slots.finish_publication(manifest)
 
 
 def error_labels(value, depth=0):

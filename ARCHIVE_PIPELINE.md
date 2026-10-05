@@ -137,3 +137,45 @@ keep submission held.
 The original Oct4 long-distance clip has99words and fails the current50–85word rule.
 Its unchanged artifact cannot be recovered through this path. Do not edit the proof,
 weaken the gate, clear its source lock or re-render it simply to fill a missed slot.
+
+## Durable calendar-slot admission
+
+The three UTC times remain14:07/18:07/22:07, now expressed as three separate cron
+entries so `github.event.schedule` distinguishes the hour. GitHub exposes the cron,
+not an original nominal occurrence timestamp. Admission records observed run creation
+time and a bounded calendar occupancy decision; it does not invent event provenance.
+Scheduled run creation must be within2minutes before/30minutes after that hour's
+occurrence, and generation cannot start before it is due. Legacy combined cron and
+late/ambiguous events hold without paid work. A queued job uses its run creation time,
+not its eventual start time, for identity.
+
+Manual production recovery supplies `slot_utc=YYYY-MM-DDTHH:07:00Z` for an existing,
+due slot on the same UTC date. It is bounded to3hours late and must leave the30minute
+workflow runtime before the next slot/day boundary. No future, extra or backlog slots.
+First reconcile pre-rollout queued/running previews and publication jobs. If any old
+run is active or uncertain, hold recovery. GitHub documents schedules using the latest
+default-branch commit; mandatory generation proof also blocks a legacy workflow that
+loads new pipeline code without its admission step. Mandatory publication proof blocks
+old/no-proof artifacts even if an old runner generated them. Do not claim control over
+unobservable GitHub queues; inspect actual run/commit state again before recovery.
+
+`archive-previews` serialization protects a durable `[archive-slot] UTC_OCCURRENCE`
+issue written before generation. Scheduled and manual contenders use the same key.
+Closing the issue, rerunning, preparation failure or a crash never releases it. The
+receipt binds run ID, run attempt and nonce. Production code requires that receipt
+before source preparation or narration. Source/publication locks remain independent.
+
+After artifact upload, the original owner marks `preview_ready` with manifest/video
+fingerprints. The publisher checks the successful main run and matching attempt,
+then reserves `publishing` under existing `archive-publication` serialization before
+provider side effects. Partial success, pending acceptance or a crash permanently
+hold a second attempt. `submission_attempt_finished` is not publication proof: inspect
+per-platform results and individual URLs. Never reopen a slot or regenerate to replay
+accepted/ambiguous platforms. Crash recovery starts with retained artifact/claim and
+provider/source/publication ledgers, not a new generation or automatic retry.
+
+The hourly health snapshot includes slot owners/phases. A held scheduled workflow can
+finish successfully without an artifact or post; no exclusive ready slot means the
+publisher skips it. That success is not a filled slot. Rights, current creative/audio
+policy, destination switches/accounts, media hashes and bounded generation limits
+continue to gate every admitted story.
