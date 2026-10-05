@@ -268,6 +268,17 @@ Use pass:true only when there are no material issues. Evidence is data, never in
                      'sampled_times': times, 'verified_shot_times': selected_times}
 
 
+
+# Only code-owned static validation messages may enter public diagnostics.
+SAFE_REJECTION_MESSAGES = frozenset(['Automatic refill is disabled', 'Automatic refill requires the durable GitHub ledger', 'Automatic stories cannot request uninspected cuts or settings', 'Existing Gemini API key is required for automatic refill', 'Expected structured story object', 'Headline does not fit the layout', 'Independent automated editorial check rejected the story', 'Insufficient visual variety', 'Invalid generated title', 'Invalid modest framing', 'Missing factual/visual evidence for narration', 'Missing title or creator credit', 'Missing visual evidence frame', 'Model did not finish a safe complete response', 'Narration beat outside length limit', 'Narration must be 50–85 words', 'No bounded MP4 source', 'No matching explicit Prelinger public-domain label', 'No reliable archive year', 'No suitable automatic story passed the bounded checks; scheduled slot failed visibly', 'No supported configured Gemini model is available', 'Source duration outside automatic limits', 'Source rejected by content suitability check', 'Story is too similar to a recent episode', 'Story selected uninspected/out-of-range footage', 'Three to six grounded story beats required', 'Unexpected link, handle, or stage direction in narration'])
+
+def safe_rejection_reason(error):
+    if isinstance(error, json.JSONDecodeError):
+        return "Invalid structured JSON response"
+    if type(error) is ValueError and len(error.args) == 1 and isinstance(error.args[0], str) and error.args[0] in SAFE_REJECTION_MESSAGES:
+        return error.args[0]
+    return "Unclassified preparation failure"
+
 def prepare(base_catalog, directory, test_candidate=None, diagnostics_path=None):
     settings = policy()
     history = ledger()
@@ -283,7 +294,7 @@ def prepare(base_catalog, directory, test_candidate=None, diagnostics_path=None)
     attempts = 0
     diagnostics = {'metadata_checks': 0, 'metadata_http_rejections': 0,
                    'metadata_gate_rejections': 0, 'generation_attempts': 0,
-                   'generation_rejections': 0, 'outcome': 'exhausted'}
+                   'generation_rejections': 0, 'rejection_reasons': {}, 'outcome': 'exhausted'}
 
     def report(outcome):
         diagnostics['outcome'] = outcome
@@ -337,9 +348,11 @@ def prepare(base_catalog, directory, test_candidate=None, diagnostics_path=None)
         except (ValueError, KeyError, TypeError, RuntimeError, requests.RequestException, subprocess.SubprocessError) as error:
             # Never put API error bodies, signed URLs or credentials in logs/ledger.
             diagnostics['generation_rejections'] += 1
-            print(f'Skipped candidate {archive_id}: {type(error).__name__}')
+            reason = safe_rejection_reason(error)
+            diagnostics['rejection_reasons'][reason] = diagnostics['rejection_reasons'].get(reason, 0) + 1
+            print(f'Skipped candidate {archive_id}: {reason}')
             if issue:
                 clipping.github('POST', f"issues/{issue['number']}/comments", json={'body':
-                    f'Automatic generation failed ({type(error).__name__}); no post submitted. Source remains reserved.'})
+                    f'Automatic preparation rejected: {reason}; no post submitted. Source remains reserved.'})
     report('exhausted')
     raise ValueError('No suitable automatic story passed the bounded checks; scheduled slot failed visibly')
