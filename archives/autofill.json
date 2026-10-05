@@ -28,7 +28,8 @@
       25,
       35
     ],
-    "premise": "immediate genuine visual question with one grounded payoff"
+    "premise": "immediate genuine visual question with one grounded payoff",
+    "writer_sampling": "temporal-context-v1"
   },
   "max_audio_reviews_per_run": 1
 }
