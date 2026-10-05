@@ -103,6 +103,7 @@ class ArchiveTests(unittest.TestCase):
     @patch('archive_pipeline.narration')
     @patch('archive_pipeline.check_rights')
     def test_wrong_file_blocked_before_paid_narration(self, rights, narration):
+        self.enterContext(patch('archive_slots.require_generation', return_value=None))
         with tempfile.TemporaryDirectory() as tmp:
             media = Path(tmp) / 'wrong.mp4'
             media.write_bytes(b'not the approved source')
