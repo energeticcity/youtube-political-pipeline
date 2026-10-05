@@ -179,3 +179,23 @@ finish successfully without an artifact or post; no exclusive ready slot means t
 publisher skips it. That success is not a filled slot. Rights, current creative/audio
 policy, destination switches/accounts, media hashes and bounded generation limits
 continue to gate every admitted story.
+
+## Prospective temporal writing evidence
+
+The writer formerly saw 30 isolated start frames while the independent reviewer saw
+selected shots at 0/4/9/13 seconds. That repeatable evidence asymmetry lets a draft
+infer action or context that later frames contradict. The writer now receives the
+same temporal offsets for seven shot options: 28 images within the unchanged 30-image
+cap. This trades some search breadth for inspected shot context; it does not establish
+the historical cause of a rejection or measured performance uplift. Each allowed start
+remains inspected and within the 14-second source bound. Reframing, narration bounds,
+recent-story duplication, independent review and all publishing gates remain.
+
+Still two model calls per candidate (writer/reviewer), three candidates maximum and
+one audio review only after a passing story; no corrective generation retry or source
+reservation release. Rejections retain only candidate/source fingerprints, allowed
+starts and allowlisted editorial reason codes. Free-text review notes, scripts,
+provider payloads and transcripts are not exported. Missing/unrecognized codes stay
+unclassified, never inferred from discarded notes. Successful review is normalized to
+the existing strict `{pass:true,issues:[]}` proof; added diagnostic fields cannot cause
+a false publisher mismatch. Slot 230 and its rejected sources remain occupied.
