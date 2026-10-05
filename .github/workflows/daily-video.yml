@@ -2,11 +2,17 @@ name: The Past Was Ridiculous
 run-name: ${{ inputs.episode == 'audio-review' && 'Archive audio review (no publication)' || 'The Past Was Ridiculous' }}
 on:
   schedule:
-    - cron: '7 14,18,22 * * *'
+    - cron: '7 14 * * *'
+    - cron: '7 18 * * *'
+    - cron: '7 22 * * *'
   workflow_dispatch:
     inputs:
       episode:
         description: Optional episode ID; auto tests refill; blank selects next story or refills
+        required: false
+        type: string
+      slot_utc:
+        description: Intended existing UTC slot for production recovery (YYYY-MM-DDTHH:07:00Z); no future/backlog slots
         required: false
         type: string
       audio_review_run:
@@ -36,7 +42,17 @@ jobs:
           sudo apt-get install -y -qq ffmpeg
           pip install 'requests>=2.32,<3'
       - run: python -m unittest discover -s tests -v
+      - name: Claim intended calendar slot before paid work
+        id: admission
+        if: github.ref == 'refs/heads/main' && inputs.episode != 'audio-review'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARCHIVE_SLOT_REQUEST: ${{ inputs.slot_utc }}
+          CLIP_PUBLISH_ENABLED: ${{ vars.CLIP_PUBLISH_ENABLED }}
+          CLIP_AUTO_PUBLISH_ENABLED: ${{ vars.CLIP_AUTO_PUBLISH_ENABLED }}
+        run: python archive_slots.py admit
       - name: Build the next archival story
+        if: github.ref != 'refs/heads/main' || inputs.episode == 'audio-review' || steps.admission.outputs.allowed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
@@ -53,23 +69,25 @@ jobs:
             python archive_pipeline.py preview --episode "$EPISODE"
           fi
       - name: Identify existing destinations (read only)
-        if: inputs.episode != 'audio-review'
+        if: inputs.episode != 'audio-review' && (github.ref != 'refs/heads/main' || steps.admission.outputs.allowed == 'true')
         continue-on-error: true
         env:
           POSTFORME_API_KEY: ${{ secrets.POSTFORME_API_KEY }}
         run: python archive_pipeline.py accounts
       - uses: actions/upload-artifact@v4
-        if: inputs.episode != 'audio-review'
+        if: inputs.episode != 'audio-review' && (github.ref != 'refs/heads/main' || steps.admission.outputs.allowed == 'true')
         with:
           name: archive-preview
           path: clip-output/
           retention-days: 30
           if-no-files-found: error
       - name: Record preview completion
-        if: github.ref == 'refs/heads/main' && inputs.episode != 'audio-review'
+        if: github.ref == 'refs/heads/main' && inputs.episode != 'audio-review' && steps.admission.outputs.allowed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python archive_pipeline.py mark-preview
+        run: |
+          python archive_pipeline.py mark-preview
+          python archive_slots.py ready
       - name: Save refill diagnostics
         if: always() && inputs.episode != 'audio-review'
         uses: actions/upload-artifact@v4
@@ -78,6 +96,11 @@ jobs:
           path: clip-output/refill-diagnostics.json
           retention-days: 7
           if-no-files-found: ignore
+      - name: Retain failed occupied slot
+        if: failure() && github.ref == 'refs/heads/main' && steps.admission.outputs.allowed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python archive_slots.py failed
       - name: Report a failed scheduled slot
         if: failure() && github.ref == 'refs/heads/main' && inputs.episode != 'audio-review'
         env:

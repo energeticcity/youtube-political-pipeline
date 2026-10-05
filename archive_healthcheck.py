@@ -22,8 +22,15 @@ def snapshot():
         'CLIP_PUBLISH_ENABLED', 'CLIP_AUTO_PUBLISH_ENABLED', 'CLIP_DESTINATIONS_JSON',
         'CLIP_PAUSED_DESTINATIONS_JSON'}}
     pages = json.loads(gh('api', '--paginate', '--slurp', f'repos/{REPO}/issues?state=all&per_page=100'))
-    publications = []
+    publications, slots = [], []
     for issue in (i for page in pages for i in page):
+        if issue['title'].startswith('[archive-slot] '):
+            try:
+                claim = json.loads(issue.get('body') or '')
+                slots.append({'issue': issue['number'], 'url': issue['html_url'],
+                              **{k: claim.get(k) for k in ('slot','phase','owner_run_id','owner_attempt','publishing_run_id','clip_id','video_sha256')}})
+            except ValueError:
+                slots.append({'issue': issue['number'], 'phase': 'invalid; hold'})
         if issue['title'].startswith('[clip-publication] '):
             match = re.search(r'Post for Me ID: `([A-Za-z0-9_-]+)`', issue.get('body') or '')
             publications.append({'issue': issue['number'], 'episode': issue['title'],
@@ -48,7 +55,7 @@ def snapshot():
         evidence = deliveries.get(publication['post_id'])
         publication['delivery'] = evidence or {'status': 'unverified; provider acceptance is not delivery'}
     return {'checked_at': datetime.now(timezone.utc).isoformat(), 'repository': REPO,
-            'config': config, 'recent_runs': runs, 'publications': publications, 'read_errors': errors,
+            'config': config, 'recent_runs': runs, 'publications': publications, 'slots': slots, 'read_errors': errors,
             'next_check': 'For unverified posts, dispatch archive-delivery.yml with post_id, then rerun this snapshot. '
                           'Review every platform and its individual video URL; never retry an entire partial batch.'}
 

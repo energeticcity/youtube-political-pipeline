@@ -147,6 +147,9 @@ class AutofillTests(unittest.TestCase):
     @patch('clipping.verify_run', return_value={'head_sha': 'test'})
     @patch('clipping.publish_one')
     def test_generated_policy_mismatch_blocks_post(self, publish, verify):
+        self.enterContext(patch('archive_slots.verify_publication'))
+        self.enterContext(patch('archive_slots.begin_publication'))
+        self.enterContext(patch('archive_slots.finish_publication'))
         data, _ = archive.catalog()
         manifest = {'version': 1, 'commit': 'test', 'catalog_digest': clipping.digest(data),
                     'generated': {'policy_digest': 'wrong'}, 'clips': []}
@@ -160,6 +163,9 @@ class AutofillTests(unittest.TestCase):
     @patch('archive_pipeline.check_rights')
     @patch('clipping.publish_one')
     def test_generated_story_reaches_checked_publisher(self, publish, rights, verify):
+        self.enterContext(patch('archive_slots.verify_publication'))
+        self.enterContext(patch('archive_slots.begin_publication'))
+        self.enterContext(patch('archive_slots.finish_publication'))
         data, _ = archive.catalog()
         source = copy.deepcopy(data['sources'][0])
         episode = copy.deepcopy(data['episodes'][0])
