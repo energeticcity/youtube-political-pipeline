@@ -18,9 +18,17 @@ def phrase_segments(text, starts, ends):
     for word in words:
         candidate = group + [word]
         value = text[candidate[0].start():candidate[-1].end()]
-        if group and (len(value) > 52 or starts[word.start()] - ends[group[-1].end()-1] > .35):
+        # A character count alone cannot guarantee that whole words pack into two rows.
+        try:
+            caption_lines(value)
+            fits = True
+        except ValueError:
+            fits = False
+        if group and (not fits or len(value) > 52 or starts[word.start()] - ends[group[-1].end()-1] > .35):
             segments.append(make_segment(text, group, starts, ends))
             group = []
+        if not group:
+            caption_lines(word.group())  # Oversized individual words still fail closed.
         group.append(word)
         if re.search(r'[.!?,;:]$|[—–]$', word.group()):
             segments.append(make_segment(text, group, starts, ends))
@@ -37,8 +45,15 @@ def phrase_segments(text, starts, ends):
                 previous = [w for w in words if starts[w.start()] >= balanced[-1]['start'] and ends[w.end()-1] <= balanced[-1]['end']]
                 current = [w for w in words if starts[w.start()] == segment['start']]
                 if len(previous) > 3 and current:
-                    balanced[-1] = make_segment(text, previous[:-2], starts, ends)
-                    segment = make_segment(text, previous[-2:] + current, starts, ends)
+                    shortened = make_segment(text, previous[:-2], starts, ends)
+                    tail = make_segment(text, previous[-2:] + current, starts, ends)
+                    try:
+                        caption_lines(shortened['text'])
+                        caption_lines(tail['text'])
+                    except ValueError:
+                        pass  # Keep the valid single-word tail rather than overflow a row.
+                    else:
+                        balanced[-1], segment = shortened, tail
             else:
                 balanced[-1].update(text=combined, end=segment['end'])
                 continue
