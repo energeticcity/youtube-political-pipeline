@@ -243,3 +243,14 @@ categories (`rights_label`, `archive_year`, `bounded_mp4`, `source_credit`,
 `invalid_metadata`), without raw metadata or provider errors. Candidate, audio,
 source-byte and calendar-slot budgets are unchanged; occupied failed slots
 remain reserved and cannot be replayed through this discovery change.
+
+
+Preparation retains `preparation-diagnostics.json` with the last operation
+(`discovery`, `rights`, `narration`, `render`, `audio_review`) and its fixed
+started/completed/failed status. The diagnostics artifact saves this marker even
+when preparation fails. Invalid JSON is reported with the operation name; raw
+provider payloads, script text, narration, credentials and free-text error details
+are never stored in this marker. No operation is retried by these diagnostics.
+A started or failed narration operation does not prove whether it was billed;
+reconcile before any paid replacement. The marker is neither a retained preview
+nor permission to release/replay an occupied failed slot.
