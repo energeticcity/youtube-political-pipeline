@@ -156,6 +156,27 @@ def preview(args):
         return build_preview(args, Path(scratch))
 
 
+def preparation_step(output, stage, operation, *args, **kwargs):
+    """Retain a safe last-stage marker; never retry provider or paid operations."""
+    if stage not in {'discovery', 'rights', 'narration', 'render', 'audio_review'}:
+        raise ValueError('Unknown preparation stage')
+    path = Path(output) / 'preparation-diagnostics.json'
+    marker = {'version': 1, 'stage': stage, 'status': 'started'}
+    path.write_text(json.dumps(marker, indent=2) + '\n')
+    try:
+        result = operation(*args, **kwargs)
+    except Exception as error:
+        invalid_json = isinstance(error, (json.JSONDecodeError, requests.exceptions.JSONDecodeError))
+        marker.update(status='failed', error='invalid_json' if invalid_json else 'preparation_error')
+        path.write_text(json.dumps(marker, indent=2) + '\n')
+        if invalid_json:
+            raise ValueError(f'Archive preparation failed at {stage}: invalid JSON; no unchecked video submitted') from None
+        raise
+    marker['status'] = 'completed'
+    path.write_text(json.dumps(marker, indent=2) + '\n')
+    return result
+
+
 def build_preview(args, scratch):
     import archive_slots
     slot_proof = archive_slots.require_generation(args.output)
@@ -173,7 +194,7 @@ def build_preview(args, scratch):
     if slot_proof is not None:
         manifest['slot_admission'] = slot_proof
     if not episodes and (args.episode == 'auto' or os.environ.get('GEMINI_API_KEY')):
-        episode, source, media, checks = autofill.prepare(data, scratch, diagnostics_path=out / 'refill-diagnostics.json')
+        episode, source, media, checks = preparation_step(out, 'discovery', autofill.prepare, data, scratch, diagnostics_path=out / 'refill-diagnostics.json')
         generated = {'episode': episode, 'source': source, 'checks': checks,
                      'policy_digest': clips.digest(autofill.policy())}
         validate_catalog({'version': 1, 'sources': [source], 'episodes': [episode]})
@@ -185,7 +206,7 @@ def build_preview(args, scratch):
         raise ValueError('Queue empty and automatic refill credentials unavailable')
     for episode in episodes[:1]:
         source = sources[episode["source_id"]]
-        evidence = check_rights(source)
+        evidence = preparation_step(out, 'rights', check_rights, source)
         with tempfile.TemporaryDirectory(prefix="archive-story-") as scratch:
             directory = Path(scratch)
             media = generated_media if generated else Path(args.media).resolve() if args.media else directory / "source.mp4"
@@ -198,10 +219,10 @@ def build_preview(args, scratch):
                 year=re.match(r'^(18\d\d|19\d\d|20\d\d)(?:\D|$)',str(evidence.get('date') or ''))
                 if not year:raise ValueError('No reliable live year for source credit')
                 render_source['year']=year[1]
-            audio, duration, segments, boundaries = narration(episode, directory)
-            video = render(media, episode, render_source, directory, audio, duration, segments, boundaries)
+            audio, duration, segments, boundaries = preparation_step(out, 'narration', narration, episode, directory)
+            video = preparation_step(out, 'render', render, media, episode, render_source, directory, audio, duration, segments, boundaries)
             from archive_audio_quality import review_final
-            quality=review_final(video,script(episode),render_source['year'],directory)
+            quality=preparation_step(out, 'audio_review', review_final, video, script(episode), render_source['year'], directory)
             dest = out / episode["id"]
             dest.mkdir(exist_ok=True)
             for name in ("clip.mp4", "captions.ass", "narration.mp3", "narration-alignment.json"):

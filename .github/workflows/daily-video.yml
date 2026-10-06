@@ -88,12 +88,14 @@ jobs:
         run: |
           python archive_pipeline.py mark-preview
           python archive_slots.py ready
-      - name: Save refill diagnostics
+      - name: Save preparation diagnostics
         if: always() && inputs.episode != 'audio-review'
         uses: actions/upload-artifact@v4
         with:
           name: archive-refill-diagnostics
-          path: clip-output/refill-diagnostics.json
+          path: |
+            clip-output/refill-diagnostics.json
+            clip-output/preparation-diagnostics.json
           retention-days: 7
           if-no-files-found: ignore
       - name: Retain failed occupied slot
