@@ -213,3 +213,21 @@ Oversized individual words still fail closed. Font, width, row count, narration,
 source/editorial/audio gates and budgets remain unchanged. This prospective repair
 does not release occupied slot 248 or reserved source quality_control_1; the failed
 run retained no complete media artifact for safe replay.
+
+
+## Failed preparation capability inspection
+
+`archive-preparation-recovery.yml` is a manual, GET-only prerequisite inspector,
+not a retry or publisher. It requires an occupied `preparation_failed` slot, its
+terminal original main run with only the build step failed, the original bot-owned
+passed source created during that run, and no publication reservation. It checks
+all configured accounts and exact provider external references; any existing request
+holds regeneration regardless of its status. It then inspects existing ElevenLabs
+TTS history within the original run’s time bounds for the exact voice/model/script.
+Only a unique match with exact character alignment and readable bounded audio is
+reported available. History IDs, audio, alignments, text and provider account payloads
+stay in memory; exported evidence contains booleans and fingerprints only. It never
+changes slots/source locks, performs model/TTS generation, or submits a post. Missing
+history permission is a hold requiring an existing authorized read surface, not an
+invitation to change credentials or permissions. This capability alone cannot restore
+lost reviewed shot starts/source fingerprints or authorize recovery of slot 248.
