@@ -199,3 +199,17 @@ provider payloads and transcripts are not exported. Missing/unrecognized codes s
 unclassified, never inferred from discarded notes. Successful review is normalized to
 the existing strict `{pass:true,issues:[]}` proof; added diagnostic fields cannot cause
 a false publisher mismatch. Slot 230 and its rejected sources remain occupied.
+
+
+## Caption packing recovery
+
+Run 37480576048 passed the source/editorial check but failed rendering: the
+52-character phrase “How did mid-century department stores guarantee that”
+cannot pack whole words into two 29-character rows. Phrase grouping now tests
+the actual unchanged two-row layout before adding each word, splitting at its
+original narration timestamps. Orphan-tail balancing also validates both proposed
+segments; a valid one-word tail is preferable to overflowing the safe width.
+Oversized individual words still fail closed. Font, width, row count, narration,
+source/editorial/audio gates and budgets remain unchanged. This prospective repair
+does not release occupied slot 248 or reserved source quality_control_1; the failed
+run retained no complete media artifact for safe replay.
