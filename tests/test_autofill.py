@@ -32,6 +32,25 @@ class AutofillTests(unittest.TestCase):
         self.assertEqual(len(pool), len(set(pool)))
 
     @patch('archive_autofill.requests.get')
+    def test_discovery_intersects_topics_with_exact_existing_licence(self, get):
+        from datetime import datetime, timezone
+        get.side_effect = [Mock(json=lambda: {'response': {'numFound': 1000, 'docs': []}}),
+                           Mock(json=lambda: {'response': {'docs': []}}),
+                           Mock(json=lambda: {'response': {'docs': []}})]
+        with patch('archive_autofill.datetime') as clock:
+            clock.now.return_value = datetime(2026, 10, 6, 18, tzinfo=timezone.utc)
+            list(fill.candidates(self.settings, set()))
+        self.assertEqual(get.call_count, 3)
+        expected = '(' + self.settings['query'] + ') AND licenseurl:"' + fill.PD + '"'
+        for call in get.call_args_list:
+            self.assertEqual(call.kwargs['params']['q'], expected)
+        # An indexed label cannot substitute for the original item-level gate.
+        bad = copy.deepcopy(self.document)
+        bad['metadata']['licenseurl'] = 'https://creativecommons.org/publicdomain/zero/1.0/'
+        with self.assertRaisesRegex(ValueError, 'explicit Prelinger'):
+            fill.source_from_metadata('film', bad, self.settings)
+
+    @patch('archive_autofill.requests.get')
     def test_single_page_rotates_and_excludes_reserved_sources(self, get):
         from datetime import datetime, timezone
         docs = [{'identifier': f'film{i}'} for i in range(50)]
@@ -60,6 +79,7 @@ class AutofillTests(unittest.TestCase):
             report = json.loads(diagnostic.read_text())
         self.assertEqual(get.call_count, 30)
         self.assertEqual(report['metadata_gate_rejections'], 30)
+        self.assertEqual(report['metadata_rejection_reasons'], {'rights_label': 30})
         self.assertEqual(report['generation_attempts'], 0)
         self.assertEqual(report['outcome'], 'exhausted')
 

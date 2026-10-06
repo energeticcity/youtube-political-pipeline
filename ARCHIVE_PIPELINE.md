@@ -231,3 +231,15 @@ changes slots/source locks, performs model/TTS generation, or submits a post. Mi
 history permission is a hold requiring an existing authorized read surface, not an
 invitation to change credentials or permissions. This capability alone cannot restore
 lost reviewed shot starts/source fingerprints or authorize recovery of slot 248.
+
+
+Discovery narrows the configured topic query with the same exact public-domain
+licence required by the live item gate. The search index cannot prove rights:
+every item must still pass collection, media type, exact licence, year, credit,
+MP4-size and duplicate checks. Rotating unlabelled pages cannot consume all30
+metadata reads ahead of eligible labelled sources. No source is added outside
+the configured topic query. Safe metadata rejection counts retain only fixed
+categories (`rights_label`, `archive_year`, `bounded_mp4`, `source_credit`,
+`invalid_metadata`), without raw metadata or provider errors. Candidate, audio,
+source-byte and calendar-slot budgets are unchanged; occupied failed slots
+remain reserved and cannot be replayed through this discovery change.
