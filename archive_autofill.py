@@ -51,10 +51,13 @@ def ledger():
 def candidates(settings, used):
     # Search is discovery only; item metadata must pass the separate rights gate.
     found = list(settings['preferred_candidates'])
+    # Narrow the existing topic pool to its already-required exact licence.
+    # Search labels are discovery hints; item metadata still proves rights.
+    query = '(' + settings['query'] + ') AND licenseurl:"' + PD + '"'
     now = datetime.now(timezone.utc)
     rotation = now.toordinal() * 3 + now.hour // 4
     first = requests.get('https://archive.org/advancedsearch.php', params={
-        'q': settings['query'], 'output': 'json', 'rows': 50, 'page': 1,
+        'q': query, 'output': 'json', 'rows': 50, 'page': 1,
         'sort[]': 'downloads desc', 'fl[]': ['identifier']}, timeout=45)
     first.raise_for_status()
     response = first.json()['response']
@@ -67,7 +70,7 @@ def candidates(settings, used):
         if page == 1:
             continue
         r = requests.get('https://archive.org/advancedsearch.php', params={
-            'q': settings['query'], 'output': 'json', 'rows': 50, 'page': page,
+            'q': query, 'output': 'json', 'rows': 50, 'page': page,
             'sort[]': 'downloads desc', 'fl[]': ['identifier']}, timeout=45)
         r.raise_for_status()
         rotated.extend(r.json()['response']['docs'])
@@ -115,6 +118,16 @@ def source_from_metadata(identifier, document, settings):
         'rights_note': 'Automatically checked explicit public-domain label on this Prelinger item. '
                       'Original soundtrack excluded. Archive labels are evidence, not worldwide legal guarantees.',
         'sha256': '', 'description': clean(m.get('description')), 'subjects': clean(m.get('subject'), 800)}
+
+
+def metadata_rejection_reason(error):
+    # Only fixed code-owned labels; malformed metadata/provider text is private.
+    return {
+        'No matching explicit Prelinger public-domain label': 'rights_label',
+        'No reliable archive year': 'archive_year',
+        'No bounded MP4 source': 'bounded_mp4',
+        'Missing title or creator credit': 'source_credit',
+    }.get(str(error), 'invalid_metadata')
 
 
 def choose_model(settings):
@@ -340,7 +353,7 @@ def prepare(base_catalog, directory, test_candidate=None, diagnostics_path=None)
     pool = [test_candidate] if test_candidate else candidates(settings, used)
     attempts = 0
     diagnostics = {'metadata_checks': 0, 'metadata_http_rejections': 0,
-                   'metadata_gate_rejections': 0, 'generation_attempts': 0,
+                   'metadata_gate_rejections': 0, 'metadata_rejection_reasons': {}, 'generation_attempts': 0,
                    'generation_rejections': 0, 'rejection_reasons': {}, 'rejected_candidates': [], 'outcome': 'exhausted'}
 
     def report(outcome):
@@ -364,8 +377,11 @@ def prepare(base_catalog, directory, test_candidate=None, diagnostics_path=None)
             continue
         try:
             source = source_from_metadata(archive_id, response.json(), settings)
-        except (ValueError, KeyError, TypeError):
+        except (ValueError, KeyError, TypeError) as error:
             diagnostics['metadata_gate_rejections'] += 1
+            reason = metadata_rejection_reason(error)
+            counts = diagnostics['metadata_rejection_reasons']
+            counts[reason] = counts.get(reason, 0) + 1
             continue
         if attempts >= settings['max_candidates_per_run']:
             break
