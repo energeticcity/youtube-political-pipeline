@@ -1,5 +1,5 @@
 diff --git a/uploader/youtube_uploader/main.py b/uploader/youtube_uploader/main.py
-index 4a1b0e1..11836c9 100644
+index 4a1b0e1..579b41e 100644
 --- a/uploader/youtube_uploader/main.py
 +++ b/uploader/youtube_uploader/main.py
 @@ -12,6 +12,8 @@ Login is interactive (Google account, no QR code): the browser opens, the user s
@@ -64,20 +64,27 @@ index 4a1b0e1..11836c9 100644
          # 1) 选择视频文件
          file_input = page.locator('input[type="file"]').first
          await file_input.wait_for(state="attached", timeout=60000)
-@@ -297,7 +312,11 @@ class YouTubeVideo(BaseVideoUploader):
+@@ -297,7 +312,18 @@ class YouTubeVideo(BaseVideoUploader):
  
          # 10) 可见性
          youtube_logger.info(_msg("🌐", f"设置可见性 = {self.visibility}"))
 -        await _click_if_present(page, f"tp-yt-paper-radio-button[name='{VISIBILITY[self.visibility]}']", 10000)
 +        visibility_selector = f"tp-yt-paper-radio-button[name='{VISIBILITY[self.visibility]}']"
 +        if not await _click_if_present(page, visibility_selector, 10000):
++            evidence = os.environ.get("SAU_YOUTUBE_DIAGNOSTIC_DIR")
++            if evidence:
++                folder = Path(evidence)
++                folder.mkdir(parents=True, exist_ok=True)
++                text = await page.locator("body").inner_text()
++                text = re.sub(r"[\w.+-]+@[\w.-]+", "[email hidden]", text)
++                (folder / "youtube-upload-screen.txt").write_text(text[:12000])
 +            raise RuntimeError("YouTube visibility selection failed; publish blocked")
 +        if await page.locator(visibility_selector).first.get_attribute("aria-checked") != "true":
 +            raise RuntimeError("YouTube visibility was not checked; publish blocked")
  
          # 10.5) 关键：等上传真正传完再发布。浏览器上传靠窗口开着传，
          #       传到一半就点发布+关浏览器 = 上传被掐断卡在中途（如 76%）。
-@@ -307,7 +326,7 @@ class YouTubeVideo(BaseVideoUploader):
+@@ -307,7 +333,7 @@ class YouTubeVideo(BaseVideoUploader):
          # 11) 发布
          await page.wait_for_timeout(1200)
          if not await _click_if_present(page, "#done-button", 15000):

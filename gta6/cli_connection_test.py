@@ -116,6 +116,7 @@ def youtube():
     account.parent.mkdir(exist_ok=True)
     account.write_text(json.dumps(state));account.chmod(0o600)
     os.environ['SAU_EXPECTED_YOUTUBE_CHANNEL']='UCdL4ljG4SqfEA8qk5yd6v5w'
+    os.environ['SAU_YOUTUBE_DIAGNOSTIC_DIR']=str(OUT.resolve())
     command(['sau','youtube','upload-video','--help'],cwd=repo)
     RESULT['cli_help']='passed'
     if command(['sau','youtube','check','--account','dadjokefix'],cwd=repo).strip()!='valid':
