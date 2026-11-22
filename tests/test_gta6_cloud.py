@@ -3,6 +3,7 @@ from datetime import datetime
 import json
 import importlib.util
 import unittest
+import sys
 from unittest.mock import MagicMock, patch
 import gta6_cloud as g
 
@@ -77,6 +78,19 @@ class CloudPipelineTests(unittest.TestCase):
         with patch.object(g,'instagram_session',return_value=g.Path('/tmp')):
             with patch.object(g.subprocess,'run',return_value=MagicMock(returncode=0)):
                 with self.assertRaises(RuntimeError):g.instagram_cli_upload('clip.mp4','caption')
+
+    def test_youtube_session_rejects_other_platform_cookies(self):
+        state={'cookies':[{'name':'sessionid','domain':'.instagram.com','value':'x'}]}
+        with patch.dict(g.os.environ,{'GTA6_YOUTUBE_BROWSER_SESSION':json.dumps(state)}):
+            with self.assertRaises(ValueError):g.youtube_session()
+
+    def test_existing_youtube_title_blocks_another_upload(self):
+        verify=MagicMock();verify.receipts.return_value={'existing':{'status':'published'}}
+        with patch.dict(sys.modules,{'gta6.sau_youtube_verify':verify}):
+            with patch.object(g,'youtube_session',return_value=(g.Path('/tmp'),g.Path('/tmp/account.json'))):
+                with patch.object(g.subprocess,'run') as cli:
+                    with self.assertRaises(RuntimeError):g.youtube_cli_upload('clip.mp4',{'title':'Existing title'})
+                    cli.assert_not_called()
 
     @patch.object(g.cross,'gh')
     def test_multiple_queue_records_fail_closed(self,gh):
