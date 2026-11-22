@@ -50,6 +50,7 @@ jobs:
           git clone https://github.com/dreammis/social-auto-upload.git /tmp/sau
           git -C /tmp/sau checkout 3847fff01f5434a8a32829833163cd6723cabc59
           cp /tmp/sau/conf.example.py /tmp/sau/conf.py
+          git -C /tmp/sau apply "$GITHUB_WORKSPACE/gta6/social-auto-upload-instagram.patch"
           pip install -e /tmp/sau
       - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
       - if: env.OPERATION == 'discover' || env.OPERATION == 'publish' || env.OPERATION == 'publish-next-slot' || env.OPERATION == 'dry-run'
@@ -72,6 +73,8 @@ jobs:
             gta6-output/cloud-accounts.json
             gta6-output/selection.json
             gta6-output/cloud-delivery.json
+            gta6-output/instagram-cli-result.json
+            gta6-output/instagram-cli-result.json
             gta6-output/discovery.json
           retention-days: 7
           if-no-files-found: ignore

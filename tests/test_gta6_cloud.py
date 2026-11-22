@@ -1,6 +1,7 @@
 import copy
 from datetime import datetime
 import json
+import importlib.util
 import unittest
 from unittest.mock import MagicMock, patch
 import gta6_cloud as g
@@ -31,6 +32,7 @@ class CloudPipelineTests(unittest.TestCase):
         self.assertIsNone(g.public_url('tiktok','https://www.tiktok.com/@gtaviclipfix'))
         self.assertIsNone(g.public_url('instagram','https://example.com/reel/abc'))
         self.assertEqual(g.public_url('instagram','https://www.instagram.com/reel/abc/'),'https://www.instagram.com/reel/abc/')
+    @unittest.skipUnless(importlib.util.find_spec('autotok'), 'Autotok identity test runs in the GTA6 workflow with its optional dependency')
     @patch('autotok.uploader.Client')
     def test_wrong_tiktok_numeric_id_stops_upload(self, client):
         c=client.return_value;r=c._session.return_value.get.return_value

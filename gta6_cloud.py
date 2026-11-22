@@ -126,6 +126,9 @@ def instagram_cli_upload(media,caption):
         if not receipt.is_file():
             raise RuntimeError('Instagram CLI returned no receipt; reservation retained')
         data=json.loads(receipt.read_text())
+        safe={k:data.get(k) for k in ['status','username','user_id','post_url','stage']}
+        safe['cli_exit_code']=result.returncode
+        (OUT/'instagram-cli-result.json').write_text(json.dumps(safe,indent=2))
     if (result.returncode or data.get('status')!='published' or data.get('username')!='dadjokefix'
             or str(data.get('user_id'))!='34024392171' or not public_url('instagram',data.get('post_url'))):
         raise RuntimeError('Instagram CLI did not confirm publication to the exact account; reservation retained')

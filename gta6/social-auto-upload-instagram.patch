@@ -1,0 +1,28 @@
+diff --git a/uploader/meta_uploader/insgraph_uploader/main.py b/uploader/meta_uploader/insgraph_uploader/main.py
+index 8bf501e..770bd6a 100644
+--- a/uploader/meta_uploader/insgraph_uploader/main.py
++++ b/uploader/meta_uploader/insgraph_uploader/main.py
+@@ -192,15 +192,20 @@ class InstagramUploader:
+         notification_buttons = notifications.locator('._a9-z > button')
+         # 中英文首页均观察到这四个导航弹出入口，依次为通知、创建、设置、Meta。
+         # 先断言完整组和各入口含 aria-selected 图标再取业务顺序第二项，避免全页任意 nth。
+-        navigation_popups = page.locator('a._a6hd[href="#"]').filter(has=page.locator('[aria-selected]'))
++        navigation_popups = page.locator('a._a6hd[href="#"]').filter(
++            has=page.locator('svg[aria-label="New post"], svg[aria-label="新帖子"]'))
+         # 实测通知可能晚于导航出现。动作检查期间处理此已知遮挡，避免先检查缺席、
+         # 再点击时才弹出造成竞态；没有提示时不会执行回调，也不添加固定等待。
+         await page.add_locator_handler(notifications, lambda: _dismiss_optional_prompt(notifications, notification_buttons.nth(1)))
+         try:
+-            await expect(navigation_popups).to_have_count(4)
+-            await navigation_popups.nth(1).click()
++            await expect(navigation_popups).to_have_count(1)
++            await navigation_popups.click()
+         finally:
+             await page.remove_locator_handler(notifications)
++        await page.locator('[role="dialog"], svg[aria-label="Post"]').first.wait_for(state='visible')
++        post_choice = page.get_by_role('img', name='Post', exact=True)
++        if await post_choice.is_visible():
++            await post_choice.click()
+         dialog = page.get_by_role('dialog')
+         await expect(dialog).to_have_count(1)
+         file_input = dialog.locator(INSTAGRAM_MEDIA_INPUT)
