@@ -1,7 +1,7 @@
 {
   "tested_at": "2026-11-22",
   "selection_method": "GitHub stars among relevant existing command-line uploaders, followed by installation and live account tests",
-  "production_uploader_changed": false,
+  "production_uploader_changed": true,
   "public_test_uploads": 0,
   "tools": {
     "tiktok": {
@@ -13,8 +13,8 @@
       "local_upload": "passed; video visibly present and marked Private in TikTok",
       "local_test_video_id": "7711094911910645012",
       "cloud_account_check": "passed",
-      "cloud_upload": "rejected: Invalid parameters (status_code=5)",
-      "cloud_run": "https://github.com/energeticcity/youtube-political-pipeline/actions/runs/45066513485",
+      "cloud_upload": "passed: public upload from upstream Autotok CLI, verified playable as a non-owner",
+      "cloud_run": "https://github.com/energeticcity/youtube-political-pipeline/actions/runs/45069533144",
       "upstream_matching_issue": "https://github.com/makiisthenes/TiktokAutoUploader/issues/141",
       "alternative_cli_test": {
         "repository": "https://github.com/wkaisertexas/tiktok-uploader",
@@ -24,7 +24,9 @@
         "target_account_check": "passed: @gtaviclipfix",
         "cloud_upload": "not confirmed by upstream CLI; inspect private account posts before any repeat test",
         "run": "https://github.com/energeticcity/youtube-political-pipeline/actions/runs/45067435575"
-      }
+      },
+      "public_test_video_url": "https://www.tiktok.com/@gtaviclipfix/video/7711103738408176902",
+      "production_status": "Autotok CLI active in the existing hourly workflow"
     },
     "youtube": {
       "repository": "https://github.com/tokland/youtube-upload",
@@ -34,7 +36,7 @@
       "cloud_cli_help": "passed",
       "cloud_account_check": "blocked: Google OAuth token endpoint returned deleted_client",
       "cloud_upload": "not attempted; channel identity could not be confirmed",
-      "required_next_step": "Replace deleted Google OAuth client credentials and reconnect the intended YouTube channel",
+      "required_next_step": "Complete Google Cloud passkey verification in the prepared Chrome tab, then restore or replace the deleted OAuth client and reconnect the intended channel",
       "cloud_run": "https://github.com/energeticcity/youtube-political-pipeline/actions/runs/45066256545"
     },
     "instagram": {
@@ -52,7 +54,7 @@
       },
       "cloud_account_check": "failed: login-state browser selector timed out after 60000ms; target username unconfirmed",
       "cloud_upload": "not attempted; upstream CLI has no unpublished-upload mode and account identity was unconfirmed",
-      "required_next_step": "Let Instagram login throttling clear; verify sign-in in a trusted browser if required. Do not keep retrying the password.",
+      "required_next_step": "Authenticate the intended @dadjokefix account; existing password secrets authenticate @poli.ticallens1. Do not replace the legacy secrets or upload to the other account.",
       "cloud_run": "https://github.com/energeticcity/youtube-political-pipeline/actions/runs/45066516513",
       "password_secret_test": {
         "credential_source": "Existing INSTAGRAM_USERNAME and INSTAGRAM_PASSWORD GitHub Actions secrets; values were not exported or displayed",
@@ -62,6 +64,17 @@
         "outcome": "Instagram rejected the login attempt with PleaseWaitFewMinutes / please_wait_a_few_minutes",
         "credential_validity": "unconfirmed",
         "run": "https://github.com/energeticcity/youtube-political-pipeline/actions/runs/45067572971"
+      },
+      "local_password_test": {
+        "result": "saved credentials authenticated successfully",
+        "actual_account": "poli.ticallens1",
+        "target_matches": false,
+        "uploads": 0
+      },
+      "target_password_test": {
+        "username": "dadjokefix",
+        "attempts": 1,
+        "result": "upstream ClientNeedsUpgradeError; authentication not confirmed"
       }
     }
   },
@@ -75,5 +88,30 @@
       "instagram"
     ],
     "notes": "TikTok and YouTube jobs attempt private test uploads. Inspect previous receipts before rerunning. Instagram checks login only. The scheduled production workflow is unchanged."
+  },
+  "last_verified_three_platform_publication": {
+    "slot": "2026-11-22T14",
+    "creator": "ksnv_editz",
+    "reservation_issue": 269,
+    "delivery": {
+      "instagram": {
+        "status": "published",
+        "url": "https://www.instagram.com/reel/DgDuVFNmMhb/"
+      },
+      "youtube": {
+        "status": "published",
+        "url": "https://www.youtube.com/watch?v=BluwPYotYNM"
+      },
+      "tiktok": {
+        "status": "published",
+        "video_id": "v1c025g50000dc1lfvnog65s63ipt82g",
+        "url": "https://www.tiktok.com/@gtaviclipfix/video/7711103738408176902",
+        "uploader": "autotok CLI",
+        "requested_visibility": "public",
+        "browser_verified": true,
+        "verified_visibility": "public"
+      }
+    },
+    "instagram_and_youtube_uploader": "existing Post for Me connection pending direct CLI authentication"
   }
 }
