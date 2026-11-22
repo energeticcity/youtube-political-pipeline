@@ -1,0 +1,76 @@
+name: GTA6 Cloud Pipeline
+run-name: GTA6 cloud ${{ inputs.operation || (github.event.schedule == '0 14,22 * * *' && 'discover' || 'publish') }}
+on:
+  schedule:
+    - cron: '0 14,22 * * *'
+    - cron: '0 15-23 * * *'
+    - cron: '0 0-2 * * *'
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Cloud pipeline action
+        type: choice
+        default: dry-run
+        options: [inspect, discover, dry-run, publish, status]
+permissions:
+  contents: read
+  actions: read
+  issues: write
+concurrency:
+  group: gta6-cloud-pipeline
+  cancel-in-progress: false
+jobs:
+  pipeline:
+    if: vars.GTA6_CLOUD_ENABLED == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Set operation
+        env:
+          REQUESTED: ${{ inputs.operation }}
+          SCHEDULE: ${{ github.event.schedule }}
+        run: |
+          if [ -n "$REQUESTED" ]; then
+            echo "OPERATION=$REQUESTED" >> "$GITHUB_ENV"
+          elif [ "$SCHEDULE" = '0 14,22 * * *' ]; then
+            echo 'OPERATION=discover' >> "$GITHUB_ENV"
+          else
+            echo 'OPERATION=publish' >> "$GITHUB_ENV"
+          fi
+      - run: pip install 'requests>=2.32,<3' 'yt-dlp==2026.10.26' 'playwright>=1.45,<2' 'autotok==2.1.0'
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+      - if: env.OPERATION == 'discover' || env.OPERATION == 'publish' || env.OPERATION == 'dry-run'
+        run: playwright install --with-deps chromium
+      - run: python -m unittest discover -s tests -p 'test_gta6*.py' -v
+      - name: Run verified cloud pipeline
+        env:
+          GH_TOKEN: ${{ github.token }}
+          POSTFORME_API_KEY: ${{ secrets.POSTFORME_API_KEY }}
+          GTA6_TIKTOK_SESSION: ${{ secrets.GTA6_TIKTOK_SESSION }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python gta6_cloud.py "$OPERATION"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gta6-cloud-results
+          path: |
+            gta6-output/cloud-accounts.json
+            gta6-output/selection.json
+            gta6-output/cloud-delivery.json
+            gta6-output/discovery.json
+          retention-days: 7
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        if: env.OPERATION == 'discover' && always()
+        with:
+          name: gta6-reviewed-media
+          path: gta6-output/media/*.mp4
+          retention-days: 7
+          if-no-files-found: ignore
