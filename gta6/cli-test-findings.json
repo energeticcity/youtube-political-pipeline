@@ -1,0 +1,55 @@
+{
+  "tested_at": "2026-11-22",
+  "selection_method": "GitHub stars among relevant existing command-line uploaders, followed by installation and live account tests",
+  "production_uploader_changed": false,
+  "public_test_uploads": 0,
+  "tools": {
+    "tiktok": {
+      "repository": "https://github.com/makiisthenes/TiktokAutoUploader",
+      "github_stars_observed": 1234,
+      "version": "2.1.0",
+      "local_cli_help": "passed",
+      "local_account": "@gtaviclipfix",
+      "local_upload": "passed; video visibly present and marked Private in TikTok",
+      "local_test_video_id": "7711094911910645012",
+      "cloud_account_check": "passed",
+      "cloud_upload": "rejected: Invalid parameters (status_code=5)",
+      "cloud_run": "https://github.com/energeticcity/youtube-political-pipeline/actions/runs/45066513485"
+    },
+    "youtube": {
+      "repository": "https://github.com/tokland/youtube-upload",
+      "github_stars_observed": 2188,
+      "commit": "6a30b55d0fd4976571a5b9b34c01fd41cec49c7a",
+      "local_cli_help": "passed",
+      "cloud_cli_help": "passed",
+      "cloud_account_check": "blocked: Google OAuth token endpoint returned deleted_client",
+      "cloud_upload": "not attempted; channel identity could not be confirmed",
+      "required_next_step": "Replace deleted Google OAuth client credentials and reconnect the intended YouTube channel",
+      "cloud_run": "https://github.com/energeticcity/youtube-political-pipeline/actions/runs/45066256545"
+    },
+    "instagram": {
+      "repository": "https://github.com/dreammis/social-auto-upload",
+      "github_stars_observed": 16807,
+      "commit": "3847fff01f5434a8a32829833163cd6723cabc59",
+      "local_cli_help": "passed",
+      "cloud_cli_help": "passed",
+      "local_upstream_tests": {
+        "command": "python -m unittest discover -s tests -p test_instagram_uploader.py -v",
+        "passed": 7,
+        "failed": 1,
+        "failed_test": "test_optional_prompts_present_absent_and_failed_dismissal",
+        "failure": "Expected one dialog, observed two in browser regression test"
+      },
+      "cloud_account_check": "failed: login-state browser selector timed out after 60000ms; target username unconfirmed",
+      "cloud_upload": "not attempted; upstream CLI has no unpublished-upload mode and account identity was unconfirmed",
+      "required_next_step": "Recheck with a fresh Instagram browser session; do not assume the saved session is expired from this timeout alone",
+      "cloud_run": "https://github.com/energeticcity/youtube-political-pipeline/actions/runs/45066516513"
+    }
+  },
+  "rerun": {
+    "workflow": "gta6-cli-test.yml",
+    "trigger": "manual only",
+    "platform_input": ["all", "tiktok", "youtube", "instagram"],
+    "notes": "TikTok and YouTube jobs attempt private test uploads. Inspect previous receipts before rerunning. Instagram checks login only. The scheduled production workflow is unchanged."
+  }
+}
