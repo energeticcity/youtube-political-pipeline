@@ -96,9 +96,6 @@ def status(post_id):
 
 def publish(clip_id):
     accounts = inspect()
-    if any(a["status"] != "connected" for a in accounts.values()):
-        raise ValueError("Reconnect the exact existing accounts before publication")
-    accounts = inspect()
     if any(a['status'] != 'connected' for a in accounts.values()):
         raise ValueError('Destination disconnected; reconnect before publishing')
     catalog = json.loads(Path('gta6/approved_clips.json').read_text())
