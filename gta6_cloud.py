@@ -22,7 +22,7 @@ ACCOUNTS = cross.DESTINATIONS
 OUT = Path('gta6-output')
 MEDIA = OUT / 'media'
 MAX_DAILY = 12
-MAX_REVIEWS = 12
+MAX_REVIEWS = 24
 SOURCE_RE = re.compile(r'https://www\.tiktok\.com/@([A-Za-z0-9_.]+)/video/(\d{15,25})')
 
 def now():
@@ -238,6 +238,12 @@ def discover_links():
             retry=page.get_by_role('button',name='Try again',exact=True)
             if retry.count():retry.click()
             else:page.mouse.wheel(0,1000)
+        # A focused edit search supplements broad gameplay/news results.
+        page.goto('https://www.tiktok.com/search?q=GTA6%20edit',wait_until='domcontentloaded',timeout=60000)
+        for _ in range(3):
+            page.wait_for_timeout(3000)
+            links+=page.locator('a[href*="/video/"]').evaluate_all('(els)=>els.map(a=>a.href)')
+            page.mouse.wheel(0,1000)
         # If search is sparse, read visible posts from previously identified creators.
         if len(set(links))<12:
             for creator in ['skyxl.cc','ksnv_editz','kammyranks','rz_irr','clip.gods16','tyrone']:
@@ -300,6 +306,7 @@ def discover(queue_num,queue,all_issues):
         if source in known:continue
         match=SOURCE_RE.fullmatch(source);creator,vid=match.groups()
         if vid in queue.get('rejected_ids',[]):continue
+        if creator.lower() in {'gtaviclipfix','dadjokefix','energeticcity'}:continue
         if counts[creator]>=2:continue
         attempts+=1
         try:
