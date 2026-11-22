@@ -18,7 +18,7 @@ import requests
 from archive_pipeline import narration
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = 'commentary-v1'
+VERSION = 'commentary-v2-large-text'
 
 
 def load_prepared(clip, run_id, folder):
@@ -36,11 +36,11 @@ def load_prepared(clip, run_id, folder):
     manifest=json.loads((folder/'production.json').read_text())
     output=folder/'commentary.mp4'
     if (manifest.get('source_id')!=clip['id'] or manifest.get('source_sha256')!=clip['sha256']
-            or manifest.get('version')!=VERSION
             or manifest.get('output_sha256')!=hashlib.sha256(output.read_bytes()).hexdigest()
             or any(manifest.get('qa',{}).get(k) is not True for k in
                    ('pass','upright','captions_readable','claims_supported','narration_clear_complete'))):
         raise Rejected('Prepared commentary identity or quality receipt mismatch')
+    if manifest.get('version')!=VERSION:return None
     return output,manifest
 
 
@@ -166,6 +166,17 @@ def ass_text(text, width):
 
 
 def subtitles(plan, clip, segments, duration, folder):
+    from PIL import ImageFont
+    def wrap_title(size):
+        font=ImageFont.truetype(str(ROOT/'fonts/Montserrat-ExtraBold.ttf'),size)
+        lines=['']
+        for word in plan['title'].split():
+            candidate=(lines[-1]+' '+word).strip()
+            if lines[-1] and font.getlength(candidate)>890:lines.append(word)
+            else:lines[-1]=candidate
+        return lines
+    headline_size=82
+    while len(wrap_title(headline_size))>3 and headline_size>62:headline_size-=2
     header = '''[Script Info]
 ScriptType: v4.00+
 PlayResX: 1080
@@ -173,21 +184,21 @@ PlayResY: 1920
 WrapStyle: 2
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Hook,Montserrat ExtraBold,62,&H00FFFFFF,&H00FFFFFF,&H00151021,&H00151021,-1,0,0,0,100,100,0,0,1,3,0,8,85,100,225,1
-Style: Caption,Montserrat SemiBold,54,&H00FFFFFF,&H00FFFFFF,&H00151021,&H00151021,-1,0,0,0,100,100,0,0,3,12,0,2,90,120,365,1
-Style: Brand,Montserrat SemiBold,30,&H00DCA9FF,&H00FFFFFF,&H00151021,&H00151021,0,0,0,0,100,100,0,0,1,1,0,8,80,100,140,1
-Style: Credit,Montserrat,28,&H00FFFFFF,&H00FFFFFF,&H00151021,&H00151021,0,0,0,0,100,100,0,0,1,1,0,2,80,100,250,1
+Style: Hook,Montserrat ExtraBold,HEADLINE_SIZE,&H00FFFFFF,&H00FFFFFF,&H00151021,&H00151021,-1,0,0,0,100,100,0,0,1,4,0,8,85,100,170,1
+Style: Caption,Montserrat ExtraBold,88,&H00FFFFFF,&H00FFFFFF,&H00151021,&H00151021,-1,0,0,0,100,100,0,0,3,16,0,2,90,120,365,1
+Style: Brand,Montserrat SemiBold,38,&H00DCA9FF,&H00FFFFFF,&H00151021,&H00151021,0,0,0,0,100,100,0,0,1,1,0,8,80,100,100,1
+Style: Credit,Montserrat SemiBold,34,&H00FFFFFF,&H00FFFFFF,&H00151021,&H00151021,0,0,0,0,100,100,0,0,1,1,0,2,80,100,230,1
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 '''
-    lines = [header]
+    lines = [header.replace('HEADLINE_SIZE',str(headline_size))]
     def event(start, end, style, text, width):
         lines.append(f'Dialogue: 0,{ass_time(start)},{ass_time(end)},{style},,0,0,0,,{ass_text(text,width)}\n')
     event(0, duration, 'Brand', 'GTA VI CLIP FIX  |  DETAIL BREAKDOWN', 55)
-    event(0, duration, 'Hook', plan['title'], 25)
+    lines.append(f"Dialogue: 0,{ass_time(0)},{ass_time(duration)},Hook,,0,0,0,,"+r'\N'.join(ass_text(line,100) for line in wrap_title(headline_size))+'\n')
     event(0, duration, 'Credit', f"Footage: @{clip['creator']}  |  Original commentary / AI voice", 58)
     for segment in segments:
-        event(segment['start'], segment['end'], 'Caption', segment['text'], 27)
+        event(segment['start'], segment['end'], 'Caption', segment['text'], 18)
     path = folder / 'captions.ass'
     path.write_text(''.join(lines))
     return path
@@ -203,7 +214,7 @@ def render(source, plan, audio, segments, boundaries, duration, clip, folder):
             raise Rejected('Narration outlasts its source shot')
         shot = folder / f'shot-{i}.mp4'
         command('ffmpeg', '-v', 'error', '-y', '-ss', beat['start'], '-i', source, '-t', length,
-            '-an', '-vf', rotation + 'scale=1080:1100:force_original_aspect_ratio=decrease,'
+            '-an', '-vf', rotation + 'scale=1080:1000:force_original_aspect_ratio=decrease,'
             'pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=0x151021,setsar=1,fps=30',
             '-c:v', 'libx264', '-preset', 'fast', '-crf', '21', '-pix_fmt', 'yuv420p', shot)
         shots.append(shot)

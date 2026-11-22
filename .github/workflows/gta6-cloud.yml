@@ -47,7 +47,7 @@ jobs:
           else
             echo 'OPERATION=publish' >> "$GITHUB_ENV"
           fi
-      - run: pip install 'requests>=2.32,<3' 'yt-dlp==2026.10.26'
+      - run: pip install 'requests>=2.32,<3' 'yt-dlp==2026.10.26' 'Pillow>=10,<13'
       - if: env.OPERATION != 'preview-commentary'
         run: pip install 'playwright>=1.45,<2' 'autotok==2.1.0' 'youtube-upload @ git+https://github.com/tokland/youtube-upload.git@6a30b55d0fd4976571a5b9b34c01fd41cec49c7a'
       - name: Install pinned upstream social CLIs
