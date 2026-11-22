@@ -1,6 +1,12 @@
 name: Test Upstream Social CLIs
 on:
   workflow_dispatch:
+    inputs:
+      platform:
+        description: CLI to test
+        type: choice
+        default: all
+        options: [all, tiktok, youtube, instagram]
 permissions:
   contents: read
 concurrency:
@@ -8,6 +14,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   tiktok:
+    if: inputs.platform == 'all' || inputs.platform == 'tiktok'
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
@@ -32,6 +39,7 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
   youtube:
+    if: inputs.platform == 'all' || inputs.platform == 'youtube'
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
@@ -58,6 +66,7 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
   instagram:
+    if: inputs.platform == 'all' || inputs.platform == 'instagram'
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:

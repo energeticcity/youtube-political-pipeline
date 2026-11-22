@@ -31,6 +31,30 @@ def command(args, *, cwd=None, timeout=180):
                        stdin=subprocess.DEVNULL)
     if p.returncode:
         diagnostic = p.stdout + p.stderr
+        # Upstream errors can carry request URLs or session material. Redact the
+        # supplied credentials (including every nested cookie value) before
+        # retaining a short diagnostic in the integration-test artifact.
+        def redact_value(value):
+            nonlocal diagnostic
+            if isinstance(value, dict):
+                for item in value.values():
+                    redact_value(item)
+            elif isinstance(value, list):
+                for item in value:
+                    redact_value(item)
+            elif isinstance(value, str) and len(value) >= 4:
+                diagnostic = diagnostic.replace(value, '[redacted]')
+        for name, value in os.environ.items():
+            if value and any(word in name for word in ['TOKEN', 'SECRET', 'SESSION', 'API_KEY', 'PASSWORD']):
+                redact_value(value)
+                try:
+                    redact_value(json.loads(value))
+                except ValueError:
+                    pass
+        diagnostic = re.sub(r'https?://\S+', '[URL removed]', diagnostic)
+        diagnostic = re.sub(r'[A-Za-z0-9_%+=/.-]{32,}', '[long value removed]', diagnostic)
+        RESULT['failed_command'] = Path(args[0]).name
+        RESULT['diagnostic_excerpt'] = diagnostic[-1000:]
         known = ['invalid_grant', 'login_required', 'checkpoint_required',
                  'challenge_required', 'ModuleNotFoundError', 'ImportError',
                  'Executable doesn\'t exist', 'TimeoutError', 'invalid',
@@ -76,10 +100,10 @@ def tiktok():
     output = command(['autotok', 'upload', '-u', 'gta6_clips', '-v', fixture(),
                       '-t', 'Private uploader connection test', '-vi', '1',
                       '-ct', '0', '-d', '0', '-st', '0'], timeout=360)
-    match = re.search(r'Video id:\s*(\d+)', output)
+    match = re.search(r'Video id:\s*([A-Za-z0-9_-]+)', output)
     if not match:
         raise RuntimeError('upload_receipt_not_found_do_not_retry_blindly')
-    RESULT.update(upload='accepted_private_test', video_id=match.group(1),
+    RESULT.update(upload='accepted_private_test', upstream_video_reference=match.group(1),
                   requested_visibility='private')
 
 
