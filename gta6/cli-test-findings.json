@@ -14,7 +14,17 @@
       "local_test_video_id": "7711094911910645012",
       "cloud_account_check": "passed",
       "cloud_upload": "rejected: Invalid parameters (status_code=5)",
-      "cloud_run": "https://github.com/energeticcity/youtube-political-pipeline/actions/runs/45066513485"
+      "cloud_run": "https://github.com/energeticcity/youtube-political-pipeline/actions/runs/45066513485",
+      "upstream_matching_issue": "https://github.com/makiisthenes/TiktokAutoUploader/issues/141",
+      "alternative_cli_test": {
+        "repository": "https://github.com/wkaisertexas/tiktok-uploader",
+        "commit": "1cea92dd4c815dbd5127ee4b3a0a7b6fabbaa5f0",
+        "github_stars_observed": 786,
+        "cli_help": "passed",
+        "target_account_check": "passed: @gtaviclipfix",
+        "cloud_upload": "not confirmed by upstream CLI; inspect private account posts before any repeat test",
+        "run": "https://github.com/energeticcity/youtube-political-pipeline/actions/runs/45067435575"
+      }
     },
     "youtube": {
       "repository": "https://github.com/tokland/youtube-upload",
@@ -42,14 +52,28 @@
       },
       "cloud_account_check": "failed: login-state browser selector timed out after 60000ms; target username unconfirmed",
       "cloud_upload": "not attempted; upstream CLI has no unpublished-upload mode and account identity was unconfirmed",
-      "required_next_step": "Recheck with a fresh Instagram browser session; do not assume the saved session is expired from this timeout alone",
-      "cloud_run": "https://github.com/energeticcity/youtube-political-pipeline/actions/runs/45066516513"
+      "required_next_step": "Let Instagram login throttling clear; verify sign-in in a trusted browser if required. Do not keep retrying the password.",
+      "cloud_run": "https://github.com/energeticcity/youtube-political-pipeline/actions/runs/45066516513",
+      "password_secret_test": {
+        "credential_source": "Existing INSTAGRAM_USERNAME and INSTAGRAM_PASSWORD GitHub Actions secrets; values were not exported or displayed",
+        "tool": "instagrapi upstream examples/diagnose_login.py",
+        "commit": "fbac391",
+        "version": "3.2.19",
+        "outcome": "Instagram rejected the login attempt with PleaseWaitFewMinutes / please_wait_a_few_minutes",
+        "credential_validity": "unconfirmed",
+        "run": "https://github.com/energeticcity/youtube-political-pipeline/actions/runs/45067572971"
+      }
     }
   },
   "rerun": {
     "workflow": "gta6-cli-test.yml",
     "trigger": "manual only",
-    "platform_input": ["all", "tiktok", "youtube", "instagram"],
+    "platform_input": [
+      "all",
+      "tiktok",
+      "youtube",
+      "instagram"
+    ],
     "notes": "TikTok and YouTube jobs attempt private test uploads. Inspect previous receipts before rerunning. Instagram checks login only. The scheduled production workflow is unchanged."
   }
 }
