@@ -45,12 +45,13 @@ jobs:
             echo 'OPERATION=publish' >> "$GITHUB_ENV"
           fi
       - run: pip install 'requests>=2.32,<3' 'yt-dlp==2026.10.26' 'playwright>=1.45,<2' 'autotok==2.1.0'
-      - name: Install pinned upstream Instagram CLI
+      - name: Install pinned upstream social CLIs
         run: |
           git clone https://github.com/dreammis/social-auto-upload.git /tmp/sau
           git -C /tmp/sau checkout 3847fff01f5434a8a32829833163cd6723cabc59
           cp /tmp/sau/conf.example.py /tmp/sau/conf.py
           git -C /tmp/sau apply "$GITHUB_WORKSPACE/gta6/social-auto-upload-instagram.patch"
+          git -C /tmp/sau apply "$GITHUB_WORKSPACE/gta6/social-auto-upload-youtube.patch"
           pip install -e /tmp/sau
       - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
       - if: env.OPERATION == 'discover' || env.OPERATION == 'publish' || env.OPERATION == 'publish-next-slot' || env.OPERATION == 'dry-run'
@@ -61,6 +62,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           POSTFORME_API_KEY: ${{ secrets.POSTFORME_API_KEY }}
           SAU_REPO: /tmp/sau
+          GTA6_YOUTUBE_CLI_ENABLED: ${{ vars.GTA6_YOUTUBE_CLI_ENABLED }}
+          GTA6_YOUTUBE_BROWSER_SESSION: ${{ secrets.GTA6_YOUTUBE_BROWSER_SESSION }}
           GTA6_INSTAGRAM_BROWSER_SESSION: ${{ secrets.GTA6_INSTAGRAM_BROWSER_SESSION }}
           GTA6_TIKTOK_SESSION: ${{ secrets.GTA6_TIKTOK_SESSION }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -74,7 +77,9 @@ jobs:
             gta6-output/selection.json
             gta6-output/cloud-delivery.json
             gta6-output/instagram-cli-result.json
+            gta6-output/youtube-upload-screen.txt
             gta6-output/instagram-cli-result.json
+            gta6-output/youtube-upload-screen.txt
             gta6-output/discovery.json
           retention-days: 7
           if-no-files-found: ignore

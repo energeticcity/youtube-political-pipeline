@@ -134,12 +134,53 @@ def instagram_cli_upload(media,caption):
         raise RuntimeError('Instagram CLI did not confirm publication to the exact account; reservation retained')
     return {'status':'published','url':data['post_url'],'uploader':'sau CLI'}
 
+def youtube_cli_enabled():
+    return os.environ.get('GTA6_YOUTUBE_CLI_ENABLED')=='true'
+
+def youtube_session():
+    state=json.loads(os.environ['GTA6_YOUTUBE_BROWSER_SESSION'])
+    if not state.get('cookies') or any(c.get('domain','').lstrip('.') not in
+            ['youtube.com','studio.youtube.com','www.youtube.com'] for c in state['cookies']):
+        raise ValueError('YouTube browser session contains an unexpected domain')
+    repo=Path(os.environ['SAU_REPO']).resolve()
+    account=repo/'cookies/youtube_dadjokefix.json'
+    account.parent.mkdir(exist_ok=True,mode=0o700)
+    account.write_text(json.dumps(state));account.chmod(0o600)
+    return repo,account
+
+def youtube_cli_check():
+    repo,account=youtube_session()
+    result=subprocess.run(['sau','youtube','check','--account','dadjokefix'],cwd=repo,
+        env=dict(os.environ,SAU_EXPECTED_YOUTUBE_CHANNEL='UCdL4ljG4SqfEA8qk5yd6v5w'),
+        capture_output=True,text=True,timeout=150,stdin=subprocess.DEVNULL)
+    if result.returncode or result.stdout.strip()!='valid':
+        raise RuntimeError('YouTube exact channel CLI check failed; no upload attempted')
+    return {'username':'dadjokefix','user_id':'UCdL4ljG4SqfEA8qk5yd6v5w','status':'connected','uploader':'sau CLI'}
+
+def youtube_cli_upload(media,clip):
+    from gta6.sau_youtube_verify import receipts
+    repo,account=youtube_session()
+    if receipts(account,clip['title']):
+        raise RuntimeError('A matching YouTube title already exists; inspect before submitting')
+    result=subprocess.run(['sau','youtube','upload-video','--account','dadjokefix',
+        '--file',str(Path(media).resolve()),'--title',clip['title'][:100],
+        '--desc',clip['caption']+'\nSource: '+clip['source'],'--visibility','public','--headless'],
+        cwd=repo,env=dict(os.environ,SAU_EXPECTED_YOUTUBE_CHANNEL='UCdL4ljG4SqfEA8qk5yd6v5w',
+            SAU_YOUTUBE_DIAGNOSTIC_DIR=str(OUT.resolve())),
+        capture_output=True,text=True,timeout=600,stdin=subprocess.DEVNULL)
+    found=receipts(account,clip['title'])
+    if len(found)!=1 or next(iter(found.values()))['verified_visibility']!='public':
+        raise RuntimeError('YouTube CLI publication unconfirmed; reservation retained')
+    return next(iter(found.values()))
+
 def identities():
     tiktok_client()
     result={'tiktok':{'username':'gtaviclipfix','user_id':'7630582867722372104','status':'connected'},
             'instagram':instagram_cli_check()}
     for platform,expected in ACCOUNTS.items():
         if platform=='instagram':continue
+        if platform=='youtube' and youtube_cli_enabled():
+            result[platform]=youtube_cli_check();continue
         account=cross.api('GET','/social-accounts/'+expected['id'])
         if (account.get('id')!=expected['id'] or account.get('platform')!=platform
                 or str(account.get('user_id'))!=expected['user_id'] or account.get('status')!='connected'):
@@ -274,6 +315,12 @@ def publish(queue_num,queue,all_issues,dry_run=False,next_slot=False):
     row['delivery']['instagram']=instagram_cli_upload(media,clip['caption'])
     row['status']='instagram_published'
     save_issue(issue['number'],row)
+    if youtube_cli_enabled():
+        row['delivery']['youtube']=youtube_cli_upload(media,clip)
+        row['status']='posted';save_issue(issue['number'],row)
+        clip['status']='submitted';clip['publication_issue']=issue['number'];save_issue(queue_num,queue)
+        (OUT/'cloud-delivery.json').write_text(json.dumps(row,ensure_ascii=False,indent=2))
+        print(json.dumps({'issue':issue['number'],'delivery':row['delivery']}));return
     upload=cross.api('POST','/media/create-upload-url')
     if not all(str(upload.get(k,'')).startswith('https://') for k in ['upload_url','media_url']):
         raise ValueError('Invalid media service response; reservation retained')
