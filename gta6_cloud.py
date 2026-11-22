@@ -170,7 +170,7 @@ def reconcile(all_issues):
         if not issue['title'].startswith(POST_PREFIX):continue
         row=issue_data(issue)
         if row.get('status')!='accepted' or not row.get('provider_post_id'):continue
-        if row.get('delivery') and all(d.get('status') in ('published','provider_success_unverified') for d in row['delivery'].values()):continue
+        if len([p for p in row.get('delivery',{}) if p!='tiktok'])==2 and all(d.get('status') in ('published','provider_success_unverified') for p,d in row['delivery'].items() if p!='tiktok'):continue
         row['delivery']=dict(delivery(row['provider_post_id']),tiktok=row.get('delivery',{}).get('tiktok',{'status':'accepted'}))
         row['checked_at']=now().isoformat()
         save_issue(issue['number'],row)
