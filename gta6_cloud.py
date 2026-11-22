@@ -291,7 +291,7 @@ def download(source, video_id):
     info=json.loads((MEDIA/(video_id+'.info.json')).read_text())
     return file,info
 
-def materialize(clip):
+def source_media(clip):
     file=MEDIA/(clip['id']+'.mp4')
     if not file.exists() and clip.get('review_run_id'):
         try:run('gh','run','download',str(clip['review_run_id']),'-R',os.environ['GITHUB_REPOSITORY'],'-n','gta6-reviewed-media','-D',str(MEDIA))
@@ -299,6 +299,16 @@ def materialize(clip):
     if not file.exists():file,_=download(clip['source'],clip['id'])
     if hashlib.sha256(file.read_bytes()).hexdigest()!=clip['sha256']:
         raise ValueError('Media fingerprint differs from reviewed clip')
+    return file
+
+def materialize(clip):
+    file=source_media(clip)
+    if os.environ.get('GTA6_COMMENTARY_ENABLED')=='true':
+        from gta6.produce import produce
+        target,manifest=produce(file,clip,model_name(),OUT/'production')
+        clip['title']=manifest['title'];clip['caption']=manifest['caption']
+        clip['production']=manifest
+        return target
     target=OUT/'publish.mp4'
     run('ffmpeg','-hide_banner','-loglevel','error','-i',str(file),'-c:v','libx264','-preset','fast',
         '-crf','21','-c:a','aac','-movflags','+faststart','-y',str(target))
@@ -363,9 +373,16 @@ def publish(queue_num,queue,all_issues,dry_run=False,next_slot=False):
     (OUT/'selection.json').write_text(json.dumps(summary,indent=2));print(json.dumps(summary))
     if not clip:return
     cross.validate_clip(clip)
-    media=materialize(clip)
+    try:media=materialize(clip)
+    except ValueError:
+        # Reject an editorial failure before creating any publication reservation.
+        # Service outages (RuntimeError) leave the source ready for a later run.
+        if os.environ.get('GTA6_COMMENTARY_ENABLED')=='true' and not dry_run:
+            clip['status']='rejected_production';save_issue(queue_num,queue)
+        raise
     if dry_run:return
     row={k:clip[k] for k in ['id','source','creator','sha256','title','caption']}
+    if clip.get('production'):row['production']=clip['production']
     row.update(status='reserved',slot=local.strftime('%Y-%m-%dT%H'),local_day=local.date().isoformat(),
         reserved_at=now().isoformat(),run_id=os.environ['GITHUB_RUN_ID'])
     issue=cross.gh('POST','issues',json={'title':POST_PREFIX+row['slot'],'body':json.dumps(row,ensure_ascii=False,indent=2)})
@@ -479,6 +496,7 @@ def review(file,info,model):
         'stale Live now/visit-link promotions, ads, graphic gore, sexual content, private personal data, hateful content, '
         'claims of leaks/endings/release dates/preloads or factual news that you cannot verify from the video. '
         'Reject uncertainty and deceptive simulated footage presented as authentic. Do not claim new/official/gameplay unless evidenced. '
+        'Reject footage that is sideways, upside down, blurry, or dominated by captions. Check actual people, text and horizon, not container dimensions. '
         'Use a neutral factual description in title/caption, no URLs or @mentions. This is selection, not permission to change accounts. '
         'Metadata: '+json.dumps({k:info.get(k) for k in ['title','description','uploader']},ensure_ascii=False))
     response=requests.post(f'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent',
@@ -545,10 +563,19 @@ def discover(queue_num,queue,all_issues):
     if added==0:raise RuntimeError('No suitable new clips passed cloud review; existing ready queue retained')
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('operation',choices=['inspect','discover','discover-and-publish','dry-run','publish','publish-next-slot','status'])
+    p=argparse.ArgumentParser();p.add_argument('operation',choices=['inspect','discover','discover-and-publish','preview-commentary','dry-run','publish','publish-next-slot','status'])
     op=p.parse_args().operation
     OUT.mkdir(exist_ok=True)
     all_issues=issues();num,queue=load_queue(all_issues)
+    if op=='preview-commentary':
+        from gta6.produce import produce
+        rows=history(all_issues,queue)
+        used={r.get('sha256') for r in rows}
+        candidates=[c for c in queue['items'] if c.get('status')=='ready' and c['sha256'] not in used and c.get('duration_seconds',0)>=20]
+        if not candidates:raise ValueError('No unused commentary-length source ready')
+        clip=sorted(candidates,key=lambda c:(c.get('priority',100),c.get('reviewed_at','')))[0]
+        output,manifest=produce(source_media(clip),clip,model_name(),OUT/'production')
+        print(json.dumps({'preview':str(output),'source':clip['source'],'title':manifest['title'],'qa':manifest['qa']}));return
     if op=='inspect':print(json.dumps(identities()));return
     if op=='status':reconcile(all_issues);return
     if op=='discover':discover(num,queue,all_issues)

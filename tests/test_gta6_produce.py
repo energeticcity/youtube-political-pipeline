@@ -1,0 +1,71 @@
+import copy
+import tempfile
+import unittest
+from pathlib import Path
+from unittest.mock import patch
+
+from gta6 import produce as p
+import gta6_cloud as cloud
+
+
+def example():
+    return {'suitable': True, 'rotation_clockwise': 0, 'title': 'Look at the background',
+            'caption': 'A closer look at the crowd in this fan edit.', 'beats': [
+        {'start': 0, 'text': 'Look past the main character in this shot and watch what the people in the background are doing.', 'evidence': 'Visible crowd'},
+        {'start': 3, 'text': 'Their different movements give the scene a busy feeling, rather than making everyone seem like part of the same animation.', 'evidence': 'Different movements'},
+        {'start': 7, 'text': 'That is what catches my eye here. Which small background detail stood out most to you?', 'evidence': 'Background'}]}
+
+
+class ProductionTests(unittest.TestCase):
+    def test_plan_requires_source_grounded_three_beat_script_and_real_shot_bounds(self):
+        plan = example()
+        self.assertGreaterEqual(len(p.validate_plan(plan, 30).split()), 50)
+        for change in ({'suitable': False}, {'rotation_clockwise': 45},
+                       {'title': '{\\pos(0,0)}'}, {'beats': plan['beats'][:2]}):
+            with self.subTest(change=change), self.assertRaises(p.Rejected):
+                p.validate_plan(dict(plan, **change), 30)
+        bad = copy.deepcopy(plan); bad['beats'][0]['start'] = float('nan')
+        with self.assertRaises(p.Rejected): p.validate_plan(bad, 30)
+        bad['beats'][0]['start'] = 29
+        with self.assertRaises(p.Rejected): p.validate_plan(bad, 30)
+
+    def test_final_review_rejects_sideways_media_and_missing_or_wrong_actual_speech(self):
+        script = p.validate_plan(example(), 30)
+        verdict = {k: True for k in ('pass','upright','captions_readable','claims_supported','narration_clear_complete')}
+        verdict.update(issues=[], heard_text=script)
+        p.validate_qa(verdict, script)
+        for change in ({'upright': False}, {'issues': ['cut off ending']},
+                       {'heard_text': 'Something entirely different'}, {'narration_clear_complete': 'true'}):
+            with self.subTest(change=change), self.assertRaises(p.Rejected):
+                p.validate_qa(dict(verdict, **change), script)
+
+    def test_caption_times_use_actual_alignment_and_keep_creator_credit(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = p.subtitles(example(), {'creator':'example'}, [{'start':1.27,'end':2.89,'text':'Look behind the character'}], 25, Path(folder))
+            text = path.read_text()
+        self.assertIn('0:00:01.27,0:00:02.89,Caption', text)
+        self.assertIn('Footage: @example', text)
+        self.assertIn('AI voice', text)
+
+    def test_failed_commentary_never_falls_back_to_raw_repost(self):
+        with patch.dict(cloud.os.environ, {'GTA6_COMMENTARY_ENABLED':'true'}), \
+             patch.object(cloud,'source_media',return_value=Path('source.mp4')), \
+             patch.object(cloud,'model_name',return_value='test'), \
+             patch.object(p,'produce',side_effect=p.Rejected('sideways')), \
+             patch.object(cloud,'run') as raw_render:
+            with self.assertRaises(p.Rejected): cloud.materialize({'id':'123'})
+            raw_render.assert_not_called()
+
+    def test_output_metadata_replaces_raw_title_and_records_production_provenance(self):
+        clip={'id':'123','title':'Raw repost','caption':'Old'}
+        manifest={'title':'Original observation','caption':'New commentary','version':p.VERSION}
+        with patch.dict(cloud.os.environ, {'GTA6_COMMENTARY_ENABLED':'true'}), \
+             patch.object(cloud,'source_media',return_value=Path('source.mp4')), \
+             patch.object(cloud,'model_name',return_value='test'), \
+             patch.object(p,'produce',return_value=(Path('commentary.mp4'),manifest)):
+            self.assertEqual(cloud.materialize(clip),Path('commentary.mp4'))
+        self.assertEqual(clip['title'],manifest['title'])
+        self.assertEqual(clip['production'],manifest)
+
+
+if __name__ == '__main__': unittest.main()

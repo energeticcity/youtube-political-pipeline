@@ -12,7 +12,7 @@ on:
         description: Cloud pipeline action
         type: choice
         default: dry-run
-        options: [inspect, discover, discover-and-publish, dry-run, publish, publish-next-slot, status]
+        options: [inspect, discover, discover-and-publish, preview-commentary, dry-run, publish, publish-next-slot, status]
 permissions:
   contents: read
   actions: read
@@ -74,6 +74,9 @@ jobs:
           GTA6_INSTAGRAM_BROWSER_SESSION: ${{ secrets.GTA6_INSTAGRAM_BROWSER_SESSION }}
           GTA6_TIKTOK_SESSION: ${{ secrets.GTA6_TIKTOK_SESSION }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          ELEVENLABS_VOICE_ID: ${{ secrets.ELEVENLABS_VOICE_ID }}
+          GTA6_COMMENTARY_ENABLED: ${{ vars.GTA6_COMMENTARY_ENABLED }}
         run: python gta6_cloud.py "$OPERATION"
       - uses: actions/upload-artifact@v4
         if: always()
@@ -90,6 +93,18 @@ jobs:
             gta6-output/youtube-upload-screen.txt
             gta6-output/youtube-api-result.json
             gta6-output/discovery.json
+          retention-days: 7
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gta6-commentary
+          path: |
+            gta6-output/production/commentary.mp4
+            gta6-output/production/production.json
+            gta6-output/production/story.json
+            gta6-output/production/script.txt
+            gta6-output/production/captions.ass
           retention-days: 7
           if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
