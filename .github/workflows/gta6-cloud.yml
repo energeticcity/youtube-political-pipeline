@@ -105,6 +105,7 @@ jobs:
             gta6-output/production/story.json
             gta6-output/production/script.txt
             gta6-output/production/captions.ass
+            gta6-output/production/quality-review.json
           retention-days: 7
           if-no-files-found: ignore
       - uses: actions/upload-artifact@v4

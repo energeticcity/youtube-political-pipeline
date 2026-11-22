@@ -96,3 +96,32 @@ Trigger manually via the **Actions** tab → "Daily Dad Joke Pipeline" → "Run 
 - `feed.xml` — RSS feed (auto-updated each run)
 - `fonts/` — Montserrat for captions
 - `dad_avatar.jpg` — the dad photo (you provide this)
+
+## GTA6 commentary production
+
+The separate `gta6-cloud.yml` workflow can turn reviewed GTA6 sources into original
+visual commentary using `gta6/produce.py`. It reuses the existing Gemini and
+ElevenLabs integrations; FFmpeg creates the 1080×1920 video, and ElevenLabs'
+character alignment supplies caption timing. Original source audio is omitted.
+
+Run `preview-commentary` from the GTA6 workflow to produce a sample without
+posting. The `gta6-commentary` artifact contains the video, script, captions,
+visual evidence notes and a fingerprinted quality receipt. Successful previews
+are associated with their source in queue issue 266 and reused for publication.
+Only successful main-branch workflow artifacts with matching source/output
+fingerprints and quality results are accepted.
+
+Set repository variable `GTA6_COMMENTARY_ENABLED=true` to use this production
+step for scheduled publications. Sources must provide 20–60 seconds of footage.
+Each attempt permits two script drafts at most, one narration request and one
+finished-video review. Narration is 50–65 words and must fit 20–60 seconds.
+The final check inspects actual video orientation, readable captions, supported
+observations and complete audible narration. Rejection never falls back to a
+raw repost. Editorial failures are removed from the ready queue; service
+outages leave the source available for a later run.
+
+Existing posting hours, the 12-post daily cap, exact account guards and durable
+duplicate reservations remain in effect. Production failures can mean fewer
+than 12 posts. Costs use the existing Gemini/ElevenLabs accounts; at the maximum
+600 narration characters per post, 12 newly generated posts use at most 7,200
+TTS input characters per day, plus model calls and GitHub Actions runtime.

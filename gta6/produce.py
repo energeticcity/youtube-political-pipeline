@@ -261,6 +261,7 @@ visible footage, no unverifiable claims are presented as fact, captions match au
 is intelligible and complete, and no words are cut off. A persistent sideways horizon or sideways people is
 a failure even in a portrait frame. Reject unrelated or awkwardly mismatched shots and narration.
 Return the specified JSON with issues=[] only if all checks pass.''', output, QA_SCHEMA)
+    (folder/'quality-review.json').write_text(json.dumps({k:v for k,v in qa.items() if k!='heard_text'},indent=2))
     validate_qa(qa, script)
     manifest = {'version': VERSION, 'source_id': clip['id'], 'source_sha256': clip['sha256'],
         'output_sha256': hashlib.sha256(output.read_bytes()).hexdigest(), 'duration_seconds': actual_duration,
