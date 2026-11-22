@@ -1,0 +1,41 @@
+name: Verify GTA6 Cloud Access
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install 'requests>=2.32,<3' 'playwright>=1.45,<2'
+      - run: playwright install --with-deps chromium
+      - name: Verify existing TikTok connection and anonymous discovery
+        env:
+          POSTFORME_API_KEY: ${{ secrets.POSTFORME_API_KEY }}
+        run: |
+          python - <<'PY'
+          import os,json,requests,re
+          from playwright.sync_api import sync_playwright
+          r=requests.get('https://api.postforme.dev/v1/social-accounts/spc_VThHJNjznDDyze6aa1Nhd',headers={'Authorization':'Bearer '+os.environ['POSTFORME_API_KEY']},timeout=45)
+          if not r.ok:raise SystemExit('Provider account lookup HTTP '+str(r.status_code))
+          a=r.json();print('TIKTOK_IDENTITY '+json.dumps({k:a.get(k) for k in ['id','platform','username','user_id','status']}))
+          assert a.get('platform')=='tiktok' and str(a.get('user_id'))=='7630582867722372104','Wrong TikTok account'
+          with sync_playwright() as p:
+              b=p.chromium.launch(headless=True)
+              page=b.new_page()
+              page.goto('https://www.tiktok.com/search?q=GTA6',wait_until='domcontentloaded',timeout=60000)
+              for _ in range(4):
+                  page.wait_for_timeout(4000)
+                  links=page.locator('a[href*="/video/"]').evaluate_all('(els)=>els.map(a=>a.href)')
+                  links=list(dict.fromkeys(x for x in links if re.fullmatch(r'https://www\.tiktok\.com/@[A-Za-z0-9_.]+/video/\d+',x)))
+                  if links:break
+              print('DISCOVERY '+json.dumps({'count':len(links),'sample':links[:8],'page_title':page.title()}))
+              b.close()
+          PY
