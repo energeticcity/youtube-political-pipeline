@@ -171,6 +171,7 @@ def subtitles(plan, clip, segments, duration, folder):
         font=ImageFont.truetype(str(ROOT/'fonts/Montserrat-ExtraBold.ttf'),size)
         lines=['']
         title=re.sub(r'^GTA\s*(?:6|VI)\s*(?:Fan\s*)?Edit\s*:\s*','',plan['title'],flags=re.I)
+        title=re.sub(r'^Dynamic\s+','',title,flags=re.I).replace(' and ',' & ')
         for word in title.split():
             candidate=(lines[-1]+' '+word).strip()
             if lines[-1] and font.getlength(candidate)>890:lines.append(word)
@@ -271,14 +272,17 @@ def produce(source, clip, model, folder):
     alignment=json.loads((folder/'narration-alignment.json').read_text())
     from PIL import ImageFont
     font=ImageFont.truetype(str(ROOT/'fonts/Montserrat-ExtraBold.ttf'),160)
-    words=list(re.finditer(r'\S+',script));segments=[];i=0
+    # Keep the spoken acronym together: never flash isolated G / T / A letters.
+    words=list(re.finditer(r'\bG\s+T\s+A\s+six\b|\S+',script,re.I));segments=[];i=0
+    def display(group):
+        return ' '.join(re.sub(r'^G\s+T\s+A\s+six$','GTA6',w.group(),flags=re.I) for w in group)
     while i<len(words):
         group=words[i:i+2]
-        text=script[group[0].start():group[-1].end()]
+        text=display(group)
         if len(group)==2 and font.getlength(text.upper())>850:group=group[:1]
         segments.append({'start':alignment['starts'][group[0].start()],
                          'end':alignment['ends'][group[-1].end()-1],
-                         'text':script[group[0].start():group[-1].end()]})
+                         'text':display(group)})
         i+=len(group)
     output = render(source, plan, audio, segments, boundaries, runtime, clip, folder)
     media, actual_duration = probe(output)
