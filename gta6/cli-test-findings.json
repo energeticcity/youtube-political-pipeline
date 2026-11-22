@@ -2,7 +2,7 @@
   "tested_at": "2026-11-22",
   "selection_method": "GitHub stars among relevant existing command-line uploaders, followed by installation and live account tests",
   "production_uploader_changed": true,
-  "public_test_uploads": 0,
+  "public_test_uploads": 1,
   "tools": {
     "tiktok": {
       "repository": "https://github.com/makiisthenes/TiktokAutoUploader",
@@ -37,7 +37,9 @@
       "cloud_account_check": "blocked: Google OAuth token endpoint returned deleted_client",
       "cloud_upload": "not attempted; channel identity could not be confirmed",
       "required_next_step": "Complete Google Cloud passkey verification in the prepared Chrome tab, then restore or replace the deleted OAuth client and reconnect the intended channel",
-      "cloud_run": "https://github.com/energeticcity/youtube-political-pipeline/actions/runs/45066256545"
+      "cloud_run": "https://github.com/energeticcity/youtube-political-pipeline/actions/runs/45066256545",
+      "production_status": "Still uses existing Post for Me connection until Google OAuth client is repaired",
+      "google_cloud_signin": "Waiting for owner passkey confirmation in Chrome"
     },
     "instagram": {
       "repository": "https://github.com/dreammis/social-auto-upload",
@@ -75,7 +77,10 @@
         "username": "dadjokefix",
         "attempts": 1,
         "result": "upstream ClientNeedsUpgradeError; authentication not confirmed"
-      }
+      },
+      "browser_login": "Recovered existing saved @dadjokefix login in Chrome; own profile and latest Reel verified",
+      "session_import": "Awaiting owner approval of macOS Chrome Safe Storage access; domain filter restricted to instagram.com",
+      "production_status": "Still uses existing Post for Me connection until direct CLI is verified"
     }
   },
   "rerun": {
@@ -113,5 +118,6 @@
       }
     },
     "instagram_and_youtube_uploader": "existing Post for Me connection pending direct CLI authentication"
-  }
+  },
+  "public_verification_used_scheduled_clip": true
 }
