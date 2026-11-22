@@ -18,7 +18,7 @@ import requests
 from archive_pipeline import narration
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = 'commentary-v2-large-text'
+VERSION = 'commentary-v3-giant-text'
 
 
 def load_prepared(clip, run_id, folder):
@@ -170,13 +170,15 @@ def subtitles(plan, clip, segments, duration, folder):
     def wrap_title(size):
         font=ImageFont.truetype(str(ROOT/'fonts/Montserrat-ExtraBold.ttf'),size)
         lines=['']
-        for word in plan['title'].split():
+        title=re.sub(r'^GTA\s*(?:6|VI)\s*(?:Fan\s*)?Edit\s*:\s*','',plan['title'],flags=re.I)
+        for word in title.split():
             candidate=(lines[-1]+' '+word).strip()
             if lines[-1] and font.getlength(candidate)>890:lines.append(word)
             else:lines[-1]=candidate
         return lines
-    headline_size=82
-    while len(wrap_title(headline_size))>3 and headline_size>62:headline_size-=2
+    headline_size=118
+    title_lines=wrap_title(headline_size)
+    if len(title_lines)>3:title_lines=title_lines[:2]+[title_lines[2].rstrip(' .')+'...']
     header = '''[Script Info]
 ScriptType: v4.00+
 PlayResX: 1080
@@ -185,7 +187,7 @@ WrapStyle: 2
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 Style: Hook,Montserrat ExtraBold,HEADLINE_SIZE,&H00FFFFFF,&H00FFFFFF,&H00151021,&H00151021,-1,0,0,0,100,100,0,0,1,4,0,8,85,100,170,1
-Style: Caption,Montserrat ExtraBold,88,&H00FFFFFF,&H00FFFFFF,&H00151021,&H00151021,-1,0,0,0,100,100,0,0,3,16,0,2,90,120,365,1
+Style: Caption,Montserrat ExtraBold,160,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,9,4,2,90,120,440,1
 Style: Brand,Montserrat SemiBold,38,&H00DCA9FF,&H00FFFFFF,&H00151021,&H00151021,0,0,0,0,100,100,0,0,1,1,0,8,80,100,100,1
 Style: Credit,Montserrat SemiBold,34,&H00FFFFFF,&H00FFFFFF,&H00151021,&H00151021,0,0,0,0,100,100,0,0,1,1,0,2,80,100,230,1
 [Events]
@@ -195,10 +197,14 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     def event(start, end, style, text, width):
         lines.append(f'Dialogue: 0,{ass_time(start)},{ass_time(end)},{style},,0,0,0,,{ass_text(text,width)}\n')
     event(0, duration, 'Brand', 'GTA VI CLIP FIX  |  DETAIL BREAKDOWN', 55)
-    lines.append(f"Dialogue: 0,{ass_time(0)},{ass_time(duration)},Hook,,0,0,0,,"+r'\N'.join(ass_text(line,100) for line in wrap_title(headline_size))+'\n')
+    lines.append(f"Dialogue: 0,{ass_time(0)},{ass_time(duration)},Hook,,0,0,0,,"+r'\N'.join(ass_text(line,100) for line in title_lines)+'\n')
     event(0, duration, 'Credit', f"Footage: @{clip['creator']}  |  Original commentary / AI voice", 58)
     for segment in segments:
-        event(segment['start'], segment['end'], 'Caption', segment['text'], 18)
+        text=segment['text'].upper()
+        font=ImageFont.truetype(str(ROOT/'fonts/Montserrat-ExtraBold.ttf'),160)
+        size=min(160,int(160*850/max(1,font.getlength(text))))
+        override=r'{\fs'+str(size)+'}'
+        lines.append(f"Dialogue: 1,{ass_time(segment['start'])},{ass_time(segment['end'])},Caption,,0,0,0,,"+override+ass_text(text,100)+'\n')
     path = folder / 'captions.ass'
     path.write_text(''.join(lines))
     return path
@@ -214,7 +220,7 @@ def render(source, plan, audio, segments, boundaries, duration, clip, folder):
             raise Rejected('Narration outlasts its source shot')
         shot = folder / f'shot-{i}.mp4'
         command('ffmpeg', '-v', 'error', '-y', '-ss', beat['start'], '-i', source, '-t', length,
-            '-an', '-vf', rotation + 'scale=1080:1000:force_original_aspect_ratio=decrease,'
+            '-an', '-vf', rotation + 'scale=1080:800:force_original_aspect_ratio=decrease,'
             'pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=0x151021,setsar=1,fps=30',
             '-c:v', 'libx264', '-preset', 'fast', '-crf', '21', '-pix_fmt', 'yuv420p', shot)
         shots.append(shot)
@@ -261,6 +267,19 @@ def produce(source, clip, model, folder):
     (folder/'story.json').write_text(json.dumps(plan, ensure_ascii=False, indent=2))
     (folder/'script.txt').write_text(script)
     audio, runtime, segments, boundaries = narration(plan, folder)
+    # Giant captions: one or two words, timed to the existing character alignment.
+    alignment=json.loads((folder/'narration-alignment.json').read_text())
+    from PIL import ImageFont
+    font=ImageFont.truetype(str(ROOT/'fonts/Montserrat-ExtraBold.ttf'),160)
+    words=list(re.finditer(r'\S+',script));segments=[];i=0
+    while i<len(words):
+        group=words[i:i+2]
+        text=script[group[0].start():group[-1].end()]
+        if len(group)==2 and font.getlength(text.upper())>850:group=group[:1]
+        segments.append({'start':alignment['starts'][group[0].start()],
+                         'end':alignment['ends'][group[-1].end()-1],
+                         'text':script[group[0].start():group[-1].end()]})
+        i+=len(group)
     output = render(source, plan, audio, segments, boundaries, runtime, clip, folder)
     media, actual_duration = probe(output)
     video = next(s for s in media['streams'] if s['codec_type'] == 'video')
