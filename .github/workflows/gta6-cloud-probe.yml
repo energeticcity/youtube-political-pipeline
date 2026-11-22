@@ -26,7 +26,15 @@ jobs:
           r=requests.get('https://api.postforme.dev/v1/social-accounts/spc_VThHJNjznDDyze6aa1Nhd',headers={'Authorization':'Bearer '+os.environ['POSTFORME_API_KEY']},timeout=45)
           if not r.ok:raise SystemExit('Provider account lookup HTTP '+str(r.status_code))
           a=r.json();print('TIKTOK_IDENTITY '+json.dumps({k:a.get(k) for k in ['id','platform','username','user_id','status']}))
-          assert a.get('platform')=='tiktok' and str(a.get('user_id'))=='7630582867722372104','Wrong TikTok account'
+          assert a.get('platform')=='tiktok' and a.get('user_id')=='-000yaU7e3vWADC8f1wwkYIxNBLtehMIjazS','Unexpected OAuth identity'
+          headers={'Authorization':'Bearer '+os.environ['POSTFORME_API_KEY']}
+          r=requests.get('https://api.postforme.dev/v1/social-post-results',headers=headers,params={'post_id':'sp_VwqOFKVv6MGmyKe12BqU','limit':100},timeout=45)
+          d=r.json();rows=d if isinstance(d,list) else d.get('data',[])
+          print('TIKTOK_PUBLICATION_PROOF '+json.dumps([{'success':x.get('success'),'url':(x.get('platform_data') or {}).get('url')} for x in rows if x.get('social_account_id')=='spc_VThHJNjznDDyze6aa1Nhd']))
+          r=requests.get('https://api.postforme.dev/v1/social-account-feeds/spc_VThHJNjznDDyze6aa1Nhd',headers=headers,params={'social_post_id':'sp_VwqOFKVv6MGmyKe12BqU','limit':5},timeout=45)
+          if r.ok:
+              d=r.json();rows=d if isinstance(d,list) else d.get('data',[])
+              print('TIKTOK_FEED_PROOF '+json.dumps([{'platform_url':x.get('platform_url'),'social_post_id':x.get('social_post_id')} for x in rows if x.get('social_post_id')=='sp_VwqOFKVv6MGmyKe12BqU']))
           with sync_playwright() as p:
               b=p.chromium.launch(headless=True)
               page=b.new_page()
