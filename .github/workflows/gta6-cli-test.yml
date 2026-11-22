@@ -85,7 +85,7 @@ jobs:
       - name: Verify existing Instagram session through upstream CLI
         env:
           SAU_REPO: /tmp/sau
-          IG_SESSION: ${{ secrets.IG_SESSION }}
+          IG_SESSION: ${{ secrets.GTA6_INSTAGRAM_BROWSER_SESSION }}
         run: python gta6/cli_connection_test.py instagram
       - uses: actions/upload-artifact@v4
         if: always()
