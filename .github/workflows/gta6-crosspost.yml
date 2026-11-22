@@ -1,0 +1,57 @@
+name: GTA6 Instagram and YouTube Crosspost
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Inspect exact destinations, publish an approved clip, or check delivery
+        type: choice
+        options: [inspect, publish, status]
+        default: inspect
+      clip_id:
+        description: Approved source video ID for publication
+        type: string
+        required: false
+      post_id:
+        description: Provider post ID for read-only delivery check
+        type: string
+        required: false
+permissions:
+  contents: read
+  issues: write
+concurrency:
+  group: gta6-crosspost
+  cancel-in-progress: false
+jobs:
+  crosspost:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install 'requests>=2.32,<3' 'yt-dlp==2026.10.26'
+      - run: python -m unittest discover -s tests -p test_gta6_crosspost.py -v
+      - name: Install video encoder for publication
+        if: inputs.operation == 'publish'
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+      - name: Inspect or publish to the exact GTA6 destinations
+        env:
+          GH_TOKEN: ${{ github.token }}
+          POSTFORME_API_KEY: ${{ secrets.POSTFORME_API_KEY }}
+          OPERATION: ${{ inputs.operation }}
+          CLIP_ID: ${{ inputs.clip_id }}
+          POST_ID: ${{ inputs.post_id }}
+        run: python gta6_crosspost.py "$OPERATION" --clip-id "$CLIP_ID" --post-id "$POST_ID"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gta6-crosspost-result
+          path: |
+            gta6-output/accounts.json
+            gta6-output/delivery.json
+          retention-days: 7
+          if-no-files-found: ignore
