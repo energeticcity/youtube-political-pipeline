@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import tempfile
 import time
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
@@ -71,6 +72,29 @@ def tiktok_client():
     if data.get('username')!='gtaviclipfix' or str(data.get('user_id'))!='7630582867722372104':
         raise ValueError('TikTok session expired or exact numeric identity mismatch')
     return client
+
+def tiktok_cli_upload(media, caption):
+    """Run the installed upstream CLI after verifying the exact destination."""
+    tiktok_client()
+    session=json.loads(os.environ['GTA6_TIKTOK_SESSION'])
+    with tempfile.TemporaryDirectory(prefix='gta6-autotok-') as folder:
+        account=Path(folder)/'accounts/gta6_clips.json'
+        account.parent.mkdir(mode=0o700)
+        account.write_text(json.dumps(session));account.chmod(0o600)
+        result=subprocess.run(['autotok','upload','-u','gta6_clips','-v',str(Path(media).resolve()),
+            '-t',caption,'-vi','0','-ct','1','-d','0','-st','0'],
+            env=dict(os.environ,AUTOTOK_HOME=folder),capture_output=True,text=True,timeout=360,
+            stdin=subprocess.DEVNULL)
+    if result.returncode:
+        # Never expose network diagnostics/session material or repeat an uncertain upload.
+        if 'status_code=5' in result.stderr:
+            raise RuntimeError('Autotok CLI rejected public upload with status_code=5; reservation retained')
+        raise RuntimeError('Autotok CLI failed; inspect the reserved slot before retrying')
+    receipt=re.search(r'Published(?:[^\n]*)\. Video id:\s*([A-Za-z0-9_-]+)',result.stdout)
+    if not receipt:
+        raise RuntimeError('Autotok CLI upload receipt is uncertain; reservation retained')
+    return {'status':'accepted','video_id':receipt.group(1),'url':None,
+            'uploader':'autotok CLI','requested_visibility':'public'}
 
 def identities():
     tiktok_client()
@@ -193,9 +217,7 @@ def publish(queue_num,queue,all_issues,dry_run=False):
         reserved_at=now().isoformat(),run_id=os.environ['GITHUB_RUN_ID'])
     issue=cross.gh('POST','issues',json={'title':POST_PREFIX+row['slot'],'body':json.dumps(row,ensure_ascii=False,indent=2)})
     clip['status']='reserved';save_issue(queue_num,queue)
-    tik=tiktok_client().upload(str(media),clip['caption'],visibility='public',allow_comment=True,allow_duet=False,allow_stitch=False)
-    posted=(tik.response.get('single_post_resp_list') or [{}])[0].get('item_id')
-    row['delivery']={'tiktok':{'status':'accepted','video_id':tik.video_id,'url':('https://www.tiktok.com/@gtaviclipfix/video/'+str(posted)) if posted else None}}
+    row['delivery']={'tiktok':tiktok_cli_upload(media,clip['caption'])}
     row['status']='tiktok_accepted'
     save_issue(issue['number'],row)
     upload=cross.api('POST','/media/create-upload-url')

@@ -38,6 +38,31 @@ class CloudPipelineTests(unittest.TestCase):
         with patch.dict(g.os.environ,{'GTA6_TIKTOK_SESSION':json.dumps({'name':'gta6_clips','cookies':[]})}):
             with self.assertRaises(ValueError):g.tiktok_client()
         c.upload.assert_not_called()
+    @patch.object(g.subprocess,'run')
+    @patch.object(g,'tiktok_client')
+    def test_cli_upload_is_public_and_uses_isolated_verified_account(self,identity,run):
+        run.return_value=MagicMock(returncode=0,stdout='Published. Video id: v1abc123\n')
+        with patch.dict(g.os.environ,{'GTA6_TIKTOK_SESSION':json.dumps({'name':'gta6_clips','cookies':[]})}):
+            receipt=g.tiktok_cli_upload('clip.mp4','caption')
+        identity.assert_called_once()
+        args=run.call_args.args[0]
+        self.assertEqual(args[args.index('-u')+1],'gta6_clips')
+        self.assertEqual(args[args.index('-vi')+1],'0')
+        self.assertIn('AUTOTOK_HOME',run.call_args.kwargs['env'])
+        self.assertEqual(receipt['status'],'accepted')
+        self.assertIsNone(receipt['url'])
+    @patch.object(g.subprocess,'run')
+    @patch.object(g,'tiktok_client',side_effect=ValueError('Wrong identity'))
+    def test_cli_never_runs_when_identity_check_fails(self,identity,run):
+        with self.assertRaises(ValueError):g.tiktok_cli_upload('clip.mp4','caption')
+        run.assert_not_called()
+    @patch.object(g.subprocess,'run')
+    @patch.object(g,'tiktok_client')
+    def test_cli_failure_or_missing_receipt_is_not_marked_accepted(self,identity,run):
+        with patch.dict(g.os.environ,{'GTA6_TIKTOK_SESSION':json.dumps({'name':'gta6_clips','cookies':[]})}):
+            for code,stdout in [(1,''),(0,'No upload receipt')]:
+                run.return_value=MagicMock(returncode=code,stdout=stdout,stderr='')
+                with self.assertRaises(RuntimeError):g.tiktok_cli_upload('clip.mp4','caption')
     @patch.object(g.cross,'gh')
     def test_multiple_queue_records_fail_closed(self,gh):
         with self.assertRaises(ValueError):g.load_queue([{'title':g.QUEUE_TITLE},{'title':g.QUEUE_TITLE}])
