@@ -1,0 +1,25 @@
+name: Inspect YouTube OAuth Client Metadata
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Identify the existing OAuth project without exporting credentials
+        env:
+          CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,os,re
+          from pathlib import Path
+          client=os.environ['CLIENT_ID']
+          project=client.split('-',1)[0]
+          if not re.fullmatch(r'\d+',project):raise SystemExit('Unexpected client identifier')
+          Path('youtube-client-info.json').write_text(json.dumps({'project_number':project,'client_id_sha256':hashlib.sha256(client.encode()).hexdigest()}))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: youtube-client-info
+          path: youtube-client-info.json
+          retention-days: 1
