@@ -252,8 +252,12 @@ def publish(queue_num,queue,all_issues,dry_run=False,next_slot=False):
         local=local+timedelta(hours=1)
     identities()
     rows=history(all_issues,queue)
+    if next_slot:
+        reserved={r.get('slot') for r in rows}
+        while local.hour<19 and local.strftime('%Y-%m-%dT%H') in reserved:
+            local=local+timedelta(hours=1)
     clip,reason=select_clip(queue,rows,local)
-    summary={'selection':reason,'next_clip':{k:clip[k] for k in ['id','source','creator','title']} if clip else None}
+    summary={'selection':reason,'slot':local.strftime('%Y-%m-%dT%H'),'next_clip':{k:clip[k] for k in ['id','source','creator','title']} if clip else None}
     (OUT/'selection.json').write_text(json.dumps(summary,indent=2));print(json.dumps(summary))
     if not clip:return
     cross.validate_clip(clip)
