@@ -40,6 +40,15 @@ def issue_data(issue):
     return json.loads(issue.get('body') or '{}')
 
 def save_issue(number, data):
+    if data.get('version')==1 and isinstance(data.get('items'),list):
+        rejected=[c for c in data['items'] if c.get('status','').startswith('rejected')]
+        seen=list(dict.fromkeys(data.get('rejected_ids',[])+[c['id'] for c in rejected]))
+        data['rejected_ids']=seen[-256:]
+        active=[c for c in data['items'] if c.get('status')=='ready']
+        recent=[c for c in data['items'] if c.get('status')!='ready'][-8:]
+        data['items']=active+recent
+        if len(json.dumps(data,ensure_ascii=False))>60000:
+            raise ValueError('Queue is too large; inspect retained state before continuing')
     cross.gh('PATCH',f'issues/{number}',json={'body':json.dumps(data,ensure_ascii=False,indent=2)})
 
 def load_queue(all_issues):
@@ -280,6 +289,7 @@ def discover(queue_num,queue,all_issues):
     for source in links:
         if source in known:continue
         match=SOURCE_RE.fullmatch(source);creator,vid=match.groups()
+        if vid in queue.get('rejected_ids',[]):continue
         if counts[creator]>=2:continue
         attempts+=1
         try:
