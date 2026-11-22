@@ -348,7 +348,7 @@ def publish(queue_num,queue,all_issues,dry_run=False,next_slot=False):
 
 def discover_links():
     from playwright.sync_api import sync_playwright
-    links=[]
+    links=[];edit_links=[]
     with sync_playwright() as pw:
         browser=pw.chromium.launch(headless=True)
         session=json.loads(os.environ['GTA6_TIKTOK_SESSION'])
@@ -367,7 +367,7 @@ def discover_links():
         page.goto('https://www.tiktok.com/search?q=GTA6%20edit',wait_until='domcontentloaded',timeout=60000)
         for _ in range(3):
             page.wait_for_timeout(3000)
-            links+=page.locator('a[href*="/video/"]').evaluate_all('(els)=>els.map(a=>a.href)')
+            edit_links+=page.locator('a[href*="/video/"]').evaluate_all('(els)=>els.map(a=>a.href)')
             page.mouse.wheel(0,1000)
         # If search is sparse, read visible posts from previously identified creators.
         if len(set(links))<12:
@@ -380,7 +380,7 @@ def discover_links():
                     continue
                 if len(set(links))>=40:break
         browser.close()
-    return list(dict.fromkeys(x for x in links if SOURCE_RE.fullmatch(x)))[:60]
+    return list(dict.fromkeys(x for x in edit_links+links if SOURCE_RE.fullmatch(x)))[:60]
 
 def model_name():
     response=requests.get('https://generativelanguage.googleapis.com/v1beta/models',
@@ -455,7 +455,13 @@ def discover(queue_num,queue,all_issues):
             reviewed.append({'id':vid,'approved':approve})
             if approve:counts[creator]+=1;added+=1
         except Exception as error:
-            reviewed.append({'id':vid,'error_type':type(error).__name__})
+            reasons={'Duration outside 5-60 seconds':'duration_outside_clip_range',
+                     'Duplicate media':'duplicate_media','Source creator mismatch':'source_identity_mismatch',
+                     'Incomplete video review':'incomplete_review','Invalid review object':'invalid_review'}
+            reason=reasons.get(str(error))
+            if reason in {'duration_outside_clip_range','duplicate_media','source_identity_mismatch'}:
+                queue.setdefault('rejected_ids',[]).append(vid)
+            reviewed.append({'id':vid,'error_type':type(error).__name__,'reason':reason or 'transient_download_or_review_error'})
         if attempts>=MAX_REVIEWS or len(ready)+added>=24:break
     queue['last_discovery']={'time':now().isoformat(),'links':len(links),'attempts':attempts,'added':added,'reviewed':reviewed}
     save_issue(queue_num,queue)
