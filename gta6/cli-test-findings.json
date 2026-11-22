@@ -2,7 +2,7 @@
   "tested_at": "2026-11-22",
   "selection_method": "GitHub stars among relevant existing command-line uploaders, followed by installation and live account tests",
   "production_uploader_changed": true,
-  "public_test_uploads": 1,
+  "public_test_uploads": 4,
   "tools": {
     "tiktok": {
       "repository": "https://github.com/makiisthenes/TiktokAutoUploader",
@@ -36,10 +36,23 @@
       "cloud_cli_help": "passed",
       "cloud_account_check": "blocked: Google OAuth token endpoint returned deleted_client",
       "cloud_upload": "not attempted; channel identity could not be confirmed",
-      "required_next_step": "Complete Google Cloud passkey verification in the prepared Chrome tab, then restore or replace the deleted OAuth client and reconnect the intended channel",
+      "required_next_step": "Finish Google Cloud passkey verification to restore or replace the deleted OAuth client, then reconnect DadJokeFix through youtube-upload",
       "cloud_run": "https://github.com/energeticcity/youtube-political-pipeline/actions/runs/45066256545",
-      "production_status": "Still uses existing Post for Me connection until Google OAuth client is repaired",
-      "google_cloud_signin": "Waiting for owner passkey confirmation in Chrome"
+      "production_status": "Existing provider remains active until a direct cloud upload is verified; sau CLI route is prepared but disabled",
+      "google_cloud_signin": "Owner passkey check pending in the prepared Chrome tab",
+      "alternative_cli_test": {
+        "repository": "https://github.com/dreammis/social-auto-upload",
+        "github_stars_observed": 16807,
+        "commit": "3847fff01f5434a8a32829833163cd6723cabc59",
+        "local_private_upload": "verified in Studio as Private",
+        "private_video_id": "tcQTDRYSjM4",
+        "local_public_upload": "verified in Studio as Public on exact DadJokeFix channel",
+        "public_video_url": "https://www.youtube.com/watch?v=UDR8nOT-XNY",
+        "cloud_account_check": "passed for exact channel UCdL4ljG4SqfEA8qk5yd6v5w",
+        "cloud_upload": "blocked before publishing: Google Verify it is you security challenge",
+        "cloud_run": "https://github.com/energeticcity/youtube-political-pipeline/actions/runs/45074184143",
+        "compatibility_patch": "Normal Chrome user-agent, immediate-upload setter, exact channel guard, checked visibility, sanitized failure diagnostics"
+      }
     },
     "instagram": {
       "repository": "https://github.com/dreammis/social-auto-upload",
@@ -49,15 +62,14 @@
       "cloud_cli_help": "passed",
       "local_upstream_tests": {
         "command": "python -m unittest discover -s tests -p test_instagram_uploader.py -v",
-        "passed": 7,
-        "failed": 1,
-        "failed_test": "test_optional_prompts_present_absent_and_failed_dismissal",
-        "failure": "Expected one dialog, observed two in browser regression test"
+        "passed": 8,
+        "failed": 0,
+        "coverage": "Updated regression fixture covers five navigation items, Post submenu, and delayed optional prompts"
       },
-      "cloud_account_check": "failed: login-state browser selector timed out after 60000ms; target username unconfirmed",
-      "cloud_upload": "not attempted; upstream CLI has no unpublished-upload mode and account identity was unconfirmed",
-      "required_next_step": "Authenticate the intended @dadjokefix account; existing password secrets authenticate @poli.ticallens1. Do not replace the legacy secrets or upload to the other account.",
-      "cloud_run": "https://github.com/energeticcity/youtube-political-pipeline/actions/runs/45066516513",
+      "cloud_account_check": "passed: upstream sau CLI authenticated @dadjokefix with verified numeric ID 34024392171",
+      "cloud_upload": "awaiting an eligible reviewed clip; successful dry run had no eligible ready clip",
+      "required_next_step": "Complete a cloud publication once the discovery queue is replenished",
+      "cloud_run": "https://github.com/energeticcity/youtube-political-pipeline/actions/runs/45072012513",
       "password_secret_test": {
         "credential_source": "Existing INSTAGRAM_USERNAME and INSTAGRAM_PASSWORD GitHub Actions secrets; values were not exported or displayed",
         "tool": "instagrapi upstream examples/diagnose_login.py",
@@ -79,8 +91,10 @@
         "result": "upstream ClientNeedsUpgradeError; authentication not confirmed"
       },
       "browser_login": "Recovered existing saved @dadjokefix login in Chrome; own profile and latest Reel verified",
-      "session_import": "Awaiting owner approval of macOS Chrome Safe Storage access; domain filter restricted to instagram.com",
-      "production_status": "Still uses existing Post for Me connection until direct CLI is verified"
+      "session_import": "Imported only the verified Instagram browser session into the isolated GTA6 GitHub secret",
+      "production_status": "sau Instagram CLI active in hourly cloud workflow with creator-navigation compatibility patch",
+      "local_upload": "verified published by upstream sau CLI",
+      "local_publication_url": "https://www.instagram.com/reel/DgDzVF8JAFl/"
     }
   },
   "rerun": {
@@ -92,7 +106,7 @@
       "youtube",
       "instagram"
     ],
-    "notes": "TikTok and YouTube jobs attempt private test uploads. Inspect previous receipts before rerunning. Instagram checks login only. The scheduled production workflow is unchanged."
+    "notes": "YouTube browser test verifies any existing private test before attempting another upload. Google cloud verification is required; do not repeat blocked upload tests. Instagram authentication tests do not publish."
   },
   "last_verified_three_platform_publication": {
     "slot": "2026-11-22T14",
@@ -119,5 +133,11 @@
     },
     "instagram_and_youtube_uploader": "existing Post for Me connection pending direct CLI authentication"
   },
-  "public_verification_used_scheduled_clip": true
+  "public_verification_used_scheduled_clip": true,
+  "public_test_uploads_note": "Individual CLI uploads across the already-reserved 2 p.m. and 3 p.m. publication slots; no extra scheduled slot duplicates.",
+  "verification": {
+    "gta6_tests_passed": 20,
+    "instagram_browser_tests_passed": 8,
+    "repository_ci": "Archive Pipeline Tests passed after optional Autotok test dependency was isolated"
+  }
 }
