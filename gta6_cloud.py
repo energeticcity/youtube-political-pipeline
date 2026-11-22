@@ -96,10 +96,47 @@ def tiktok_cli_upload(media, caption):
     return {'status':'accepted','video_id':receipt.group(1),'url':None,
             'uploader':'autotok CLI','requested_visibility':'public'}
 
+def instagram_session():
+    state=json.loads(os.environ['GTA6_INSTAGRAM_BROWSER_SESSION'])
+    ids={str(c['value']) for c in state.get('cookies',[]) if c.get('name')=='ds_user_id'
+         and c.get('domain','').lstrip('.')=='instagram.com'}
+    if ids!={'34024392171'} or state.get('gta6_verified_username')!='dadjokefix':
+        raise ValueError('Instagram saved session does not match @dadjokefix')
+    repo=Path(os.environ['SAU_REPO']).resolve()
+    account=repo/'cookies/instagram_dadjokefix.json'
+    account.parent.mkdir(exist_ok=True,mode=0o700)
+    account.write_text(json.dumps({k:state[k] for k in ['cookies','origins']}));account.chmod(0o600)
+    return repo
+
+def instagram_cli_check():
+    repo=instagram_session()
+    result=subprocess.run(['sau','instagram','check','--account','dadjokefix'],cwd=repo,
+        capture_output=True,text=True,timeout=150,stdin=subprocess.DEVNULL)
+    if result.returncode or result.stdout.strip()!='valid':
+        raise RuntimeError('Instagram CLI authentication check failed; no upload attempted')
+    return {'username':'dadjokefix','user_id':'34024392171','status':'connected','uploader':'sau CLI'}
+
+def instagram_cli_upload(media,caption):
+    repo=instagram_session()
+    with tempfile.TemporaryDirectory(prefix='gta6-instagram-') as folder:
+        receipt=Path(folder)/'result.json'
+        result=subprocess.run(['sau','instagram','upload-video','--account','dadjokefix',
+            '--file',str(Path(media).resolve()),'--title',caption,'--headless','--result',str(receipt)],
+            cwd=repo,capture_output=True,text=True,timeout=600,stdin=subprocess.DEVNULL)
+        if not receipt.is_file():
+            raise RuntimeError('Instagram CLI returned no receipt; reservation retained')
+        data=json.loads(receipt.read_text())
+    if (result.returncode or data.get('status')!='published' or data.get('username')!='dadjokefix'
+            or str(data.get('user_id'))!='34024392171' or not public_url('instagram',data.get('post_url'))):
+        raise RuntimeError('Instagram CLI did not confirm publication to the exact account; reservation retained')
+    return {'status':'published','url':data['post_url'],'uploader':'sau CLI'}
+
 def identities():
     tiktok_client()
-    result={'tiktok':{'username':'gtaviclipfix','user_id':'7630582867722372104','status':'connected'}}
+    result={'tiktok':{'username':'gtaviclipfix','user_id':'7630582867722372104','status':'connected'},
+            'instagram':instagram_cli_check()}
     for platform,expected in ACCOUNTS.items():
+        if platform=='instagram':continue
         account=cross.api('GET','/social-accounts/'+expected['id'])
         if (account.get('id')!=expected['id'] or account.get('platform')!=platform
                 or str(account.get('user_id'))!=expected['user_id'] or account.get('status')!='connected'):
@@ -195,7 +232,10 @@ def reconcile(all_issues):
         row=issue_data(issue)
         if row.get('status')!='accepted' or not row.get('provider_post_id'):continue
         if len([p for p in row.get('delivery',{}) if p!='tiktok'])==2 and all(d.get('status') in ('published','provider_success_unverified') for p,d in row['delivery'].items() if p!='tiktok'):continue
-        row['delivery']=dict(delivery(row['provider_post_id']),tiktok=row.get('delivery',{}).get('tiktok',{'status':'accepted'}))
+        updates=delivery(row['provider_post_id'])
+        for platform,receipt in row.get('delivery',{}).items():
+            if receipt.get('uploader')=='sau CLI':updates[platform]=receipt
+        row['delivery']=dict(updates,tiktok=row.get('delivery',{}).get('tiktok',{'status':'accepted'}))
         row['checked_at']=now().isoformat()
         save_issue(issue['number'],row)
         if any(d['status']=='failed' for d in row['delivery'].values()):
@@ -220,6 +260,9 @@ def publish(queue_num,queue,all_issues,dry_run=False):
     row['delivery']={'tiktok':tiktok_cli_upload(media,clip['caption'])}
     row['status']='tiktok_accepted'
     save_issue(issue['number'],row)
+    row['delivery']['instagram']=instagram_cli_upload(media,clip['caption'])
+    row['status']='instagram_published'
+    save_issue(issue['number'],row)
     upload=cross.api('POST','/media/create-upload-url')
     if not all(str(upload.get(k,'')).startswith('https://') for k in ['upload_url','media_url']):
         raise ValueError('Invalid media service response; reservation retained')
@@ -227,6 +270,8 @@ def publish(queue_num,queue,all_issues,dry_run=False):
         response=requests.put(upload['upload_url'],data=f,headers={'Content-Type':'video/mp4'},timeout=300)
     if not response.ok:raise RuntimeError('Media upload failed; reservation retained')
     payload=cross.payload(clip,upload['media_url'])
+    payload['social_accounts']=[ACCOUNTS['youtube']['id']]
+    payload['platform_configurations']={'youtube':payload['platform_configurations']['youtube']}
     result=cross.api('POST','/social-posts',json=payload)
     post_id=result.get('id')
     if not isinstance(post_id,str) or not re.fullmatch(r'sp_[A-Za-z0-9]+',post_id):
@@ -235,7 +280,7 @@ def publish(queue_num,queue,all_issues,dry_run=False):
     save_issue(issue['number'],row)
     clip['status']='submitted';clip['publication_issue']=issue['number'];save_issue(queue_num,queue)
     for attempt in range(8):
-        row['delivery']=dict(delivery(post_id),tiktok=row['delivery']['tiktok']);row['checked_at']=now().isoformat();save_issue(issue['number'],row)
+        row['delivery']['youtube']=delivery(post_id)['youtube'];row['checked_at']=now().isoformat();save_issue(issue['number'],row)
         if all(d['status']!='pending' for d in row['delivery'].values()):break
         time.sleep(15)
     (OUT/'cloud-delivery.json').write_text(json.dumps(row,ensure_ascii=False,indent=2))

@@ -108,6 +108,29 @@ def tiktok():
 
 
 def youtube():
+    repo=Path(os.environ['SAU_REPO'])
+    state=json.loads(os.environ['GTA6_YOUTUBE_BROWSER_SESSION'])
+    if any(c.get('domain','').lstrip('.') not in ['youtube.com','studio.youtube.com','www.youtube.com'] for c in state.get('cookies',[])):
+        raise RuntimeError('youtube_session_domain_mismatch')
+    account=repo/'cookies/youtube_dadjokefix.json'
+    account.parent.mkdir(exist_ok=True)
+    account.write_text(json.dumps(state));account.chmod(0o600)
+    os.environ['SAU_EXPECTED_YOUTUBE_CHANNEL']='UCdL4ljG4SqfEA8qk5yd6v5w'
+    command(['sau','youtube','upload-video','--help'],cwd=repo)
+    RESULT['cli_help']='passed'
+    if command(['sau','youtube','check','--account','dadjokefix'],cwd=repo).strip()!='valid':
+        raise RuntimeError('youtube_browser_authentication_failed')
+    RESULT.update(account='@dadjokefix',channel_id=os.environ['SAU_EXPECTED_YOUTUBE_CHANNEL'],authenticated_check='passed',upload='starting_private_test')
+    save()
+    output=command(['sau','youtube','upload-video','--account','dadjokefix',
+        '--file',fixture(),'--title','Private cloud CLI connection test 2026-11-22',
+        '--visibility','private','--headless'],cwd=repo,timeout=420)
+    match=re.search(r'https://(?:youtu.be/|www.youtube.com/watch\?v=)([A-Za-z0-9_-]{11})',output)
+    if not match:
+        raise RuntimeError('youtube_upload_receipt_uncertain_do_not_retry_blindly')
+    RESULT.update(upload='accepted_private_test',video_id=match.group(1),requested_visibility='private')
+
+def youtube_api():
     from oauth2client.client import GoogleCredentials
     command(['youtube-upload', '--help'])
     RESULT['cli_help'] = 'passed'

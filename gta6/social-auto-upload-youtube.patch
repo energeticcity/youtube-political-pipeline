@@ -1,0 +1,75 @@
+diff --git a/uploader/youtube_uploader/main.py b/uploader/youtube_uploader/main.py
+index 4a1b0e1..41aa207 100644
+--- a/uploader/youtube_uploader/main.py
++++ b/uploader/youtube_uploader/main.py
+@@ -12,6 +12,8 @@ Login is interactive (Google account, no QR code): the browser opens, the user s
+ the storage_state is saved. Reuse it afterwards for fully unattended uploads.
+ """
+ import asyncio
++import os
++import re
+ from pathlib import Path
+ 
+ from patchright.async_api import Page, Playwright, async_playwright
+@@ -52,7 +54,7 @@ async def cookie_auth(account_file) -> bool:
+     async with async_playwright() as playwright:
+         browser = await playwright.chromium.launch(headless=True, channel="chrome")
+         try:
+-            context = await browser.new_context(storage_state=account_file)
++            context = await browser.new_context(storage_state=account_file, user_agent=f"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{browser.version} Safari/537.36")
+             context = await set_init_script(context)
+             page = await context.new_page()
+             await page.goto(STUDIO_URL, wait_until="domcontentloaded")
+@@ -60,7 +62,8 @@ async def cookie_auth(account_file) -> bool:
+             url = page.url
+             if "accounts.google.com" in url or "/signin" in url.lower():
+                 return False
+-            return "/channel/" in url
++            expected = os.environ.get("SAU_EXPECTED_YOUTUBE_CHANNEL")
++            return (f"/channel/{expected}" in url) if expected else "/channel/" in url
+         except Exception:
+             return False
+         finally:
+@@ -202,7 +205,7 @@ class YouTubeVideo(BaseVideoUploader):
+             headless=self.headless, channel="chrome",
+             proxy={"server": YT_PROXY} if YT_PROXY else None,
+         )
+-        context = await browser.new_context(storage_state=self.account_file)
++        context = await browser.new_context(storage_state=self.account_file, user_agent=f"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{browser.version} Safari/537.36")
+         context = await set_init_script(context)
+         page = await context.new_page()
+         page.set_default_timeout(60000)
+@@ -214,6 +217,11 @@ class YouTubeVideo(BaseVideoUploader):
+             await browser.close()
+             raise RuntimeError("YouTube 登录态失效，请重新执行 login")
+ 
++        expected = os.environ.get("SAU_EXPECTED_YOUTUBE_CHANNEL")
++        if expected and not re.match(r"https://studio\.youtube\.com/channel/" + re.escape(expected) + r"(?:/|$)", page.url):
++            await browser.close()
++            raise RuntimeError("YouTube exact channel guard failed before file upload")
++
+         # 1) 选择视频文件
+         file_input = page.locator('input[type="file"]').first
+         await file_input.wait_for(state="attached", timeout=60000)
+@@ -297,7 +305,11 @@ class YouTubeVideo(BaseVideoUploader):
+ 
+         # 10) 可见性
+         youtube_logger.info(_msg("🌐", f"设置可见性 = {self.visibility}"))
+-        await _click_if_present(page, f"tp-yt-paper-radio-button[name='{VISIBILITY[self.visibility]}']", 10000)
++        visibility_selector = f"tp-yt-paper-radio-button[name='{VISIBILITY[self.visibility]}']"
++        if not await _click_if_present(page, visibility_selector, 10000):
++            raise RuntimeError("YouTube visibility selection failed; publish blocked")
++        if await page.locator(visibility_selector).first.get_attribute("aria-checked") != "true":
++            raise RuntimeError("YouTube visibility was not checked; publish blocked")
+ 
+         # 10.5) 关键：等上传真正传完再发布。浏览器上传靠窗口开着传，
+         #       传到一半就点发布+关浏览器 = 上传被掐断卡在中途（如 76%）。
+@@ -307,7 +319,7 @@ class YouTubeVideo(BaseVideoUploader):
+         # 11) 发布
+         await page.wait_for_timeout(1200)
+         if not await _click_if_present(page, "#done-button", 15000):
+-            youtube_logger.warning(_msg("🤔", "未找到发布按钮，可能上传未到可发布进度；请在窗口里手动发布"))
++            raise RuntimeError("YouTube publish button was unavailable; inspect draft before retrying")
+         else:
+             await page.wait_for_timeout(4000)
+             video_url = ""

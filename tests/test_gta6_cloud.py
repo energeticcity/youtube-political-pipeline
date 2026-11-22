@@ -63,6 +63,19 @@ class CloudPipelineTests(unittest.TestCase):
             for code,stdout in [(1,''),(0,'No upload receipt')]:
                 run.return_value=MagicMock(returncode=code,stdout=stdout,stderr='')
                 with self.assertRaises(RuntimeError):g.tiktok_cli_upload('clip.mp4','caption')
+    def test_wrong_instagram_account_stops_before_cli(self):
+        state={'cookies':[{'name':'ds_user_id','value':'28321532959','domain':'.instagram.com'}],
+               'origins':[],'gta6_verified_username':'poli.ticallens1'}
+        with patch.dict(g.os.environ,{'GTA6_INSTAGRAM_BROWSER_SESSION':json.dumps(state)}):
+            with patch.object(g.subprocess,'run') as cli:
+                with self.assertRaises(ValueError):g.instagram_cli_upload('clip.mp4','caption')
+                cli.assert_not_called()
+
+    def test_instagram_missing_publication_receipt_is_not_success(self):
+        with patch.object(g,'instagram_session',return_value=g.Path('/tmp')):
+            with patch.object(g.subprocess,'run',return_value=MagicMock(returncode=0)):
+                with self.assertRaises(RuntimeError):g.instagram_cli_upload('clip.mp4','caption')
+
     @patch.object(g.cross,'gh')
     def test_multiple_queue_records_fail_closed(self,gh):
         with self.assertRaises(ValueError):g.load_queue([{'title':g.QUEUE_TITLE},{'title':g.QUEUE_TITLE}])
