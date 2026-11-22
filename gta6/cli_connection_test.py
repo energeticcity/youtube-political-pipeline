@@ -166,6 +166,36 @@ def youtube():
         RESULT.update(upload='verified_private_test', video_id=video_id, verified_visibility='private')
 
 
+def tiktok_browser():
+    from autotok import Account, Client
+    command(['tiktok-uploader', '--help'])
+    RESULT['cli_help'] = 'passed'
+    account = Account.from_dict(json.loads(os.environ['GTA6_TIKTOK_SESSION']))
+    response = Client(account)._session().get(
+        'https://www.tiktok.com/passport/web/account/info/', params={'aid': 1988}, timeout=45)
+    response.raise_for_status()
+    identity = response.json().get('data', {})
+    if identity.get('username') != 'gtaviclipfix' or str(identity.get('user_id')) != '7630582867722372104':
+        raise RuntimeError('unexpected_tiktok_identity')
+    RESULT.update(account='@gtaviclipfix', authenticated_check='passed', upload='starting_private_browser_test')
+    save()
+    with tempfile.TemporaryDirectory() as folder:
+        path = Path(folder) / 'cookies.txt'
+        path.write_text('# Netscape HTTP Cookie File\n' + '\n'.join(
+            '\t'.join([c.get('domain', '.tiktok.com'), 'TRUE', c.get('path', '/'),
+                       'TRUE' if c.get('secure', True) else 'FALSE',
+                       str(max(0, int(c.get('expires', 0)))), c['name'], c['value']])
+            for c in account.cookies))
+        path.chmod(0o600)
+        output = command(['python', 'gta6/cli_tiktok_browser_guard.py', '-v', fixture(),
+                          '-c', str(path), '-d', 'Private browser CLI connection test',
+                          '--visibility', 'only_you'], timeout=420)
+        if 'PRIVATE_PUBLICATION_GUARD_PASSED' not in output or 'Video uploaded successfully' not in output:
+            RESULT['upstream_cli_success_marker'] = False
+            raise RuntimeError('upstream_cli_did_not_confirm_upload')
+        RESULT.update(upload='accepted_private_browser_test', requested_visibility='private')
+
+
 def instagram():
     repo = Path(os.environ['SAU_REPO'])
     command(['sau', 'instagram', '--help'], cwd=repo)
@@ -216,7 +246,7 @@ def instagram():
 
 
 try:
-    {'tiktok': tiktok, 'youtube': youtube, 'instagram': instagram}[PLATFORM]()
+    {'tiktok': tiktok, 'tiktok-browser': tiktok_browser, 'youtube': youtube, 'instagram': instagram}[PLATFORM]()
     RESULT['status'] = 'passed'
 except Exception as exc:
     RESULT['status'] = 'failed'
