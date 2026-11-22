@@ -1,10 +1,17 @@
 name: Check CLI Login Repairs
 on:
   workflow_dispatch:
+    inputs:
+      platform:
+        description: CLI connection to test
+        type: choice
+        default: all
+        options: [all, instagram, tiktok]
 permissions:
   contents: read
 jobs:
   instagram-password-login:
+    if: inputs.platform == 'all' || inputs.platform == 'instagram'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -27,7 +34,7 @@ jobs:
           python - <<'PY'
           import json,os,subprocess
           from pathlib import Path
-          assert os.environ.get('IG_USERNAME','').strip().lower().lstrip('@')=='dadjokefix', 'Saved username is not the intended Instagram account'
+          assert os.environ.get('IG_USERNAME','').strip(), 'No Instagram login identifier secret configured'
           assert os.environ.get('IG_PASSWORD'), 'No Instagram password secret configured'
           folder=Path(os.environ['RUNNER_TEMP'])
           report=folder/'ig-login-report.json'
@@ -38,11 +45,18 @@ jobs:
           data=json.loads(report.read_text()) if report.exists() else {}
           safe={k:data.get(k) for k in ['outcome','exception','last_json','environment','settings_saved']}
           safe['upstream_cli_exit_code']=p.returncode
-          safe['account']='@dadjokefix'
+          safe['expected_account']='@dadjokefix'
+          if not p.returncode:
+              from instagrapi import Client
+              client=Client(settings=json.loads(settings.read_text()))
+              try:
+                  safe['target_identity_matches']=client.account_info().username.lower()=='dadjokefix'
+              except Exception as exc:
+                  safe['identity_lookup_error']=type(exc).__name__
           Path('cli-test-results').mkdir(exist_ok=True)
           Path('cli-test-results/instagram-password.json').write_text(json.dumps(safe,indent=2))
           print(json.dumps(safe,indent=2))
-          if p.returncode: raise SystemExit(1)
+          if p.returncode or not safe.get('target_identity_matches'): raise SystemExit(1)
           PY
       - uses: actions/upload-artifact@v4
         if: always()
@@ -52,6 +66,7 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
   tiktok-browser-cli:
+    if: inputs.platform == 'all' || inputs.platform == 'tiktok'
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
