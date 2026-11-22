@@ -238,6 +238,16 @@ def discover_links():
             retry=page.get_by_role('button',name='Try again',exact=True)
             if retry.count():retry.click()
             else:page.mouse.wheel(0,1000)
+        # If search is sparse, read visible posts from previously identified creators.
+        if len(set(links))<12:
+            for creator in ['skyxl.cc','ksnv_editz','kammyranks','rz_irr','clip.gods16','tyrone']:
+                try:
+                    page.goto('https://www.tiktok.com/@'+creator,wait_until='domcontentloaded',timeout=30000)
+                    page.wait_for_timeout(2500)
+                    links+=page.locator('a[href*="/video/"]').evaluate_all('(els)=>els.map(a=>a.href)')
+                except Exception:
+                    continue
+                if len(set(links))>=40:break
         browser.close()
     return list(dict.fromkeys(x for x in links if SOURCE_RE.fullmatch(x)))[:60]
 
