@@ -74,3 +74,10 @@ jobs:
           path: gta6-output/media/*.mp4
           retention-days: 7
           if-no-files-found: ignore
+      - name: Record a cloud failure for review
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh issue create --title "[gta6-cloud-alert] Run $GITHUB_RUN_ID failed" --body "Cloud GTA6 run failed: $RUN_URL. Inspect the durable publication reservation before retrying. Never repeat a batch after partial success. A login refresh, account reconnection, review-model quota, or discovery investigation may be needed."
