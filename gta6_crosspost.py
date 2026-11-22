@@ -11,7 +11,7 @@ import requests
 
 BASE = 'https://api.postforme.dev/v1'
 DESTINATIONS = {
-    'instagram': {'id': 'spc_gu1jpig48SRDfABsgU24', 'user_id': '17841433845153049', 'username': 'dadjokefix'},
+    'instagram': {'id': 'spc_gu1jpig48SRDfABsgU24', 'user_id': '17841433845153049', 'username': 'gtaviclipfix'},
     'youtube': {'id': 'spc_XzVCHOliiqyX9TJ6FMWfr', 'user_id': 'UCdL4ljG4SqfEA8qk5yd6v5w'},
 }
 
@@ -117,7 +117,7 @@ def publish(clip_id):
     subprocess.run(['ffmpeg', '-hide_banner', '-loglevel', 'error', '-i', str(original), '-c:v', 'libx264', '-preset', 'fast',
         '-crf', '21', '-c:a', 'aac', '-movflags', '+faststart', '-y', str(media)], check=True)
     issue = gh('POST', 'issues', json={'title': '[gta6-crosspost] ' + clip_id,
-        'body': 'Reserved before upload. Instagram @dadjokefix and YouTube UCdL4ljG4SqfEA8qk5yd6v5w only.\nSource: ' + clip['source'] + '\nCheck provider before retrying; closing this issue does not release the reservation.'})
+        'body': 'Reserved before upload. Instagram @gtaviclipfix and YouTube UCdL4ljG4SqfEA8qk5yd6v5w only.\nSource: ' + clip['source'] + '\nCheck provider before retrying; closing this issue does not release the reservation.'})
     upload = api('POST', '/media/create-upload-url')
     if not all(str(upload.get(k, '')).startswith('https://') for k in ('upload_url', 'media_url')):
         raise ValueError('Invalid media upload response; reservation retained')

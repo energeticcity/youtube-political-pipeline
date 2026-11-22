@@ -45,12 +45,12 @@ jobs:
           data=json.loads(report.read_text()) if report.exists() else {}
           safe={k:data.get(k) for k in ['outcome','exception','last_json','environment','settings_saved']}
           safe['upstream_cli_exit_code']=p.returncode
-          safe['expected_account']='@dadjokefix'
+          safe['expected_account']='@gtaviclipfix'
           if not p.returncode:
               from instagrapi import Client
               client=Client(settings=json.loads(settings.read_text()))
               try:
-                  safe['target_identity_matches']=client.account_info().username.lower()=='dadjokefix'
+                  safe['target_identity_matches']=client.account_info().username.lower()=='gtaviclipfix'
               except Exception as exc:
                   safe['identity_lookup_error']=type(exc).__name__
           Path('cli-test-results').mkdir(exist_ok=True)

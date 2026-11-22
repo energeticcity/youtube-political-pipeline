@@ -112,23 +112,23 @@ def youtube():
     state=json.loads(os.environ['GTA6_YOUTUBE_BROWSER_SESSION'])
     if any(c.get('domain','').lstrip('.') not in ['youtube.com','studio.youtube.com','www.youtube.com'] for c in state.get('cookies',[])):
         raise RuntimeError('youtube_session_domain_mismatch')
-    account=repo/'cookies/youtube_dadjokefix.json'
+    account=repo/'cookies/youtube_gtaviclipfix.json'
     account.parent.mkdir(exist_ok=True)
     account.write_text(json.dumps(state));account.chmod(0o600)
     os.environ['SAU_EXPECTED_YOUTUBE_CHANNEL']='UCdL4ljG4SqfEA8qk5yd6v5w'
     os.environ['SAU_YOUTUBE_DIAGNOSTIC_DIR']=str(OUT.resolve())
     command(['sau','youtube','upload-video','--help'],cwd=repo)
     RESULT['cli_help']='passed'
-    if command(['sau','youtube','check','--account','dadjokefix'],cwd=repo).strip()!='valid':
+    if command(['sau','youtube','check','--account','gtaviclipfix'],cwd=repo).strip()!='valid':
         raise RuntimeError('youtube_browser_authentication_failed')
     from sau_youtube_verify import receipts
     title='Private cloud CLI connection test 2026-11-22'
     previous=receipts(account,title)
-    RESULT.update(account='@dadjokefix',channel_id=os.environ['SAU_EXPECTED_YOUTUBE_CHANNEL'],authenticated_check='passed')
+    RESULT.update(account='@gtaviclipfix',channel_id=os.environ['SAU_EXPECTED_YOUTUBE_CHANNEL'],authenticated_check='passed')
     if not previous:
         RESULT['upload']='starting_private_test'
         save()
-        command(['sau','youtube','upload-video','--account','dadjokefix',
+        command(['sau','youtube','upload-video','--account','gtaviclipfix',
             '--file',fixture(),'--title',title,'--visibility','private','--headless'],cwd=repo,timeout=420)
     matches=receipts(account,title)
     if len(matches)!=1 or next(iter(matches.values()))['verified_visibility']!='private':
@@ -139,14 +139,14 @@ def youtube():
 def youtube_verify():
     from sau_youtube_verify import receipts
     repo=Path(os.environ['SAU_REPO'])
-    account=repo/'cookies/youtube_dadjokefix.json'
+    account=repo/'cookies/youtube_gtaviclipfix.json'
     account.parent.mkdir(exist_ok=True)
     account.write_text(os.environ['GTA6_YOUTUBE_BROWSER_SESSION']);account.chmod(0o600)
     matches=receipts(account,'Private cloud CLI connection test 2026-11-22')
     if len(matches)!=1 or next(iter(matches.values()))['verified_visibility']!='private':
         raise RuntimeError('youtube_private_cloud_upload_not_uniquely_verified')
     RESULT.update(next(iter(matches.values())))
-    RESULT.update(upload='verified_private_test',account='@dadjokefix',authenticated_check='passed',status='passed')
+    RESULT.update(upload='verified_private_test',account='@gtaviclipfix',authenticated_check='passed',status='passed')
 
 def youtube_api():
     from oauth2client.client import GoogleCredentials
@@ -173,7 +173,7 @@ def youtube_api():
     ids = [x['id'] for x in r.json().get('items', [])]
     if ids != ['UCdL4ljG4SqfEA8qk5yd6v5w']:
         raise RuntimeError('unexpected_youtube_channel')
-    RESULT.update(account='@dadjokefix', channel_id=ids[0], authenticated_check='passed')
+    RESULT.update(account='@gtaviclipfix', channel_id=ids[0], authenticated_check='passed')
     with tempfile.TemporaryDirectory() as tmp:
         credentials = Path(tmp) / 'credentials.json'
         secrets = Path(tmp) / 'client-secrets.json'
@@ -266,7 +266,7 @@ def instagram():
     cookies = {c['name']: c['value'] for c in state['cookies']}
     verified_id = stored.get('gta6_verified_user_id') if isinstance(stored, dict) else None
     trusted_identity = (isinstance(stored, dict)
-                        and stored.get('gta6_verified_username') == 'dadjokefix'
+                        and stored.get('gta6_verified_username') == 'gtaviclipfix'
                         and str(verified_id).isdigit()
                         and cookies.get('ds_user_id') == str(verified_id))
     response = requests.get('https://www.instagram.com/api/v1/accounts/current_user/',
@@ -276,19 +276,19 @@ def instagram():
         username = response.json().get('user', {}).get('username')
     except ValueError:
         username = None
-    if username and username != 'dadjokefix':
+    if username and username != 'gtaviclipfix':
         raise RuntimeError('unexpected_instagram_identity')
-    path = repo / 'cookies/instagram_dadjokefix.json'
+    path = repo / 'cookies/instagram_gtaviclipfix.json'
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(state))
     path.chmod(0o600)
     RESULT['session_identity_lookup'] = ('matched' if username else
                                          'matched_local_verified_numeric_id' if trusted_identity else 'not_confirmed')
     save()
-    command(['sau', 'instagram', 'check', '--account', 'dadjokefix'], cwd=repo, timeout=210)
-    if username != 'dadjokefix' and not trusted_identity:
+    command(['sau', 'instagram', 'check', '--account', 'gtaviclipfix'], cwd=repo, timeout=210)
+    if username != 'gtaviclipfix' and not trusted_identity:
         raise RuntimeError('instagram_login_valid_but_target_username_unconfirmed')
-    RESULT.update(account='@dadjokefix', authenticated_check='passed',
+    RESULT.update(account='@gtaviclipfix', authenticated_check='passed',
                   upload='not_attempted_cli_has_no_unpublished_mode')
 
 

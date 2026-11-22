@@ -100,27 +100,27 @@ def instagram_session():
     state=json.loads(os.environ['GTA6_INSTAGRAM_BROWSER_SESSION'])
     ids={str(c['value']) for c in state.get('cookies',[]) if c.get('name')=='ds_user_id'
          and c.get('domain','').lstrip('.')=='instagram.com'}
-    if ids!={'34024392171'} or state.get('gta6_verified_username')!='dadjokefix':
-        raise ValueError('Instagram saved session does not match @dadjokefix')
+    if ids!={'34024392171'} or state.get('gta6_verified_username')!='gtaviclipfix':
+        raise ValueError('Instagram saved session does not match @gtaviclipfix')
     repo=Path(os.environ['SAU_REPO']).resolve()
-    account=repo/'cookies/instagram_dadjokefix.json'
+    account=repo/'cookies/instagram_gtaviclipfix.json'
     account.parent.mkdir(exist_ok=True,mode=0o700)
     account.write_text(json.dumps({k:state[k] for k in ['cookies','origins']}));account.chmod(0o600)
     return repo
 
 def instagram_cli_check():
     repo=instagram_session()
-    result=subprocess.run(['sau','instagram','check','--account','dadjokefix'],cwd=repo,
+    result=subprocess.run(['sau','instagram','check','--account','gtaviclipfix'],cwd=repo,
         capture_output=True,text=True,timeout=150,stdin=subprocess.DEVNULL)
     if result.returncode or result.stdout.strip()!='valid':
         raise RuntimeError('Instagram CLI authentication check failed; no upload attempted')
-    return {'username':'dadjokefix','user_id':'34024392171','status':'connected','uploader':'sau CLI'}
+    return {'username':'gtaviclipfix','user_id':'34024392171','status':'connected','uploader':'sau CLI'}
 
 def instagram_cli_upload(media,caption):
     repo=instagram_session()
     with tempfile.TemporaryDirectory(prefix='gta6-instagram-') as folder:
         receipt=Path(folder)/'result.json'
-        result=subprocess.run(['sau','instagram','upload-video','--account','dadjokefix',
+        result=subprocess.run(['sau','instagram','upload-video','--account','gtaviclipfix',
             '--file',str(Path(media).resolve()),'--title',caption,'--headless','--result',str(receipt)],
             cwd=repo,capture_output=True,text=True,timeout=600,stdin=subprocess.DEVNULL)
         if not receipt.is_file():
@@ -129,7 +129,7 @@ def instagram_cli_upload(media,caption):
         safe={k:data.get(k) for k in ['status','username','user_id','post_url','stage']}
         safe['cli_exit_code']=result.returncode
         (OUT/'instagram-cli-result.json').write_text(json.dumps(safe,indent=2))
-    if (result.returncode or data.get('status')!='published' or data.get('username')!='dadjokefix'
+    if (result.returncode or data.get('status')!='published' or data.get('username')!='gtaviclipfix'
             or str(data.get('user_id'))!='34024392171' or not public_url('instagram',data.get('post_url'))):
         raise RuntimeError('Instagram CLI did not confirm publication to the exact account; reservation retained')
     return {'status':'published','url':data['post_url'],'uploader':'sau CLI'}
@@ -143,26 +143,26 @@ def youtube_session():
             ['youtube.com','studio.youtube.com','www.youtube.com'] for c in state['cookies']):
         raise ValueError('YouTube browser session contains an unexpected domain')
     repo=Path(os.environ['SAU_REPO']).resolve()
-    account=repo/'cookies/youtube_dadjokefix.json'
+    account=repo/'cookies/youtube_gtaviclipfix.json'
     account.parent.mkdir(exist_ok=True,mode=0o700)
     account.write_text(json.dumps(state));account.chmod(0o600)
     return repo,account
 
 def youtube_cli_check():
     repo,account=youtube_session()
-    result=subprocess.run(['sau','youtube','check','--account','dadjokefix'],cwd=repo,
+    result=subprocess.run(['sau','youtube','check','--account','gtaviclipfix'],cwd=repo,
         env=dict(os.environ,SAU_EXPECTED_YOUTUBE_CHANNEL='UCdL4ljG4SqfEA8qk5yd6v5w'),
         capture_output=True,text=True,timeout=150,stdin=subprocess.DEVNULL)
     if result.returncode or result.stdout.strip()!='valid':
         raise RuntimeError('YouTube exact channel CLI check failed; no upload attempted')
-    return {'username':'dadjokefix','user_id':'UCdL4ljG4SqfEA8qk5yd6v5w','status':'connected','uploader':'sau CLI'}
+    return {'username':'gtaviclipfix','user_id':'UCdL4ljG4SqfEA8qk5yd6v5w','status':'connected','uploader':'sau CLI'}
 
 def youtube_cli_upload(media,clip):
     from gta6.sau_youtube_verify import receipts
     repo,account=youtube_session()
     if receipts(account,clip['title']):
         raise RuntimeError('A matching YouTube title already exists; inspect before submitting')
-    result=subprocess.run(['sau','youtube','upload-video','--account','dadjokefix',
+    result=subprocess.run(['sau','youtube','upload-video','--account','gtaviclipfix',
         '--file',str(Path(media).resolve()),'--title',clip['title'][:100],
         '--desc',clip['caption']+'\nSource: '+clip['source'],'--visibility','public','--headless'],
         cwd=repo,env=dict(os.environ,SAU_EXPECTED_YOUTUBE_CHANNEL='UCdL4ljG4SqfEA8qk5yd6v5w',
@@ -185,7 +185,7 @@ def identities():
         if (account.get('id')!=expected['id'] or account.get('platform')!=platform
                 or str(account.get('user_id'))!=expected['user_id'] or account.get('status')!='connected'):
             raise ValueError(platform+': exact destination disconnected or identity mismatch')
-        if platform=='instagram' and account.get('username')!='dadjokefix':
+        if platform=='instagram' and account.get('username')!='gtaviclipfix':
             raise ValueError('Instagram handle changed; review destination')
         result[platform]={k:account.get(k) for k in ['id','platform','user_id','username','status']}
     OUT.mkdir(exist_ok=True)
