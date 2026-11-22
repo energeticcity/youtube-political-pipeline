@@ -293,7 +293,7 @@ def instagram():
 
 
 try:
-    {'tiktok': tiktok, 'tiktok-browser': tiktok_browser, 'youtube': youtube, 'youtube-verify': youtube_verify, 'instagram': instagram}[PLATFORM]()
+    {'tiktok': tiktok, 'tiktok-browser': tiktok_browser, 'youtube': youtube, 'youtube-api':youtube_api, 'youtube-verify': youtube_verify, 'instagram': instagram}[PLATFORM]()
     RESULT['status'] = 'passed'
 except Exception as exc:
     RESULT['status'] = 'failed'

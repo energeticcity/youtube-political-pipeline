@@ -47,7 +47,7 @@ jobs:
           else
             echo 'OPERATION=publish' >> "$GITHUB_ENV"
           fi
-      - run: pip install 'requests>=2.32,<3' 'yt-dlp==2026.10.26' 'playwright>=1.45,<2' 'autotok==2.1.0'
+      - run: pip install 'requests>=2.32,<3' 'yt-dlp==2026.10.26' 'playwright>=1.45,<2' 'autotok==2.1.0' 'youtube-upload @ git+https://github.com/tokland/youtube-upload.git@6a30b55d0fd4976571a5b9b34c01fd41cec49c7a'
       - name: Install pinned upstream social CLIs
         run: |
           git clone https://github.com/dreammis/social-auto-upload.git /tmp/sau
@@ -65,6 +65,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           POSTFORME_API_KEY: ${{ secrets.POSTFORME_API_KEY }}
           SAU_REPO: /tmp/sau
+          GTA6_YOUTUBE_API_ENABLED: ${{ vars.GTA6_YOUTUBE_API_ENABLED }}
+          GTA6_YOUTUBE_API_CLIENT_ID: ${{ secrets.GTA6_YOUTUBE_API_CLIENT_ID }}
+          GTA6_YOUTUBE_API_CLIENT_SECRET: ${{ secrets.GTA6_YOUTUBE_API_CLIENT_SECRET }}
+          GTA6_YOUTUBE_API_REFRESH_TOKEN: ${{ secrets.GTA6_YOUTUBE_API_REFRESH_TOKEN }}
           GTA6_YOUTUBE_CLI_ENABLED: ${{ vars.GTA6_YOUTUBE_CLI_ENABLED }}
           GTA6_YOUTUBE_BROWSER_SESSION: ${{ secrets.GTA6_YOUTUBE_BROWSER_SESSION }}
           GTA6_INSTAGRAM_BROWSER_SESSION: ${{ secrets.GTA6_INSTAGRAM_BROWSER_SESSION }}
@@ -81,8 +85,10 @@ jobs:
             gta6-output/cloud-delivery.json
             gta6-output/instagram-cli-result.json
             gta6-output/youtube-upload-screen.txt
+            gta6-output/youtube-api-result.json
             gta6-output/instagram-cli-result.json
             gta6-output/youtube-upload-screen.txt
+            gta6-output/youtube-api-result.json
             gta6-output/discovery.json
           retention-days: 7
           if-no-files-found: ignore

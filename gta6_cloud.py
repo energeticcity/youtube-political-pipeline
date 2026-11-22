@@ -134,8 +134,65 @@ def instagram_cli_upload(media,caption):
         raise RuntimeError('Instagram CLI did not confirm publication to the exact account; reservation retained')
     return {'status':'published','url':data['post_url'],'uploader':'sau CLI'}
 
+def youtube_api_enabled():
+    return os.environ.get('GTA6_YOUTUBE_API_ENABLED')=='true'
+
+def youtube_api_client():
+    values={k:os.environ.get('GTA6_YOUTUBE_API_'+k,'') for k in ['CLIENT_ID','CLIENT_SECRET','REFRESH_TOKEN']}
+    if not all(values.values()):raise ValueError('GTA6 YouTube API credentials are missing')
+    response=requests.post('https://oauth2.googleapis.com/token',data={
+        'client_id':values['CLIENT_ID'],'client_secret':values['CLIENT_SECRET'],
+        'refresh_token':values['REFRESH_TOKEN'],'grant_type':'refresh_token'},timeout=45)
+    if not response.ok:raise RuntimeError('YouTube OAuth refresh failed; reconnect the GTA6 uploader')
+    token=response.json()['access_token']
+    response=requests.get('https://www.googleapis.com/youtube/v3/channels',
+        params={'part':'id','mine':'true'},headers={'Authorization':'Bearer '+token},timeout=45)
+    if not response.ok:raise RuntimeError('YouTube exact channel lookup failed')
+    if [v['id'] for v in response.json().get('items',[])]!=['UCdL4ljG4SqfEA8qk5yd6v5w']:
+        raise ValueError('YouTube OAuth credentials belong to a different channel')
+    return token,values
+
+def youtube_api_cli_upload(media,clip):
+    token,values=youtube_api_client()
+    from oauth2client.client import GoogleCredentials
+    with tempfile.TemporaryDirectory(prefix='gta6-youtube-api-') as folder:
+        credentials=Path(folder)/'credentials.json';secrets=Path(folder)/'client-secrets.json'
+        credentials.write_text(GoogleCredentials(token,values['CLIENT_ID'],values['CLIENT_SECRET'],
+            values['REFRESH_TOKEN'],None,'https://oauth2.googleapis.com/token','gta6-cli-uploader').to_json())
+        secrets.write_text(json.dumps({'installed':{'client_id':values['CLIENT_ID'],
+            'client_secret':values['CLIENT_SECRET'],'auth_uri':'https://accounts.google.com/o/oauth2/auth',
+            'token_uri':'https://oauth2.googleapis.com/token','redirect_uris':['http://localhost']}}))
+        credentials.chmod(0o600);secrets.chmod(0o600)
+        result=subprocess.run(['youtube-upload','--client-secrets',str(secrets),
+            '--credentials-file',str(credentials),'--privacy','public','--title',clip['title'][:100],
+            '--description',clip['caption']+'\nSource: '+clip['source'],str(Path(media).resolve())],
+            capture_output=True,text=True,timeout=600,stdin=subprocess.DEVNULL)
+    ids=re.findall(r'^[A-Za-z0-9_-]{11}$',result.stdout,re.M)
+    if result.returncode or len(ids)!=1:raise RuntimeError('YouTube CLI receipt unconfirmed; reservation retained')
+    video_id=ids[0]
+    receipt={'status':'processing','video_id':video_id,'url':'https://www.youtube.com/watch?v='+video_id,
+             'channel_id':'UCdL4ljG4SqfEA8qk5yd6v5w','uploader':'youtube-upload CLI'}
+    OUT.mkdir(exist_ok=True)
+    (OUT/'youtube-api-result.json').write_text(json.dumps(receipt,indent=2))
+    for attempt in range(12):
+        response=requests.get('https://www.googleapis.com/youtube/v3/videos',
+            params={'part':'status,snippet','id':video_id},headers={'Authorization':'Bearer '+token},timeout=45)
+        if not response.ok:raise RuntimeError('YouTube uploaded video verification failed; do not repeat upload')
+        items=response.json().get('items',[])
+        if len(items)!=1 or items[0]['snippet']['channelId']!=receipt['channel_id']:
+            raise ValueError('YouTube uploaded video channel mismatch')
+        status=items[0]['status']
+        if status.get('privacyStatus')!='public':raise RuntimeError('YouTube did not allow public visibility; inspect existing video')
+        if status.get('uploadStatus')=='processed':
+            receipt.update(status='published',verified_visibility='public')
+            (OUT/'youtube-api-result.json').write_text(json.dumps(receipt,indent=2));return receipt
+        if status.get('uploadStatus') in ['failed','rejected','deleted']:
+            raise RuntimeError('YouTube rejected video processing; reservation retained')
+        time.sleep(10)
+    raise RuntimeError('YouTube video is still processing; verify its saved ID before any retry')
+
 def youtube_cli_enabled():
-    return os.environ.get('GTA6_YOUTUBE_CLI_ENABLED')=='true'
+    return youtube_api_enabled() or os.environ.get('GTA6_YOUTUBE_CLI_ENABLED')=='true'
 
 def youtube_session():
     state=json.loads(os.environ['GTA6_YOUTUBE_BROWSER_SESSION'])
@@ -149,6 +206,9 @@ def youtube_session():
     return repo,account
 
 def youtube_cli_check():
+    if youtube_api_enabled():
+        youtube_api_client()
+        return {'username':'gtaviclipfix','user_id':'UCdL4ljG4SqfEA8qk5yd6v5w','status':'connected','uploader':'youtube-upload CLI'}
     repo,account=youtube_session()
     result=subprocess.run(['sau','youtube','check','--account','gtaviclipfix'],cwd=repo,
         env=dict(os.environ,SAU_EXPECTED_YOUTUBE_CHANNEL='UCdL4ljG4SqfEA8qk5yd6v5w'),
@@ -158,6 +218,7 @@ def youtube_cli_check():
     return {'username':'gtaviclipfix','user_id':'UCdL4ljG4SqfEA8qk5yd6v5w','status':'connected','uploader':'sau CLI'}
 
 def youtube_cli_upload(media,clip):
+    if youtube_api_enabled():return youtube_api_cli_upload(media,clip)
     from gta6.sau_youtube_verify import receipts
     repo,account=youtube_session()
     if receipts(account,clip['title']):
