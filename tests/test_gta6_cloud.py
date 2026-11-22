@@ -4,6 +4,7 @@ import json
 import importlib.util
 import unittest
 import sys
+import tempfile
 from unittest.mock import MagicMock, patch
 import gta6_cloud as g
 
@@ -91,6 +92,19 @@ class CloudPipelineTests(unittest.TestCase):
                 with patch.object(g.subprocess,'run') as cli:
                     with self.assertRaises(RuntimeError):g.youtube_cli_upload('clip.mp4',{'title':'Existing title'})
                     cli.assert_not_called()
+
+    def test_ineligible_duration_is_remembered_before_next_discovery(self):
+        queue={'items':[]}
+        with tempfile.TemporaryDirectory() as folder, patch.object(g,'OUT',g.Path(folder)):
+            with patch.object(g,'discover_links',return_value=[self.a['source']]), patch.object(g,'model_name',return_value='review-model'):
+                with patch.object(g,'save_issue'), patch.object(g,'review') as review:
+                    with patch.object(g,'download',return_value=(g.Path('unused'),{'duration':120})):
+                        with self.assertRaises(RuntimeError):g.discover(266,queue,[])
+                    self.assertIn(self.a['id'],queue['rejected_ids'])
+                    with patch.object(g,'download') as download:
+                        with self.assertRaises(RuntimeError):g.discover(266,queue,[])
+                        download.assert_not_called()
+                    review.assert_not_called()
 
     @patch.object(g.cross,'gh')
     def test_multiple_queue_records_fail_closed(self,gh):
