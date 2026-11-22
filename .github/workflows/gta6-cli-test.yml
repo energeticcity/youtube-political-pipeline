@@ -87,7 +87,11 @@ jobs:
           git clone https://github.com/dreammis/social-auto-upload.git /tmp/sau
           git -C /tmp/sau checkout 3847fff01f5434a8a32829833163cd6723cabc59
           cp /tmp/sau/conf.example.py /tmp/sau/conf.py
+          git -C /tmp/sau apply "$GITHUB_WORKSPACE/gta6/social-auto-upload-instagram.patch"
           pip install -e /tmp/sau
+      - name: Verify patched upstream browser regression tests
+        working-directory: /tmp/sau
+        run: python -m unittest discover -s tests -p test_instagram_uploader.py -v
       - name: Verify existing Instagram session through upstream CLI
         env:
           SAU_REPO: /tmp/sau
