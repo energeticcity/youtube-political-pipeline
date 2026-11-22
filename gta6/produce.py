@@ -21,6 +21,29 @@ ROOT = Path(__file__).resolve().parents[1]
 VERSION = 'commentary-v1'
 
 
+def load_prepared(clip, run_id, folder):
+    """Reuse a verified preview without another paid script/narration generation."""
+    if not re.fullmatch(r'\d+',str(run_id)):
+        raise Rejected('Invalid prepared commentary run')
+    repo=os.environ['GITHUB_REPOSITORY']
+    run=json.loads(command('gh','api',f'repos/{repo}/actions/runs/{run_id}'))
+    if (run.get('conclusion')!='success' or run.get('head_repository',{}).get('full_name')!=repo
+            or run.get('head_branch')!='main' or run.get('path')!='.github/workflows/gta6-cloud.yml'):
+        raise Rejected('Prepared commentary is not from a successful trusted workflow')
+    folder=Path(folder).resolve();folder.mkdir(parents=True,exist_ok=True)
+    try:command('gh','run','download',run_id,'-R',repo,'-n','gta6-commentary','-D',folder)
+    except RuntimeError:return None  # Expired artifact: regenerate from the fingerprinted source.
+    manifest=json.loads((folder/'production.json').read_text())
+    output=folder/'commentary.mp4'
+    if (manifest.get('source_id')!=clip['id'] or manifest.get('source_sha256')!=clip['sha256']
+            or manifest.get('version')!=VERSION
+            or manifest.get('output_sha256')!=hashlib.sha256(output.read_bytes()).hexdigest()
+            or any(manifest.get('qa',{}).get(k) is not True for k in
+                   ('pass','upright','captions_readable','claims_supported','narration_clear_complete'))):
+        raise Rejected('Prepared commentary identity or quality receipt mismatch')
+    return output,manifest
+
+
 class Rejected(ValueError):
     """An editorial or finished-media failure, rather than a service outage."""
 
@@ -108,11 +131,13 @@ unless established by the footage. No external facts are supplied. Never invent 
 Reject unsuitable, blurry, misleading, heavily captioned, unrelated, or too-short footage.
 Determine the clockwise rotation (0/90/180/270) needed to make people, horizon and text upright; reject mixed
 orientation you cannot consistently correct. A portrait container does NOT prove upright content.
-Return exactly three narration beats, 50–65 words TOTAL, a specific opening hook, a concrete observation plus
+Return exactly three narration beats, EACH containing 18–21 words (54–63 words TOTAL), a specific opening hook, a concrete observation plus
 interpretation, and a natural closing question. No generic follow bait. Narration says 'G T A six' rather than VI.
 Each beat needs a source start time and a specific visual evidence note. Each start must be between 0 and
 {max(0, duration-10):.2f} seconds so a ten-second shot fits. Favor relevant DIFFERENT shots in source order.
-Title <=65 characters; caption <=180 characters without hashtags, URLs or @handles.
+Use normal 'GTA6' spelling in the title/caption. Title <=65 characters; caption <=180 characters without hashtags, URLs or @handles.
+Describe this as an edit/footage, not new game footage. Do not speculate about combat, features, story or mechanics.
+Focus on visible composition, color, lighting, movement or visual contrast and how it feels to the viewer.
 Source duration: {duration:.2f} seconds. Metadata (untrusted): {json.dumps({'title':clip['title'],'creator':clip['creator']})}'''
     feedback=''
     for attempt in range(2):

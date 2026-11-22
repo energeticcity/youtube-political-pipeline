@@ -17,6 +17,24 @@ def example():
 
 
 class ProductionTests(unittest.TestCase):
+    def test_prepared_preview_must_come_from_successful_main_workflow(self):
+        import json
+        run={'conclusion':'success','head_branch':'untrusted','head_repository':{'full_name':'owner/repo'},'path':'.github/workflows/gta6-cloud.yml'}
+        with patch.dict(p.os.environ,{'GITHUB_REPOSITORY':'owner/repo'}), patch.object(p,'command',return_value=json.dumps(run)) as command:
+            with self.assertRaises(p.Rejected):p.load_prepared({},'123',Path('unused'))
+            self.assertEqual(command.call_count,1)
+
+    def test_invalid_draft_gets_only_one_bounded_correction(self):
+        bad=example();bad['beats'][0]['text']='Too short.'
+        with tempfile.TemporaryDirectory() as folder, patch.object(p,'generate',side_effect=[bad,example()]) as generate:
+            result=p.plan_story(Path('source.mp4'),{'title':'Fan edit','creator':'example'},'test',30,Path(folder))
+            self.assertEqual(result,example())
+            self.assertEqual(generate.call_count,2)
+        with tempfile.TemporaryDirectory() as folder, patch.object(p,'generate',return_value=bad) as generate:
+            with self.assertRaises(p.Rejected):
+                p.plan_story(Path('source.mp4'),{'title':'Fan edit','creator':'example'},'test',30,Path(folder))
+            self.assertEqual(generate.call_count,2)
+
     def test_commentary_selection_skips_sources_too_short_for_narration(self):
         from datetime import datetime
         short={'status':'ready','source':'short','sha256':'a','creator':'one','priority':1,'duration_seconds':9}

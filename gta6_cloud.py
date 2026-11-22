@@ -306,7 +306,12 @@ def materialize(clip):
     file=source_media(clip)
     if os.environ.get('GTA6_COMMENTARY_ENABLED')=='true':
         from gta6.produce import produce
-        target,manifest=produce(file,clip,model_name(),OUT/'production')
+        prepared=clip.get('prepared_commentary_run')
+        cached=None
+        if prepared:
+            from gta6.produce import load_prepared
+            cached=load_prepared(clip,prepared,OUT/'production')
+        target,manifest=cached or produce(file,clip,model_name(commentary=True),OUT/'production')
         clip['title']=manifest['title'];clip['caption']=manifest['caption']
         clip['production']=manifest
         return target
@@ -461,12 +466,13 @@ def discover_links():
         browser.close()
     return list(dict.fromkeys(x for x in edit_links+links if SOURCE_RE.fullmatch(x)))[:60]
 
-def model_name():
+def model_name(commentary=False):
     response=requests.get('https://generativelanguage.googleapis.com/v1beta/models',
         headers={'x-goog-api-key':os.environ['GEMINI_API_KEY']},params={'pageSize':1000},timeout=45)
     if not response.ok:raise RuntimeError('Video review model unavailable')
     available={m['name'].removeprefix('models/') for m in response.json().get('models',[]) if 'generateContent' in m.get('supportedGenerationMethods',[])}
-    for name in ['gemini-3.1-flash-lite','gemini-2.5-flash','gemini-3.6-flash']:
+    preferences=['gemini-2.5-flash','gemini-3.6-flash','gemini-3.1-flash-lite'] if commentary else ['gemini-3.1-flash-lite','gemini-2.5-flash','gemini-3.6-flash']
+    for name in preferences:
         if name in available:return name
     raise ValueError('No configured review model available')
 
@@ -576,7 +582,9 @@ def main():
         candidates=[c for c in queue['items'] if c.get('status')=='ready' and c['sha256'] not in used and c.get('duration_seconds',0)>=20]
         if not candidates:raise ValueError('No unused commentary-length source ready')
         clip=sorted(candidates,key=lambda c:(c.get('priority',100),c.get('reviewed_at','')))[0]
-        output,manifest=produce(source_media(clip),clip,model_name(),OUT/'production')
+        output,manifest=produce(source_media(clip),clip,model_name(commentary=True),OUT/'production')
+        clip['prepared_commentary_run']=os.environ['GITHUB_RUN_ID']
+        save_issue(num,queue)
         print(json.dumps({'preview':str(output),'source':clip['source'],'title':manifest['title'],'qa':manifest['qa']}));return
     if op=='inspect':print(json.dumps(identities()));return
     if op=='status':reconcile(all_issues);return
