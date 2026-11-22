@@ -62,6 +62,6 @@ index 8bf501e..c2ce0b2 100644
          # 裁剪标题栏主动作实际出现，才可推进；上传失败或未知弹窗阻断会保留现场并报错。
          await expect(dialog.locator(INSTAGRAM_PRIMARY_ACTION)).to_have_count(1, timeout=60_000)
 +        await page.remove_locator_handler(notifications)
- 
+
      async def _advance_media_editor(self, page: Page) -> None:
          """裁剪、编辑两步各等待标题改变，最终以 Lexical 配文输入框确认。"""
