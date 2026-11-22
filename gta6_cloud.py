@@ -391,6 +391,22 @@ def model_name():
         if name in available:return name
     raise ValueError('No configured review model available')
 
+# https://aistudio.google.com/api-reference/generate-content#Resource:GenerationConfig
+REVIEW_SCHEMA={'type':'object','properties':{
+    'approve':{'type':'boolean'},'confidence':{'type':'number'},
+    'title':{'type':'string'},'caption':{'type':'string'},'reason':{'type':'string'}},
+    'required':['approve','confidence','title','caption','reason'],'additionalProperties':False}
+
+def parse_review(value):
+    # Older JSON-mode responses sometimes wrapped the single verdict in an array.
+    if isinstance(value,list) and len(value)==1:value=value[0]
+    if not isinstance(value,dict):raise ValueError('Invalid review object')
+    if (type(value.get('approve')) is not bool or type(value.get('confidence')) not in (int,float)
+            or not 0<=value['confidence']<=1
+            or any(not isinstance(value.get(k),str) for k in ['title','caption','reason'])):
+        raise ValueError('Invalid review object')
+    return value
+
 def review(file,info,model):
     small=OUT/'review.mp4'
     run('ffmpeg','-hide_banner','-loglevel','error','-i',str(file),'-vf','scale=480:-2','-c:v','libx264',
@@ -407,14 +423,12 @@ def review(file,info,model):
     response=requests.post(f'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent',
         headers={'x-goog-api-key':os.environ['GEMINI_API_KEY']},json={
             'contents':[{'role':'user','parts':[{'text':prompt},{'inlineData':{'mimeType':'video/mp4','data':base64.b64encode(small.read_bytes()).decode()}}]}],
-            'generationConfig':{'responseMimeType':'application/json','maxOutputTokens':1500,'temperature':0.2}},timeout=180)
+            'generationConfig':{'responseMimeType':'application/json','responseJsonSchema':REVIEW_SCHEMA,'maxOutputTokens':1500,'temperature':0.2}},timeout=180)
     if not response.ok:raise RuntimeError('Video review service rejected request')
     choices=response.json().get('candidates',[])
     if not choices or choices[0].get('finishReason')!='STOP':raise ValueError('Incomplete video review')
     text=''.join(p.get('text','') for p in choices[0].get('content',{}).get('parts',[]) if not p.get('thought'))
-    result=json.loads(text)
-    if not isinstance(result,dict):raise ValueError('Invalid review object')
-    return result
+    return parse_review(json.loads(text))
 
 def discover(queue_num,queue,all_issues):
     rows=history(all_issues,queue)

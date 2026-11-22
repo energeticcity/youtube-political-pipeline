@@ -106,6 +106,14 @@ class CloudPipelineTests(unittest.TestCase):
                         download.assert_not_called()
                     review.assert_not_called()
 
+    def test_review_accepts_one_verdict_and_rejects_ambiguous_or_invalid_data(self):
+        verdict={'approve':False,'confidence':0.95,'title':'Fan edit','caption':'Caption','reason':'Not relevant'}
+        self.assertEqual(g.parse_review(verdict),verdict)
+        self.assertEqual(g.parse_review([verdict]),verdict)
+        for bad in ([],[verdict,verdict],'approve',dict(verdict,approve='true'),
+                    dict(verdict,confidence=True),dict(verdict,confidence=2),dict(verdict,confidence=float('nan'))):
+            with self.subTest(value=bad),self.assertRaises(ValueError):g.parse_review(bad)
+
     @patch.object(g.cross,'gh')
     def test_multiple_queue_records_fail_closed(self,gh):
         with self.assertRaises(ValueError):g.load_queue([{'title':g.QUEUE_TITLE},{'title':g.QUEUE_TITLE}])
