@@ -17,6 +17,14 @@ def example():
 
 
 class ProductionTests(unittest.TestCase):
+    def test_commentary_selection_skips_sources_too_short_for_narration(self):
+        from datetime import datetime
+        short={'status':'ready','source':'short','sha256':'a','creator':'one','priority':1,'duration_seconds':9}
+        long=dict(short,source='long',sha256='b',creator='two',priority=2,duration_seconds=30)
+        with patch.dict(cloud.os.environ,{'GTA6_COMMENTARY_ENABLED':'true'}):
+            selected,_=cloud.select_clip({'items':[short,long]},[],datetime(2026,11,22,17,tzinfo=cloud.TZ))
+        self.assertEqual(selected,long)
+
     def test_plan_requires_source_grounded_three_beat_script_and_real_shot_bounds(self):
         plan = example()
         self.assertGreaterEqual(len(p.validate_plan(plan, 30).split()), 50)

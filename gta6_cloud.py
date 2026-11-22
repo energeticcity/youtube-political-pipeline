@@ -273,6 +273,7 @@ def select_clip(queue, rows, local_now):
     last=max(rows,key=lambda r:r.get('reserved_at',''),default={}).get('creator')
     candidates=sorted(queue['items'],key=lambda c:(c.get('priority',100),c.get('reviewed_at','')))
     for clip in candidates:
+        if os.environ.get('GTA6_COMMENTARY_ENABLED')=='true' and clip.get('duration_seconds',0)<20:continue
         if (clip.get('status')=='ready' and clip['source'] not in sources and clip['sha256'] not in hashes
                 and counts[clip['creator']]<2 and clip['creator']!=last):
             return clip,'ready'
@@ -513,7 +514,8 @@ def discover(queue_num,queue,all_issues):
     rows=history(all_issues,queue)
     known={c['source'] for c in queue['items']}|{r.get('source') for r in rows}
     hashes={c['sha256'] for c in queue['items']}|{r.get('sha256') for r in rows}
-    ready=[c for c in queue['items'] if c['status']=='ready']
+    minimum_duration=20 if os.environ.get('GTA6_COMMENTARY_ENABLED')=='true' else 5
+    ready=[c for c in queue['items'] if c['status']=='ready' and c.get('duration_seconds',60)>=minimum_duration]
     if len(ready)>=24:print('Queue already contains 24 ready clips');return
     links=discover_links()
     if not links:raise RuntimeError('TikTok returned no discoverable video links from cloud')
@@ -530,7 +532,7 @@ def discover(queue_num,queue,all_issues):
         try:
             file,info=download(source,vid)
             duration=info.get('duration') or 0
-            if not 5<=duration<=60:raise ValueError('Duration outside 5-60 seconds')
+            if not minimum_duration<=duration<=60:raise ValueError('Duration outside 5-60 seconds')
             sha=hashlib.sha256(file.read_bytes()).hexdigest()
             if sha in hashes:raise ValueError('Duplicate media')
             if str(info.get('uploader','')).lower()!=creator.lower():raise ValueError('Source creator mismatch')
