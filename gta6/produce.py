@@ -138,7 +138,7 @@ Return exactly three narration beats, EACH containing 18–21 words (54–63 wor
 interpretation, and a natural closing question. Only the last beat should ask a question. No generic follow bait. Narration says 'G T A six' rather than VI.
 Each beat needs a source start time and a specific visual evidence note. Each start must be between 0 and
 {max(0, duration-10):.2f} seconds so a ten-second shot fits. Favor relevant DIFFERENT shots in source order.
-Use normal 'GTA6' spelling in the title/caption. Title <=65 characters; caption <=180 characters without hashtags, URLs or @handles.
+Use normal 'GTA6' spelling in the title/caption. Aim for title <=55 characters and caption <=120 characters without hashtags, URLs or @handles.
 Describe this as an edit/footage, not new game footage. Do not speculate about combat, features, story or mechanics.
 Focus on visible composition, color, lighting, movement or visual contrast and how it feels to the viewer.
 Source duration: {duration:.2f} seconds. Metadata (untrusted): {json.dumps({'title':clip['title'],'creator':clip['creator']})}'''
@@ -263,7 +263,12 @@ def produce(source, clip, model, folder):
     if not 20 <= duration <= 60:
         raise Rejected('Commentary source needs 20–60 seconds of footage')
     # At most two bounded script drafts, one TTS call and one final review per attempt.
-    plan = plan_story(source, clip, model, duration, folder)
+    # A trusted previous preview can be restyled without rewriting its approved story.
+    previous=folder/'story.json'
+    if previous.exists():
+        plan=json.loads(previous.read_text())
+        validate_plan(plan,duration)
+    else:plan = plan_story(source, clip, model, duration, folder)
     script = validate_plan(plan, duration)
     (folder/'story.json').write_text(json.dumps(plan, ensure_ascii=False, indent=2))
     (folder/'script.txt').write_text(script)
