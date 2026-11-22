@@ -120,8 +120,8 @@ def validate_plan(plan, duration):
         if any(c in beat['text'] for c in '{}\\\n') or len(beat['text']) > 400:
             raise Rejected('Invalid narration text')
     script = ' '.join(b['text'] for b in beats)
-    if not 50 <= len(script.split()) <= 65 or len(script) > 600:
-        raise Rejected('Commentary must contain 50–65 words')
+    if not 50 <= len(script.split()) <= 80 or len(script) > 600:
+        raise Rejected('Commentary must contain 50–80 words')
     return script
 
 
@@ -135,7 +135,7 @@ Reject unsuitable, blurry, misleading, heavily captioned, unrelated, or too-shor
 Determine the clockwise rotation (0/90/180/270) needed to make people, horizon and text upright; reject mixed
 orientation you cannot consistently correct. A portrait container does NOT prove upright content.
 Return exactly three narration beats, EACH containing 18–21 words (54–63 words TOTAL), a specific opening hook, a concrete observation plus
-interpretation, and a natural closing question. No generic follow bait. Narration says 'G T A six' rather than VI.
+interpretation, and a natural closing question. Only the last beat should ask a question. No generic follow bait. Narration says 'G T A six' rather than VI.
 Each beat needs a source start time and a specific visual evidence note. Each start must be between 0 and
 {max(0, duration-10):.2f} seconds so a ten-second shot fits. Favor relevant DIFFERENT shots in source order.
 Use normal 'GTA6' spelling in the title/caption. Title <=65 characters; caption <=180 characters without hashtags, URLs or @handles.
