@@ -1,5 +1,5 @@
 diff --git a/uploader/youtube_uploader/main.py b/uploader/youtube_uploader/main.py
-index 4a1b0e1..41aa207 100644
+index 4a1b0e1..7b1e8e5 100644
 --- a/uploader/youtube_uploader/main.py
 +++ b/uploader/youtube_uploader/main.py
 @@ -12,6 +12,8 @@ Login is interactive (Google account, no QR code): the browser opens, the user s
@@ -30,7 +30,17 @@ index 4a1b0e1..41aa207 100644
          except Exception:
              return False
          finally:
-@@ -202,7 +205,7 @@ class YouTubeVideo(BaseVideoUploader):
+@@ -197,12 +200,17 @@ class YouTubeVideo(BaseVideoUploader):
+         self.debug = debug
+         self.headless = headless
+ 
++    def set_publish_date(self, publish_date):
++        # The CLI calls this method even for an immediate upload.
++        if publish_date not in (None, 0):
++            raise ValueError("YouTube scheduling is not implemented; use an external scheduler")
++
+     async def upload(self, playwright: Playwright) -> None:
+         browser = await playwright.chromium.launch(
              headless=self.headless, channel="chrome",
              proxy={"server": YT_PROXY} if YT_PROXY else None,
          )
@@ -39,7 +49,7 @@ index 4a1b0e1..41aa207 100644
          context = await set_init_script(context)
          page = await context.new_page()
          page.set_default_timeout(60000)
-@@ -214,6 +217,11 @@ class YouTubeVideo(BaseVideoUploader):
+@@ -214,6 +222,11 @@ class YouTubeVideo(BaseVideoUploader):
              await browser.close()
              raise RuntimeError("YouTube 登录态失效，请重新执行 login")
  
@@ -51,7 +61,7 @@ index 4a1b0e1..41aa207 100644
          # 1) 选择视频文件
          file_input = page.locator('input[type="file"]').first
          await file_input.wait_for(state="attached", timeout=60000)
-@@ -297,7 +305,11 @@ class YouTubeVideo(BaseVideoUploader):
+@@ -297,7 +310,11 @@ class YouTubeVideo(BaseVideoUploader):
  
          # 10) 可见性
          youtube_logger.info(_msg("🌐", f"设置可见性 = {self.visibility}"))
@@ -64,7 +74,7 @@ index 4a1b0e1..41aa207 100644
  
          # 10.5) 关键：等上传真正传完再发布。浏览器上传靠窗口开着传，
          #       传到一半就点发布+关浏览器 = 上传被掐断卡在中途（如 76%）。
-@@ -307,7 +319,7 @@ class YouTubeVideo(BaseVideoUploader):
+@@ -307,7 +324,7 @@ class YouTubeVideo(BaseVideoUploader):
          # 11) 发布
          await page.wait_for_timeout(1200)
          if not await _click_if_present(page, "#done-button", 15000):
