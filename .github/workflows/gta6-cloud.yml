@@ -1,9 +1,10 @@
 name: GTA6 Cloud Pipeline
-run-name: GTA6 cloud ${{ inputs.operation || (github.event.schedule == '0 14,22 * * *' && 'discover' || 'publish') }}
+run-name: GTA6 cloud ${{ inputs.operation || (github.event.schedule == '0 14 * * *' && 'discover' || (github.event.schedule == '0 22 * * *' && 'discover-and-publish' || 'publish')) }}
 on:
   schedule:
-    - cron: '0 14,22 * * *'
-    - cron: '0 15-23 * * *'
+    - cron: '0 14 * * *'
+    - cron: '0 22 * * *'
+    - cron: '0 15-21,23 * * *'
     - cron: '0 0-2 * * *'
   workflow_dispatch:
     inputs:
@@ -11,7 +12,7 @@ on:
         description: Cloud pipeline action
         type: choice
         default: dry-run
-        options: [inspect, discover, dry-run, publish, publish-next-slot, status]
+        options: [inspect, discover, discover-and-publish, dry-run, publish, publish-next-slot, status]
 permissions:
   contents: read
   actions: read
@@ -39,8 +40,10 @@ jobs:
         run: |
           if [ -n "$REQUESTED" ]; then
             echo "OPERATION=$REQUESTED" >> "$GITHUB_ENV"
-          elif [ "$SCHEDULE" = '0 14,22 * * *' ]; then
+          elif [ "$SCHEDULE" = '0 14 * * *' ]; then
             echo 'OPERATION=discover' >> "$GITHUB_ENV"
+          elif [ "$SCHEDULE" = '0 22 * * *' ]; then
+            echo 'OPERATION=discover-and-publish' >> "$GITHUB_ENV"
           else
             echo 'OPERATION=publish' >> "$GITHUB_ENV"
           fi
@@ -54,7 +57,7 @@ jobs:
           git -C /tmp/sau apply "$GITHUB_WORKSPACE/gta6/social-auto-upload-youtube.patch"
           pip install -e /tmp/sau
       - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
-      - if: env.OPERATION == 'discover' || env.OPERATION == 'publish' || env.OPERATION == 'publish-next-slot' || env.OPERATION == 'dry-run'
+      - if: env.OPERATION == 'discover' || env.OPERATION == 'discover-and-publish' || env.OPERATION == 'publish' || env.OPERATION == 'publish-next-slot' || env.OPERATION == 'dry-run'
         run: playwright install --with-deps chromium
       - run: python -m unittest discover -s tests -p 'test_gta6*.py' -v
       - name: Run verified cloud pipeline
@@ -84,7 +87,7 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
-        if: env.OPERATION == 'discover' && always()
+        if: (env.OPERATION == 'discover' || env.OPERATION == 'discover-and-publish') && always()
         with:
           name: gta6-reviewed-media
           path: gta6-output/media/*.mp4

@@ -464,13 +464,18 @@ def discover(queue_num,queue,all_issues):
     if added==0:raise RuntimeError('No suitable new clips passed cloud review; existing ready queue retained')
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('operation',choices=['inspect','discover','dry-run','publish','publish-next-slot','status'])
+    p=argparse.ArgumentParser();p.add_argument('operation',choices=['inspect','discover','discover-and-publish','dry-run','publish','publish-next-slot','status'])
     op=p.parse_args().operation
     OUT.mkdir(exist_ok=True)
     all_issues=issues();num,queue=load_queue(all_issues)
     if op=='inspect':print(json.dumps(identities()));return
     if op=='status':reconcile(all_issues);return
     if op=='discover':discover(num,queue,all_issues)
+    elif op=='discover-and-publish':
+        try:discover(num,queue,all_issues)
+        finally:
+            refreshed=issues();queue_num,current_queue=load_queue(refreshed)
+            reconcile(refreshed);publish(queue_num,current_queue,refreshed)
     else:
         reconcile(all_issues)
         publish(num,queue,all_issues,dry_run=op=='dry-run',next_slot=op=='publish-next-slot')
