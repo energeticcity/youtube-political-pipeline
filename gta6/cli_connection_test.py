@@ -120,15 +120,32 @@ def youtube():
     RESULT['cli_help']='passed'
     if command(['sau','youtube','check','--account','dadjokefix'],cwd=repo).strip()!='valid':
         raise RuntimeError('youtube_browser_authentication_failed')
-    RESULT.update(account='@dadjokefix',channel_id=os.environ['SAU_EXPECTED_YOUTUBE_CHANNEL'],authenticated_check='passed',upload='starting_private_test')
-    save()
-    output=command(['sau','youtube','upload-video','--account','dadjokefix',
-        '--file',fixture(),'--title','Private cloud CLI connection test 2026-11-22',
-        '--visibility','private','--headless'],cwd=repo,timeout=420)
-    match=re.search(r'https://(?:youtu.be/|www.youtube.com/watch\?v=)([A-Za-z0-9_-]{11})',output)
-    if not match:
-        raise RuntimeError('youtube_upload_receipt_uncertain_do_not_retry_blindly')
-    RESULT.update(upload='accepted_private_test',video_id=match.group(1),requested_visibility='private')
+    from sau_youtube_verify import receipts
+    title='Private cloud CLI connection test 2026-11-22'
+    previous=receipts(account,title)
+    RESULT.update(account='@dadjokefix',channel_id=os.environ['SAU_EXPECTED_YOUTUBE_CHANNEL'],authenticated_check='passed')
+    if not previous:
+        RESULT['upload']='starting_private_test'
+        save()
+        command(['sau','youtube','upload-video','--account','dadjokefix',
+            '--file',fixture(),'--title',title,'--visibility','private','--headless'],cwd=repo,timeout=420)
+    matches=receipts(account,title)
+    if len(matches)!=1 or next(iter(matches.values()))['verified_visibility']!='private':
+        raise RuntimeError('youtube_private_cloud_upload_not_uniquely_verified')
+    RESULT.update(next(iter(matches.values())))
+    RESULT.update(upload='verified_private_test',requested_visibility='private')
+
+def youtube_verify():
+    from sau_youtube_verify import receipts
+    repo=Path(os.environ['SAU_REPO'])
+    account=repo/'cookies/youtube_dadjokefix.json'
+    account.parent.mkdir(exist_ok=True)
+    account.write_text(os.environ['GTA6_YOUTUBE_BROWSER_SESSION']);account.chmod(0o600)
+    matches=receipts(account,'Private cloud CLI connection test 2026-11-22')
+    if len(matches)!=1 or next(iter(matches.values()))['verified_visibility']!='private':
+        raise RuntimeError('youtube_private_cloud_upload_not_uniquely_verified')
+    RESULT.update(next(iter(matches.values())))
+    RESULT.update(upload='verified_private_test',account='@dadjokefix',authenticated_check='passed',status='passed')
 
 def youtube_api():
     from oauth2client.client import GoogleCredentials
@@ -275,7 +292,7 @@ def instagram():
 
 
 try:
-    {'tiktok': tiktok, 'tiktok-browser': tiktok_browser, 'youtube': youtube, 'instagram': instagram}[PLATFORM]()
+    {'tiktok': tiktok, 'tiktok-browser': tiktok_browser, 'youtube': youtube, 'youtube-verify': youtube_verify, 'instagram': instagram}[PLATFORM]()
     RESULT['status'] = 'passed'
 except Exception as exc:
     RESULT['status'] = 'failed'

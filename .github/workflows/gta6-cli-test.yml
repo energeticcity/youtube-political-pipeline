@@ -6,7 +6,7 @@ on:
         description: CLI to test
         type: choice
         default: all
-        options: [all, tiktok, youtube, instagram]
+        options: [all, tiktok, youtube, youtube-verify, instagram]
 permissions:
   contents: read
 concurrency:
@@ -39,7 +39,7 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
   youtube:
-    if: inputs.platform == 'all' || inputs.platform == 'youtube'
+    if: inputs.platform == 'all' || inputs.platform == 'youtube' || inputs.platform == 'youtube-verify'
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
@@ -61,12 +61,12 @@ jobs:
         env:
           SAU_REPO: /tmp/sau
           GTA6_YOUTUBE_BROWSER_SESSION: ${{ secrets.GTA6_YOUTUBE_BROWSER_SESSION }}
-        run: python gta6/cli_connection_test.py youtube
+        run: python gta6/cli_connection_test.py "${{ inputs.platform == 'youtube-verify' && 'youtube-verify' || 'youtube' }}"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: cli-test-youtube
-          path: cli-test-results/youtube.json
+          path: cli-test-results/youtube*.json
           retention-days: 7
           if-no-files-found: ignore
   instagram:
