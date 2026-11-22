@@ -47,8 +47,11 @@ jobs:
           else
             echo 'OPERATION=publish' >> "$GITHUB_ENV"
           fi
-      - run: pip install 'requests>=2.32,<3' 'yt-dlp==2026.10.26' 'playwright>=1.45,<2' 'autotok==2.1.0' 'youtube-upload @ git+https://github.com/tokland/youtube-upload.git@6a30b55d0fd4976571a5b9b34c01fd41cec49c7a'
+      - run: pip install 'requests>=2.32,<3' 'yt-dlp==2026.10.26'
+      - if: env.OPERATION != 'preview-commentary'
+        run: pip install 'playwright>=1.45,<2' 'autotok==2.1.0' 'youtube-upload @ git+https://github.com/tokland/youtube-upload.git@6a30b55d0fd4976571a5b9b34c01fd41cec49c7a'
       - name: Install pinned upstream social CLIs
+        if: env.OPERATION != 'preview-commentary'
         run: |
           git clone https://github.com/dreammis/social-auto-upload.git /tmp/sau
           git -C /tmp/sau checkout 3847fff01f5434a8a32829833163cd6723cabc59
@@ -56,7 +59,11 @@ jobs:
           git -C /tmp/sau apply "$GITHUB_WORKSPACE/gta6/social-auto-upload-instagram.patch"
           git -C /tmp/sau apply "$GITHUB_WORKSPACE/gta6/social-auto-upload-youtube.patch"
           pip install -e /tmp/sau
-      - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+      - run: |
+          if ! command -v ffmpeg >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq ffmpeg
+          fi
       - if: env.OPERATION == 'discover' || env.OPERATION == 'discover-and-publish' || env.OPERATION == 'publish' || env.OPERATION == 'publish-next-slot' || env.OPERATION == 'dry-run'
         run: playwright install --with-deps chromium
       - run: python -m unittest discover -s tests -p 'test_gta6*.py' -v

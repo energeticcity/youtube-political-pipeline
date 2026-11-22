@@ -72,12 +72,15 @@ def generate(model, prompt, video, schema):
             'contents': [{'role': 'user', 'parts': [{'text': prompt}, {'inlineData': {
                 'mimeType': 'video/mp4', 'data': base64.b64encode(proxy.read_bytes()).decode()}}]}],
             'generationConfig': {'responseMimeType': 'application/json', 'responseJsonSchema': schema,
-                                 'temperature': 0.2, 'maxOutputTokens': 3500}}, timeout=180)
+                                 'temperature': 0.2, 'maxOutputTokens': 8000,
+                                 'thinkingConfig': {'thinkingBudget': 1024}}}, timeout=180)
     if not response.ok:
         raise RuntimeError(f'Commentary review service HTTP {response.status_code}')
     choices = response.json().get('candidates', [])
     if not choices or choices[0].get('finishReason') != 'STOP':
-        raise RuntimeError('Incomplete commentary review; no publication')
+        reason=choices[0].get('finishReason') if choices else 'NO_CANDIDATE'
+        reason=reason if reason in ('MAX_TOKENS','SAFETY','RECITATION','NO_CANDIDATE') else 'INCOMPLETE'
+        raise RuntimeError('Incomplete commentary review: '+reason+'; no publication')
     result = json.loads(''.join(p.get('text', '') for p in choices[0]['content']['parts'] if not p.get('thought')))
     if not isinstance(result, dict):
         raise Rejected('Invalid commentary object')
