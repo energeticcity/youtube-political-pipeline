@@ -11,7 +11,7 @@ on:
         description: Cloud pipeline action
         type: choice
         default: dry-run
-        options: [inspect, discover, dry-run, publish, status]
+        options: [inspect, discover, dry-run, publish, publish-next-slot, status]
 permissions:
   contents: read
   actions: read
@@ -52,7 +52,7 @@ jobs:
           cp /tmp/sau/conf.example.py /tmp/sau/conf.py
           pip install -e /tmp/sau
       - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
-      - if: env.OPERATION == 'discover' || env.OPERATION == 'publish' || env.OPERATION == 'dry-run'
+      - if: env.OPERATION == 'discover' || env.OPERATION == 'publish' || env.OPERATION == 'publish-next-slot' || env.OPERATION == 'dry-run'
         run: playwright install --with-deps chromium
       - run: python -m unittest discover -s tests -p 'test_gta6*.py' -v
       - name: Run verified cloud pipeline

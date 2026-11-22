@@ -2,7 +2,7 @@
 import argparse
 import base64
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import hashlib
 import json
 import os
@@ -241,17 +241,21 @@ def reconcile(all_issues):
         if any(d['status']=='failed' for d in row['delivery'].values()):
             raise RuntimeError('A platform delivery failed; inspect cloud post issue before retrying')
 
-def publish(queue_num,queue,all_issues,dry_run=False):
+def publish(queue_num,queue,all_issues,dry_run=False,next_slot=False):
+    local=now().astimezone(TZ)
+    if next_slot:
+        if os.environ.get('GITHUB_EVENT_NAME')!='workflow_dispatch':
+            raise ValueError('Early publication of a scheduled slot requires an explicit manual run')
+        local=local+timedelta(hours=1)
     identities()
     rows=history(all_issues,queue)
-    clip,reason=select_clip(queue,rows,now().astimezone(TZ))
+    clip,reason=select_clip(queue,rows,local)
     summary={'selection':reason,'next_clip':{k:clip[k] for k in ['id','source','creator','title']} if clip else None}
     (OUT/'selection.json').write_text(json.dumps(summary,indent=2));print(json.dumps(summary))
     if not clip:return
     cross.validate_clip(clip)
     media=materialize(clip)
     if dry_run:return
-    local=now().astimezone(TZ)
     row={k:clip[k] for k in ['id','source','creator','sha256','title','caption']}
     row.update(status='reserved',slot=local.strftime('%Y-%m-%dT%H'),local_day=local.date().isoformat(),
         reserved_at=now().isoformat(),run_id=os.environ['GITHUB_RUN_ID'])
@@ -406,7 +410,7 @@ def discover(queue_num,queue,all_issues):
     if added==0:raise RuntimeError('No suitable new clips passed cloud review; existing ready queue retained')
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('operation',choices=['inspect','discover','dry-run','publish','status'])
+    p=argparse.ArgumentParser();p.add_argument('operation',choices=['inspect','discover','dry-run','publish','publish-next-slot','status'])
     op=p.parse_args().operation
     OUT.mkdir(exist_ok=True)
     all_issues=issues();num,queue=load_queue(all_issues)
@@ -415,7 +419,7 @@ def main():
     if op=='discover':discover(num,queue,all_issues)
     else:
         reconcile(all_issues)
-        publish(num,queue,all_issues,dry_run=op=='dry-run')
+        publish(num,queue,all_issues,dry_run=op=='dry-run',next_slot=op=='publish-next-slot')
 
 if __name__=='__main__':
     try:main()
