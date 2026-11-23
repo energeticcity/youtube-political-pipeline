@@ -62,6 +62,15 @@ class CloudPipelineTests(unittest.TestCase):
         run.assert_not_called()
     @patch.object(g.subprocess,'run')
     @patch.object(g,'tiktok_client')
+    def test_only_explicit_tiktok_rejection_gets_one_fresh_cli_attempt(self,identity,run):
+        run.side_effect=[MagicMock(returncode=1,stdout='',stderr='status_code=5'),
+                         MagicMock(returncode=0,stdout='Published. Video id: v1accepted',stderr='')]
+        with patch.dict(g.os.environ,{'GTA6_TIKTOK_SESSION':json.dumps({'name':'gta6_clips','cookies':[]})}):
+            self.assertEqual(g.tiktok_cli_upload('clip.mp4','caption')['video_id'],'v1accepted')
+        self.assertEqual(run.call_count,2)
+
+    @patch.object(g.subprocess,'run')
+    @patch.object(g,'tiktok_client')
     def test_cli_failure_or_missing_receipt_is_not_marked_accepted(self,identity,run):
         with patch.dict(g.os.environ,{'GTA6_TIKTOK_SESSION':json.dumps({'name':'gta6_clips','cookies':[]})}):
             for code,stdout in [(1,''),(0,'No upload receipt')]:

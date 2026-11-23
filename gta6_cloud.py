@@ -81,10 +81,14 @@ def tiktok_cli_upload(media, caption):
         account=Path(folder)/'accounts/gta6_clips.json'
         account.parent.mkdir(mode=0o700)
         account.write_text(json.dumps(session));account.chmod(0o600)
-        result=subprocess.run(['autotok','upload','-u','gta6_clips','-v',str(Path(media).resolve()),
-            '-t',caption,'-vi','0','-ct','1','-d','0','-st','0'],
-            env=dict(os.environ,AUTOTOK_HOME=folder),capture_output=True,text=True,timeout=360,
-            stdin=subprocess.DEVNULL)
+        for attempt in range(2):
+            result=subprocess.run(['autotok','upload','-u','gta6_clips','-v',str(Path(media).resolve()),
+                '-t',caption,'-vi','0','-ct','1','-d','0','-st','0'],
+                env=dict(os.environ,AUTOTOK_HOME=folder),capture_output=True,text=True,timeout=360,
+                stdin=subprocess.DEVNULL)
+            # Only this explicit rejection is safe to retry with a fresh signed request.
+            # Network/receipt uncertainty is never retried automatically.
+            if not result.returncode or 'status_code=5' not in result.stderr or attempt:break
     if result.returncode:
         # Never expose network diagnostics/session material or repeat an uncertain upload.
         if 'status_code=5' in result.stderr:
@@ -448,6 +452,8 @@ def complete_publication(issue_number,row,clip,media,queue_num,queue):
     print(json.dumps({'issue':issue['number'],'delivery':row['delivery']}))
     if any(d['status']=='failed' for d in row['delivery'].values()):
         raise RuntimeError('Platform delivery failed; reservation prevents duplicate retries')
+    if any(d['status'] in ('rejected','unconfirmed') for d in row['delivery'].values()):
+        raise RuntimeError('A destination needs recovery; other completed publications retained')
 
 def discover_links():
     from playwright.sync_api import sync_playwright
