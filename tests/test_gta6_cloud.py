@@ -95,6 +95,16 @@ class CloudPipelineTests(unittest.TestCase):
         self.assertEqual(receipt['status'],'accepted')
         self.assertIsNone(receipt['url'])
     @patch.object(g.subprocess,'run')
+    @patch.object(g,'tiktok_client')
+    def test_cli_returns_real_public_item_id_separately_from_storage_reference(self,identity,run):
+        run.return_value=MagicMock(returncode=0,stdout='Published. Video id: v1storage\nPublic item id: 7711441476168813844\n')
+        with patch.dict(g.os.environ,{'GTA6_TIKTOK_SESSION':json.dumps({'name':'gta6_clips','cookies':[]})}):
+            receipt=g.tiktok_cli_upload('clip.mp4','caption')
+        self.assertEqual(receipt['video_id'],'v1storage')
+        self.assertEqual(receipt['url'],'https://www.tiktok.com/@gtaviclipfix/video/7711441476168813844')
+        self.assertEqual(receipt['status'],'accepted')
+
+    @patch.object(g.subprocess,'run')
     @patch.object(g,'tiktok_client',side_effect=ValueError('Wrong identity'))
     def test_cli_never_runs_when_identity_check_fails(self,identity,run):
         with self.assertRaises(ValueError):g.tiktok_cli_upload('clip.mp4','caption')

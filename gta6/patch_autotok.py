@@ -11,8 +11,8 @@ def main():
     old='base = "https://www.tiktok.com/api/v1/web/project/post/"'
     new='base = "https://www.tiktok.com/tiktok/web/project/post/v1/"'
     if old not in text and new in text and '# Preserve the authorized browser' in text:
-        print('Pinned Autotok compatibility patch already applied.');return
-    if text.count(old)!=1:raise RuntimeError('Unexpected Autotok publish implementation')
+        pass
+    elif text.count(old)!=1:raise RuntimeError('Unexpected Autotok publish implementation')
     text=text.replace(old,new)
     anchor='        s.headers.update({"User-Agent": self.user_agent, "Accept": "application/json, text/plain, */*"})'
     if text.count(anchor)!=1:raise RuntimeError('Unexpected Autotok session implementation')
@@ -32,7 +32,19 @@ def main():
             s.cookies.set(name, str(cookie["value"]), domain=cookie["domain"], path=cookie.get("path") or "/")
             seen.add(name)
 '''
-    path.write_text(text.replace(anchor,cookies+anchor))
+    if '# Preserve the authorized browser' not in text:text=text.replace(anchor,cookies+anchor)
+    path.write_text(text)
+    cli=path.with_name('cli.py');source=cli.read_text()
+    receipt_anchor='    print(f"Published{when}. Video id: {result.video_id}")'
+    if source.count(receipt_anchor)!=1:raise RuntimeError('Unexpected Autotok CLI receipt implementation')
+    if 'Public item id:' not in source:
+        source=source.replace(receipt_anchor,receipt_anchor+'''
+    for post in result.response.get("single_post_resp_list", []):
+        item=str(post.get("item_id", ""))
+        if post.get("status_code")==0 and item.isdecimal() and 15<=len(item)<=25:
+            print(f"Public item id: {item}")
+''')
+        cli.write_text(source)
     print('Applied pinned Autotok session and publish-endpoint compatibility patch.')
 
 

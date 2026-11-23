@@ -97,7 +97,10 @@ def tiktok_cli_upload(media, caption):
     receipt=re.search(r'Published(?:[^\n]*)\. Video id:\s*([A-Za-z0-9_-]+)',result.stdout)
     if not receipt:
         raise RuntimeError('Autotok CLI upload receipt is uncertain; reservation retained')
-    return {'status':'accepted','video_id':receipt.group(1),'url':None,
+    item=re.search(r'^Public item id: ([0-9]{15,25})$',result.stdout,re.MULTILINE)
+    return {'status':'accepted','video_id':receipt.group(1),
+            'public_item_id':item.group(1) if item else None,
+            'url':'https://www.tiktok.com/@gtaviclipfix/video/'+item.group(1) if item else None,
             'uploader':'autotok CLI','requested_visibility':'public'}
 
 def instagram_session():
