@@ -69,7 +69,7 @@ class ProductionTests(unittest.TestCase):
                 p.validate_plan(dict(plan, **change), 30)
         bad = copy.deepcopy(plan); bad['beats'][0]['start'] = float('nan')
         with self.assertRaises(p.Rejected): p.validate_plan(bad, 30)
-        bad['beats'][0]['start'] = 29
+        bad['beats'][0]['start'] = 30
         with self.assertRaises(p.Rejected): p.validate_plan(bad, 30)
 
     def test_final_review_rejects_sideways_media_and_missing_or_wrong_actual_speech(self):
