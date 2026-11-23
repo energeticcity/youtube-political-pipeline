@@ -97,7 +97,22 @@ Trigger manually via the **Actions** tab → "Daily Dad Joke Pipeline" → "Run 
 - `fonts/` — Montserrat for captions
 - `dad_avatar.jpg` — the dad photo (you provide this)
 
-## GTA6 commentary production
+## GTA6 publishing
+
+Production currently uses direct reposts with original audio and creator credit
+(`GTA6_COMMENTARY_ENABLED=false`). Destinations are TikTok and Instagram
+@gtaviclipfix and YouTube channel UCdL4ljG4SqfEA8qk5yd6v5w. TikTok uses pinned
+Autotok 2.1.0 with the bounded session/endpoint compatibility patch; Instagram
+uses pinned social-auto-upload with its browser regression patch. YouTube
+currently uses the existing Post for Me connection. The optional YouTube CLI
+and commentary modes below remain disabled.
+
+A recovered publication skips completed destinations. Explicit TikTok rejections
+may be retried after diagnosis; accepted or uncertain attempts remain reserved.
+An Instagram authentication failure stops before upload. Never remove a
+successful destination receipt to retry an entire batch.
+
+### Optional commentary production
 
 The separate `gta6-hourly.yml` workflow can turn reviewed GTA6 sources into original
 visual commentary using `gta6/produce.py`. It reuses the existing Gemini and
