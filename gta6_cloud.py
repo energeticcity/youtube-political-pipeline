@@ -355,7 +355,7 @@ def delivery(post_id):
             url=public_url(platform,(success[-1].get('platform_data') or {}).get('url'))
             result[platform]={'status':'published' if url else 'provider_success_unverified','url':url}
         elif matches and all(r.get('success') is False for r in matches):
-            result[platform]={'status':'failed','result_id':matches[-1].get('id')}
+            result[platform]={'status':'failed','result_id':matches[-1].get('id'),'quota':__import__('archive_recovery_check').quota_evidence(matches[-1].get('error'))}
         else:result[platform]={'status':'pending'}
     return result
 
