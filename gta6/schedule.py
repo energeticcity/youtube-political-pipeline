@@ -38,7 +38,7 @@ def decision(issues,current):
 
 
 def main():
-    if os.environ.get('GITHUB_EVENT_NAME')=='workflow_dispatch':
+    if os.environ.get('GITHUB_EVENT_NAME')=='workflow_dispatch' and os.environ.get('GTA6_REQUESTED_OPERATION')!='tick':
         result={'required':True,'reason':'explicit manual operation'}
     else:
         repo=os.environ['GITHUB_REPOSITORY']

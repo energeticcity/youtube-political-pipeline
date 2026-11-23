@@ -1,6 +1,8 @@
 from datetime import datetime
 import json
 import unittest
+from unittest.mock import patch, MagicMock
+import gta6.schedule as schedule
 from gta6.schedule import decision, TZ
 
 
@@ -10,6 +12,14 @@ class HourlyScheduleTests(unittest.TestCase):
             {'title':'[gta6-cloud-post] '+post['slot'],'body':json.dumps(post)} for post in posts]
 
     def time(self,hour,minute=2):return datetime(2026,11,23,hour,minute,tzinfo=TZ)
+
+    def test_external_timer_tick_obeys_the_cheap_gate_instead_of_forcing_media_setup(self):
+        response=MagicMock(returncode=0,stdout='[[]]')
+        with patch.dict(schedule.os.environ,{'GITHUB_EVENT_NAME':'workflow_dispatch',
+                  'GTA6_REQUESTED_OPERATION':'tick','GITHUB_REPOSITORY':'owner/repo'},clear=True):
+            with patch.object(schedule.subprocess,'run',return_value=response), patch.object(schedule,'decision',return_value={'required':False,'reason':'reserved'}) as decide:
+                schedule.main()
+                decide.assert_called_once()
 
     def test_quiet_hours_do_not_start_browser_or_media_jobs(self):
         for hour in (0,6,20,23):self.assertFalse(decision(self.rows(),self.time(hour))['required'])

@@ -36,6 +36,7 @@ jobs:
       - id: decision
         env:
           GH_TOKEN: ${{ github.token }}
+          GTA6_REQUESTED_OPERATION: ${{ inputs.operation }}
         run: python3 gta6/schedule.py
       - name: Record scheduler failure
         if: failure()
