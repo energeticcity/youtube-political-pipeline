@@ -1,5 +1,5 @@
 name: GTA6 Hourly Publisher
-run-name: GTA6 cloud ${{ inputs.operation || 'hourly check' }}
+run-name: GTA6 cloud ${{ inputs.operation || 'hourly check' }} (${{ inputs.timer_source || github.event_name }})
 on:
   schedule:
     - cron: '2,7,12,17,22,27,32,37,42,47,52,57 * * * *'
@@ -10,6 +10,11 @@ on:
         type: choice
         default: dry-run
         options: [tick, inspect, discover, discover-and-publish, preview-commentary, resume-publication, dry-run, publish, publish-next-slot, status]
+      timer_source:
+        description: Origin of the clock check
+        type: choice
+        default: operator
+        options: [operator, cloudflare, mac-backup]
       publication_issue:
         description: Existing publication issue for explicit recovery only
         type: string

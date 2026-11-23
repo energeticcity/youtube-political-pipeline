@@ -10,7 +10,7 @@ test('uses Dawson Creek posting/discovery hours, including UTC date rollover',as
     const result=await dispatchTick({GITHUB_DISPATCH_TOKEN:'fixture'},time,async(url,request)=>{
       calls++;
       assert.equal(url,'https://api.github.com/repos/energeticcity/youtube-political-pipeline/actions/workflows/gta6-hourly.yml/dispatches');
-      assert.deepEqual(JSON.parse(request.body),{ref:'main',inputs:{operation:'tick'}});
+      assert.deepEqual(JSON.parse(request.body),{ref:'main',inputs:{operation:'tick',timer_source:'cloudflare'}});
       return {status:204};
     });
     assert.equal(calls,1);assert.equal(result.status,'dispatched');
