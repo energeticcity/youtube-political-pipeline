@@ -614,6 +614,13 @@ def main():
         # issue still binds the exact source fingerprint and reviewed export.
         clip=next((c for c in queue['items'] if c['id']==row['id'] and c['sha256']==row['sha256']),dict(row))
         cross.validate_clip(row);identities(defer_instagram=True)
+        if not row.get('production'):
+            # Direct repost recovery uses the original reviewed source hash.
+            if os.environ.get('GTA6_COMMENTARY_ENABLED')=='true':
+                raise ValueError('Raw publication recovery requires direct repost mode')
+            clip.update(title=row['title'],caption=row['caption'])
+            media=materialize(clip)
+            complete_publication(issue['number'],row,clip,media,num,queue);return
         run_id=row['run_id'];repo=os.environ['GITHUB_REPOSITORY']
         info=json.loads(run('gh','api',f'repos/{repo}/actions/runs/{run_id}'))
         if info.get('head_repository',{}).get('full_name')!=repo or info.get('head_branch')!='main' or info.get('path')!='.github/workflows/gta6-cloud.yml':
