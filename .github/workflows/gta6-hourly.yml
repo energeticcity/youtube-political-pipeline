@@ -1,18 +1,15 @@
-name: GTA6 Cloud Pipeline
-run-name: GTA6 cloud ${{ inputs.operation || (github.event.schedule == '0 14 * * *' && 'discover' || (github.event.schedule == '0 22 * * *' && 'discover-and-publish' || 'publish')) }}
+name: GTA6 Hourly Publisher
+run-name: GTA6 cloud ${{ inputs.operation || 'hourly check' }}
 on:
   schedule:
-    - cron: '0 14 * * *'
-    - cron: '0 22 * * *'
-    - cron: '0 15-21,23 * * *'
-    - cron: '0 0-2 * * *'
+    - cron: '2,7,12,17,22,27,32,37,42,47,52,57 * * * *'
   workflow_dispatch:
     inputs:
       operation:
         description: Cloud pipeline action
         type: choice
         default: dry-run
-        options: [inspect, discover, discover-and-publish, preview-commentary, resume-publication, dry-run, publish, publish-next-slot, status]
+        options: [tick, inspect, discover, discover-and-publish, preview-commentary, resume-publication, dry-run, publish, publish-next-slot, status]
       publication_issue:
         description: Existing publication issue for explicit recovery only
         type: string
@@ -25,8 +22,29 @@ concurrency:
   group: gta6-cloud-pipeline
   cancel-in-progress: false
 jobs:
-  pipeline:
+  gate:
     if: vars.GTA6_CLOUD_ENABLED == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      required: ${{ steps.decision.outputs.required }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - id: decision
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 gta6/schedule.py
+      - name: Record scheduler failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh issue create --title "[gta6-cloud-alert] Scheduler check $GITHUB_RUN_ID failed" --body "The hourly ledger check failed. Run $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+  pipeline:
+    needs: gate
+    if: needs.gate.outputs.required == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -44,12 +62,8 @@ jobs:
         run: |
           if [ -n "$REQUESTED" ]; then
             echo "OPERATION=$REQUESTED" >> "$GITHUB_ENV"
-          elif [ "$SCHEDULE" = '0 14 * * *' ]; then
-            echo 'OPERATION=discover' >> "$GITHUB_ENV"
-          elif [ "$SCHEDULE" = '0 22 * * *' ]; then
-            echo 'OPERATION=discover-and-publish' >> "$GITHUB_ENV"
           else
-            echo 'OPERATION=publish' >> "$GITHUB_ENV"
+            echo 'OPERATION=tick' >> "$GITHUB_ENV"
           fi
       - run: pip install 'requests>=2.32,<3' 'yt-dlp==2026.10.26' 'Pillow>=10,<13'
       - if: env.OPERATION != 'preview-commentary'
@@ -68,7 +82,7 @@ jobs:
             sudo apt-get update -qq
             sudo apt-get install -y -qq ffmpeg
           fi
-      - if: env.OPERATION == 'discover' || env.OPERATION == 'discover-and-publish' || env.OPERATION == 'publish' || env.OPERATION == 'publish-next-slot' || env.OPERATION == 'dry-run' || env.OPERATION == 'resume-publication'
+      - if: env.OPERATION == 'tick' || env.OPERATION == 'discover' || env.OPERATION == 'discover-and-publish' || env.OPERATION == 'publish' || env.OPERATION == 'publish-next-slot' || env.OPERATION == 'dry-run' || env.OPERATION == 'resume-publication'
         run: playwright install --with-deps chromium
       - run: python -m unittest discover -s tests -p 'test_gta6*.py' -v
       - name: Run verified cloud pipeline
@@ -101,9 +115,6 @@ jobs:
             gta6-output/instagram-cli-result.json
             gta6-output/youtube-upload-screen.txt
             gta6-output/youtube-api-result.json
-            gta6-output/instagram-cli-result.json
-            gta6-output/youtube-upload-screen.txt
-            gta6-output/youtube-api-result.json
             gta6-output/discovery.json
           retention-days: 7
           if-no-files-found: ignore
@@ -124,7 +135,7 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
-        if: (env.OPERATION == 'discover' || env.OPERATION == 'discover-and-publish') && always()
+        if: (env.OPERATION == 'tick' || env.OPERATION == 'discover' || env.OPERATION == 'discover-and-publish') && always()
         with:
           name: gta6-reviewed-media
           path: gta6-output/media/*.mp4

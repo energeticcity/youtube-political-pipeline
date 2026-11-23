@@ -600,10 +600,27 @@ def discover(queue_num,queue,all_issues):
     if added==0:raise RuntimeError('No suitable new clips passed cloud review; existing ready queue retained')
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('operation',choices=['inspect','discover','discover-and-publish','preview-commentary','resume-publication','dry-run','publish','publish-next-slot','status'])
+    p=argparse.ArgumentParser();p.add_argument('operation',choices=['tick','inspect','discover','discover-and-publish','preview-commentary','resume-publication','dry-run','publish','publish-next-slot','status'])
     op=p.parse_args().operation
     OUT.mkdir(exist_ok=True)
     all_issues=issues();num,queue=load_queue(all_issues)
+    if op=='tick':
+        from gta6.schedule import decision
+        work=decision(all_issues,now())
+        print(json.dumps(work))
+        discovery_error=None
+        if work.get('discovery_due'):
+            windows=queue.setdefault('discovery_windows',{})
+            windows[work['window']]=now().isoformat()
+            queue['discovery_windows']=dict(sorted(windows.items())[-4:])
+            save_issue(num,queue)  # At most one bounded discovery attempt per AM/PM window.
+            try:discover(num,queue,all_issues)
+            except (ValueError,RuntimeError) as error:discovery_error=error
+        if work.get('publication_due'):
+            fresh=issues();number,current=load_queue(fresh)
+            publish(number,current,fresh)
+        if discovery_error:raise discovery_error
+        return
     if op=='resume-publication':
         if os.environ.get('GITHUB_EVENT_NAME')!='workflow_dispatch':raise ValueError('Recovery requires explicit manual run')
         number=os.environ.get('GTA6_RESUME_ISSUE','')
@@ -623,7 +640,7 @@ def main():
             complete_publication(issue['number'],row,clip,media,num,queue);return
         run_id=row['run_id'];repo=os.environ['GITHUB_REPOSITORY']
         info=json.loads(run('gh','api',f'repos/{repo}/actions/runs/{run_id}'))
-        if info.get('head_repository',{}).get('full_name')!=repo or info.get('head_branch')!='main' or info.get('path')!='.github/workflows/gta6-cloud.yml':
+        if info.get('head_repository',{}).get('full_name')!=repo or info.get('head_branch')!='main' or info.get('path') not in ('.github/workflows/gta6-cloud.yml','.github/workflows/gta6-hourly.yml'):
             raise ValueError('Recovery artifact is not from trusted main workflow')
         folder=OUT/'production';folder.mkdir(parents=True,exist_ok=True)
         run('gh','run','download',str(run_id),'-R',repo,'-n','gta6-commentary','-D',str(folder))

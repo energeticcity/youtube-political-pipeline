@@ -99,7 +99,7 @@ Trigger manually via the **Actions** tab → "Daily Dad Joke Pipeline" → "Run 
 
 ## GTA6 commentary production
 
-The separate `gta6-cloud.yml` workflow can turn reviewed GTA6 sources into original
+The separate `gta6-hourly.yml` workflow can turn reviewed GTA6 sources into original
 visual commentary using `gta6/produce.py`. It reuses the existing Gemini and
 ElevenLabs integrations; FFmpeg creates the 1080×1920 video, and ElevenLabs'
 character alignment supplies caption timing. Original source audio is omitted.
@@ -125,3 +125,11 @@ duplicate reservations remain in effect. Production failures can mean fewer
 than 12 posts. Costs use the existing Gemini/ElevenLabs accounts; at the maximum
 600 narration characters per post, 12 newly generated posts use at most 7,200
 TTS input characters per day, plus model calls and GitHub Actions runtime.
+
+The GTA6 hourly publisher checks the ledger every five minutes, away from minute zero.
+A cheap gate skips media/browser setup when the current local hour is already reserved.
+Only one batch is allowed per hour from 8 a.m. through 7 p.m. Dawson Creek time,
+with a 12-batch daily cap. Discovery is attempted once per morning and afternoon
+window, beginning at 7 a.m. and 3 p.m. Delayed checks do not burst-post missed hours.
+A timer configuration alone is not proof of execution: verify scheduled workflow runs
+and each platform receipt. Direct repost mode remains the production setting.

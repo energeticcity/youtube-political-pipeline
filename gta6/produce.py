@@ -28,7 +28,7 @@ def load_prepared(clip, run_id, folder):
     repo=os.environ['GITHUB_REPOSITORY']
     run=json.loads(command('gh','api',f'repos/{repo}/actions/runs/{run_id}'))
     if (run.get('conclusion')!='success' or run.get('head_repository',{}).get('full_name')!=repo
-            or run.get('head_branch')!='main' or run.get('path')!='.github/workflows/gta6-cloud.yml'):
+            or run.get('head_branch')!='main' or run.get('path') not in ('.github/workflows/gta6-cloud.yml','.github/workflows/gta6-hourly.yml')):
         raise Rejected('Prepared commentary is not from a successful trusted workflow')
     folder=Path(folder).resolve();folder.mkdir(parents=True,exist_ok=True)
     try:command('gh','run','download',run_id,'-R',repo,'-n','gta6-commentary','-D',folder)
