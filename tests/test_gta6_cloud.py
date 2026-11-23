@@ -37,6 +37,16 @@ class CloudPipelineTests(unittest.TestCase):
         self.assertEqual(row['delivery']['youtube']['status'],'blocked')
         self.assertEqual(row['status'],'partial')
 
+    def test_youtube_hold_does_not_hide_a_fresh_instagram_login_failure(self):
+        row={'delivery':{'tiktok':{'status':'accepted'}}}
+        queue={'destination_holds':{'youtube':{'until':'2099-01-01T00:00:00+00:00'}}}
+        with tempfile.TemporaryDirectory() as folder, patch.object(g,'OUT',g.Path(folder)), patch.object(g,'save_issue'):
+            with patch.object(g,'instagram_cli_check',side_effect=RuntimeError('expired')), patch.object(g.cross,'api') as provider:
+                with self.assertRaisesRegex(RuntimeError,'active destination'):
+                    g.complete_publication(293,row,{},g.Path('unused'),266,queue)
+                provider.assert_not_called()
+        self.assertEqual(row['delivery']['instagram']['status'],'blocked')
+
     def test_selects_prepared_priority(self):
         self.assertEqual(g.select_clip(self.q,[],self.time)[0],self.a)
     def test_no_consecutive_creator(self):

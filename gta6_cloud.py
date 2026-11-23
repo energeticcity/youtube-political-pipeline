@@ -444,7 +444,10 @@ def complete_publication(issue_number,row,clip,media,queue_num,queue):
         row['status']='partial';save_issue(issue_number,row)
         clip['status']='submitted';clip['publication_issue']=issue_number;save_issue(queue_num,queue)
         (OUT/'cloud-delivery.json').write_text(json.dumps(row,ensure_ascii=False,indent=2))
-        print(json.dumps({'issue':issue_number,'delivery':row['delivery']}));return
+        print(json.dumps({'issue':issue_number,'delivery':row['delivery']}))
+        if any(d.get('status') not in ('published','accepted') for platform,d in row['delivery'].items() if platform!='youtube'):
+            raise RuntimeError('An active destination needs recovery; YouTube hold does not mask other failures')
+        return
     if youtube_cli_enabled():
         if 'youtube' in row['delivery']:raise RuntimeError('YouTube already attempted; inspect before retrying')
         row['delivery']['youtube']={'status':'uploading'};save_issue(issue_number,row)
