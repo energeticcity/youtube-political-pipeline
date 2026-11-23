@@ -17,6 +17,16 @@ def example():
 
 
 class ProductionTests(unittest.TestCase):
+    def test_render_preserves_one_continuous_source_pass_instead_of_overlapping_shots(self):
+        with tempfile.TemporaryDirectory() as folder, patch.object(p,'probe',return_value=({},30)), \
+             patch.object(p,'command',return_value='') as command:
+            p.render(Path('source.mp4'),example(),Path('audio.mp3'),[],[0,10,20,30],30,
+                     {'creator':'example'},Path(folder))
+        source_command=command.call_args_list[0].args
+        self.assertIn('setpts=1.0000000000*(PTS-STARTPTS)',source_command[source_command.index('-vf')+1])
+        self.assertNotIn('-ss',source_command)
+        self.assertNotIn('concat',source_command)
+
     def test_tiktok_rejection_does_not_block_other_destinations_or_repeat_completed_uploads(self):
         clip={'id':'123','title':'Commentary','caption':'Caption'}
         for existing in ({},{'tiktok':{'status':'accepted'},'instagram':{'status':'published','url':'https://www.instagram.com/reel/example/'}}):
