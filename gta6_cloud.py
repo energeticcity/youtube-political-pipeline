@@ -606,7 +606,9 @@ def main():
         if not number.isdigit():raise ValueError('Specify one existing publication issue')
         issue=next(i for i in all_issues if i['number']==int(number) and i['title'].startswith(POST_PREFIX))
         row=issue_data(issue)
-        clip=next(c for c in queue['items'] if c['id']==row['id'] and c['sha256']==row['sha256'])
+        # Compacted queues may no longer retain a reserved source. Its durable
+        # issue still binds the exact source fingerprint and reviewed export.
+        clip=next((c for c in queue['items'] if c['id']==row['id'] and c['sha256']==row['sha256']),dict(row))
         cross.validate_clip(row);identities()
         run_id=row['run_id'];repo=os.environ['GITHUB_REPOSITORY']
         info=json.loads(run('gh','api',f'repos/{repo}/actions/runs/{run_id}'))
