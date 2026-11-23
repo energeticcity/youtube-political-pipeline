@@ -25,6 +25,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install 'autotok==2.1.0' 'requests>=2.32,<3'
+      - run: python gta6/patch_autotok.py
       - run: playwright install --with-deps chromium
       - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
       - name: Verify target account and run private CLI upload

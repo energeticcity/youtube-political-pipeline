@@ -1,8 +1,34 @@
 diff --git a/tests/test_instagram_uploader.py b/tests/test_instagram_uploader.py
-index 3eb433b..0b5e39f 100644
+index 3eb433b..7b4beb4 100644
 --- a/tests/test_instagram_uploader.py
 +++ b/tests/test_instagram_uploader.py
-@@ -99,6 +99,8 @@ class InstagramBrowserRegressionTests(unittest.TestCase):
+@@ -85,6 +85,25 @@ class InstagramContractTests(unittest.TestCase):
+ 
+ 
+ class InstagramBrowserRegressionTests(unittest.TestCase):
++    def test_saved_account_and_nonbinding_notice_preserve_real_login_checks(self):
++        async def scenario():
++            async with async_playwright() as p:
++                browser=await p.chromium.launch(channel='chrome',headless=True)
++                page=await browser.new_page()
++                try:
++                    home='<a href="/direct/inbox/">Messages</a>'
++                    notice='<h3>We suspect automated behavior on your account</h3><button id="dismiss">Dismiss</button>'
++                    await page.set_content(notice)
++                    await page.locator('#dismiss').evaluate('(el,home)=>el.onclick=()=>document.body.innerHTML=home',home)
++                    self.assertFalse(await _is_instagram_logged_out(page))
++                    await page.set_content('<button id="saved">Continue gtaviclipfix</button>')
++                    await page.locator('#saved').evaluate('(el,home)=>el.onclick=()=>document.body.innerHTML=home',home)
++                    self.assertFalse(await _is_instagram_logged_out(page))
++                    await page.set_content('<input name="username"><button onclick="throw Error(\'must remain manual\')">Verify identity</button>')
++                    self.assertTrue(await _is_instagram_logged_out(page))
++                finally:await browser.close()
++        asyncio.run(scenario())
++
+     def test_optional_prompts_present_absent_and_failed_dismissal(self):
+         """按实际图标与按钮层级构造 DOM；覆盖延迟提示、缺席及点击未关闭的异常。"""
+         async def scenario():
+@@ -99,6 +118,8 @@ class InstagramBrowserRegressionTests(unittest.TestCase):
                          <img src="/images/instagram/xig/ico/xxhdpi_launcher.png?test">
                          <div class="_a9-z"><button onclick="throw Error('wrong action')">Enable</button>
                          <button onclick="this.closest('[role=dialog]').remove()">後で</button></div></div>`);}
@@ -11,7 +37,7 @@ index 3eb433b..0b5e39f 100644
                        function create(){document.body.insertAdjacentHTML('beforeend',
                          `<div role="dialog"><input type="file" accept="image/jpeg,video/mp4" onchange="upload()"></div>`);}
                        function upload(){setTimeout(()=>{
-@@ -111,10 +113,10 @@ class InstagramBrowserRegressionTests(unittest.TestCase):
+@@ -111,10 +132,10 @@ class InstagramBrowserRegressionTests(unittest.TestCase):
                        },250);}
                        if(document.body.dataset.prompts==='true') setTimeout(notification,250);
                        </script>'''
@@ -26,10 +52,43 @@ index 3eb433b..0b5e39f 100644
                          with tempfile.TemporaryDirectory() as folder:
                              video = Path(folder)/'video.mp4'
 diff --git a/uploader/meta_uploader/insgraph_uploader/main.py b/uploader/meta_uploader/insgraph_uploader/main.py
-index 8bf501e..c2ce0b2 100644
+index 8bf501e..50de936 100644
 --- a/uploader/meta_uploader/insgraph_uploader/main.py
 +++ b/uploader/meta_uploader/insgraph_uploader/main.py
-@@ -190,17 +190,19 @@ class InstagramUploader:
+@@ -54,11 +54,27 @@ async def _open_instagram_page(playwright: Playwright, account_file: Path, *, pr
+ 
+ 
+ async def _is_instagram_logged_out(page: Page) -> bool:
+-    """等待明确登录/未登录业务区域；网络或未知页面超时不能解释为 Cookie 失效。"""
+-    # 消息入口是登录后的导航，href 前缀允许站点附加 hl 参数；登录表单字段不依赖翻译。
+-    outcomes = page.locator('a[href^="/direct/inbox/"], input[name="username"], a[href^="/accounts/login/"]')
+-    await expect(outcomes).not_to_have_count(0, timeout=60_000)
+-    return not await page.locator('a[href^="/direct/inbox/"]').count()
++    """Recognize normal login state; acknowledge only observed saved-login/notices.
++
++    Never solve challenges, enter verification codes or bypass login requirements.
++    Exact account identity is still checked by instagram_identity before upload.
++    """
++    inbox=page.locator('a[href^="/direct/inbox/"]')
++    login=page.locator('input[name="username"], a[href^="/accounts/login/"]')
++    saved=page.get_by_role('button', name='Continue gtaviclipfix', exact=True)
++    notice=page.get_by_role('heading', name='We suspect automated behavior on your account', exact=True)
++    outcomes=inbox.or_(login).or_(saved).or_(notice)
++    for _ in range(3):
++        await expect(outcomes).not_to_have_count(0, timeout=60_000)
++        if await inbox.count():return False
++        if await saved.count():
++            await saved.first.click()
++            continue
++        if await notice.count():
++            await page.get_by_role('button',name='Dismiss',exact=True).click()
++            continue
++        return True
++    raise RuntimeError('Instagram login state unresolved after saved-account notice')
+ 
+ 
+ async def instagram_identity(page: Page, account_file: Path) -> dict:
+@@ -190,17 +206,19 @@ class InstagramUploader:
          notifications = page.get_by_role('dialog').filter(
              has=page.locator('img[src^="/images/instagram/xig/ico/xxhdpi_launcher.png"]'))
          notification_buttons = notifications.locator('._a9-z > button')
@@ -57,11 +116,11 @@ index 8bf501e..c2ce0b2 100644
          dialog = page.get_by_role('dialog')
          await expect(dialog).to_have_count(1)
          file_input = dialog.locator(INSTAGRAM_MEDIA_INPUT)
-@@ -215,6 +217,7 @@ class InstagramUploader:
+@@ -215,6 +233,7 @@ class InstagramUploader:
              await _dismiss_optional_prompt(reels_intro, reels_intro.locator('._a9-z div > button'))
          # 裁剪标题栏主动作实际出现，才可推进；上传失败或未知弹窗阻断会保留现场并报错。
          await expect(dialog.locator(INSTAGRAM_PRIMARY_ACTION)).to_have_count(1, timeout=60_000)
 +        await page.remove_locator_handler(notifications)
-
+ 
      async def _advance_media_editor(self, page: Page) -> None:
          """裁剪、编辑两步各等待标题改变，最终以 Lexical 配文输入框确认。"""

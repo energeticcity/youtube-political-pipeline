@@ -421,6 +421,14 @@ def complete_publication(issue_number,row,clip,media,queue_num,queue):
         raise RuntimeError('Instagram publication is uncertain; inspect before retrying')
     row['status']='delivery_in_progress'
     save_issue(issue['number'],row)
+    if row['delivery'].get('youtube',{}).get('status')=='published':
+        # Recovery repairs only missing destinations; preserve the original YouTube receipt.
+        row['status']='posted' if all(d['status'] in ('published','accepted') for d in row['delivery'].values()) else 'partial'
+        save_issue(issue_number,row)
+        clip['status']='submitted';clip['publication_issue']=issue_number;save_issue(queue_num,queue)
+        (OUT/'cloud-delivery.json').write_text(json.dumps(row,ensure_ascii=False,indent=2))
+        if row['status']=='partial':raise RuntimeError('A destination needs recovery; completed publications retained')
+        return
     if youtube_cli_enabled():
         if 'youtube' in row['delivery']:raise RuntimeError('YouTube already attempted; inspect before retrying')
         row['delivery']['youtube']={'status':'uploading'};save_issue(issue_number,row)

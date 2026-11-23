@@ -14,6 +14,18 @@ class CloudPipelineTests(unittest.TestCase):
         self.a={'id':'7709573342407216416','source':'https://www.tiktok.com/@skyxl.cc/video/7709573342407216416','creator':'skyxl.cc','sha256':'a'*64,'status':'ready','priority':1}
         self.b=dict(self.a,id='7710205990817336598',source='https://www.tiktok.com/@ksnv_editz/video/7710205990817336598',creator='ksnv_editz',sha256='b'*64,priority=2)
         self.q={'items':[self.a,self.b]}
+    def test_recovery_preserves_published_youtube_and_other_successful_receipts(self):
+        row={'delivery':{'tiktok':{'status':'accepted','video_id':'existing'},
+             'instagram':{'status':'published','url':'https://www.instagram.com/reel/existing/'},
+             'youtube':{'status':'published','url':'https://www.youtube.com/watch?v=existing'}}}
+        original=copy.deepcopy(row['delivery'])
+        with tempfile.TemporaryDirectory() as folder, patch.object(g,'OUT',g.Path(folder)), patch.object(g,'save_issue'):
+            with patch.object(g,'tiktok_cli_upload') as tt, patch.object(g,'instagram_cli_upload') as ig, patch.object(g.cross,'api') as yt:
+                g.complete_publication(289,row,{},g.Path('unused'),266,{})
+                tt.assert_not_called();ig.assert_not_called();yt.assert_not_called()
+        self.assertEqual(row['delivery'],original)
+        self.assertEqual(row['status'],'posted')
+
     def test_selects_prepared_priority(self):
         self.assertEqual(g.select_clip(self.q,[],self.time)[0],self.a)
     def test_no_consecutive_creator(self):
@@ -34,6 +46,33 @@ class CloudPipelineTests(unittest.TestCase):
         self.assertIsNone(g.public_url('tiktok','https://www.tiktok.com/@gtaviclipfix'))
         self.assertIsNone(g.public_url('instagram','https://example.com/reel/abc'))
         self.assertEqual(g.public_url('instagram','https://www.instagram.com/reel/abc/'),'https://www.instagram.com/reel/abc/')
+    @unittest.skipUnless(importlib.util.find_spec('autotok'), 'Autotok identity test runs in the GTA6 workflow with its optional dependency')
+    def test_upstream_cli_signs_the_endpoint_it_actually_posts_to(self):
+        from autotok.accounts import Account
+        from autotok.uploader import Client
+        from urllib.parse import urlsplit
+        import requests
+        signer=MagicMock();signer.sign.return_value=MagicMock(x_bogus='test',signature='test')
+        client=Client(Account.from_dict({'name':'test','cookies':[{'name':'sessionid','value':'test'}]}),proxy=False,signer=signer)
+        session=MagicMock();session.cookies=requests.cookies.RequestsCookieJar()
+        response=session.post.return_value;response.status_code=200;response.json.return_value={'status_code':0}
+        client._publish(session,{})
+        self.assertEqual(urlsplit(signer.sign.call_args.args[0]).path,urlsplit(session.post.call_args.args[0]).path)
+
+    @unittest.skipUnless(importlib.util.find_spec('autotok'), 'Autotok compatibility test uses the installed upstream CLI')
+    def test_upstream_cli_retains_only_authorized_tiktok_session_cookie_domains(self):
+        from autotok.accounts import Account
+        from autotok.uploader import Client
+        account=Account.from_dict({'name':'test','cookies':[
+            {'name':'sessionid','value':'test','domain':'.tiktok.com'},
+            {'name':'tt-target-idc','value':'useast2a','domain':'.tiktok.com'},
+            {'name':'passport_csrf_token','value':'approved','domain':'.tiktok.com'},
+            {'name':'sid_guard','value':'foreign','domain':'.example.com'}]})
+        session=Client(account,proxy=False)._session()
+        self.assertEqual(session.cookies.get('passport_csrf_token'),'approved')
+        self.assertNotIn('sid_guard',session.cookies.get_dict())
+        session.close()
+
     @unittest.skipUnless(importlib.util.find_spec('autotok'), 'Autotok identity test runs in the GTA6 workflow with its optional dependency')
     @patch('autotok.uploader.Client')
     def test_wrong_tiktok_numeric_id_stops_upload(self, client):
