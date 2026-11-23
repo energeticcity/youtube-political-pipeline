@@ -33,6 +33,7 @@ class ProductionTests(unittest.TestCase):
             with tempfile.TemporaryDirectory() as folder, patch.object(cloud,'OUT',Path(folder)), \
                  patch.object(cloud,'save_issue'), patch.object(cloud,'youtube_cli_enabled',return_value=True), \
                  patch.object(cloud,'youtube_cli_upload',return_value={'status':'published'}) as youtube, \
+                 patch.object(cloud,'instagram_cli_check',return_value={'status':'connected'}), \
                  patch.object(cloud,'instagram_cli_upload',return_value={'status':'published'}) as instagram, \
                  patch.object(cloud,'tiktok_cli_upload',side_effect=RuntimeError('status_code=5')) as tiktok:
                 row={'delivery':copy.deepcopy(existing)}

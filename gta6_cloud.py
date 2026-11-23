@@ -238,10 +238,10 @@ def youtube_cli_upload(media,clip):
         raise RuntimeError('YouTube CLI publication unconfirmed; reservation retained')
     return next(iter(found.values()))
 
-def identities():
+def identities(defer_instagram=False):
     tiktok_client()
     result={'tiktok':{'username':'gtaviclipfix','user_id':'7630582867722372104','status':'connected'},
-            'instagram':instagram_cli_check()}
+            'instagram':{'status':'verification_required_before_upload'} if defer_instagram else instagram_cli_check()}
     for platform,expected in ACCOUNTS.items():
         if platform=='instagram':continue
         if platform=='youtube' and youtube_cli_enabled():
@@ -372,7 +372,7 @@ def publish(queue_num,queue,all_issues,dry_run=False,next_slot=False):
         if os.environ.get('GITHUB_EVENT_NAME')!='workflow_dispatch':
             raise ValueError('Early publication of a scheduled slot requires an explicit manual run')
         local=local+timedelta(hours=1)
-    identities()
+    identities(defer_instagram=True)
     rows=history(all_issues,queue)
     if next_slot:
         reserved={r.get('slot') for r in rows}
@@ -410,12 +410,16 @@ def complete_publication(issue_number,row,clip,media,queue_num,queue):
                 'uploader':'autotok CLI'}
     row['status']='delivery_in_progress'
     save_issue(issue['number'],row)
-    if 'instagram' not in row['delivery']:
-        row['delivery']['instagram']={'status':'uploading'};save_issue(issue_number,row)
-        row['delivery']['instagram']=instagram_cli_upload(media,clip['caption'])
+    if 'instagram' not in row['delivery'] or row['delivery']['instagram'].get('status')=='blocked':
+        try:instagram_cli_check()
+        except RuntimeError:
+            row['delivery']['instagram']={'status':'blocked','reason':'authentication_check_failed','uploader':'sau CLI'}
+        else:
+            row['delivery']['instagram']={'status':'uploading'};save_issue(issue_number,row)
+            row['delivery']['instagram']=instagram_cli_upload(media,clip['caption'])
     elif row['delivery']['instagram'].get('status')!='published':
         raise RuntimeError('Instagram publication is uncertain; inspect before retrying')
-    row['status']='instagram_published'
+    row['status']='delivery_in_progress'
     save_issue(issue['number'],row)
     if youtube_cli_enabled():
         if 'youtube' in row['delivery']:raise RuntimeError('YouTube already attempted; inspect before retrying')
@@ -452,7 +456,7 @@ def complete_publication(issue_number,row,clip,media,queue_num,queue):
     print(json.dumps({'issue':issue['number'],'delivery':row['delivery']}))
     if any(d['status']=='failed' for d in row['delivery'].values()):
         raise RuntimeError('Platform delivery failed; reservation prevents duplicate retries')
-    if any(d['status'] in ('rejected','unconfirmed') for d in row['delivery'].values()):
+    if any(d['status'] in ('rejected','unconfirmed','blocked') for d in row['delivery'].values()):
         raise RuntimeError('A destination needs recovery; other completed publications retained')
 
 def discover_links():
@@ -609,7 +613,7 @@ def main():
         # Compacted queues may no longer retain a reserved source. Its durable
         # issue still binds the exact source fingerprint and reviewed export.
         clip=next((c for c in queue['items'] if c['id']==row['id'] and c['sha256']==row['sha256']),dict(row))
-        cross.validate_clip(row);identities()
+        cross.validate_clip(row);identities(defer_instagram=True)
         run_id=row['run_id'];repo=os.environ['GITHUB_REPOSITORY']
         info=json.loads(run('gh','api',f'repos/{repo}/actions/runs/{run_id}'))
         if info.get('head_repository',{}).get('full_name')!=repo or info.get('head_branch')!='main' or info.get('path')!='.github/workflows/gta6-cloud.yml':
