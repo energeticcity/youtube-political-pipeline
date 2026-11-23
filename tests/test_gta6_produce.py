@@ -17,6 +17,18 @@ def example():
 
 
 class ProductionTests(unittest.TestCase):
+    def test_instagram_auth_failure_blocks_only_instagram_upload(self):
+        clip={'id':'123','title':'Commentary','caption':'Caption'}
+        with tempfile.TemporaryDirectory() as folder, patch.object(cloud,'OUT',Path(folder)), \
+             patch.object(cloud,'save_issue'), patch.object(cloud,'youtube_cli_enabled',return_value=True), \
+             patch.object(cloud,'youtube_cli_upload',return_value={'status':'published'}) as youtube, \
+             patch.object(cloud,'instagram_cli_check',side_effect=RuntimeError('authentication failed')), \
+             patch.object(cloud,'instagram_cli_upload') as instagram:
+            row={'delivery':{'tiktok':{'status':'accepted'}}}
+            cloud.complete_publication(999,row,clip,Path('commentary.mp4'),266,{'items':[clip]})
+            instagram.assert_not_called();youtube.assert_called_once()
+            self.assertEqual(row['delivery']['instagram']['status'],'blocked')
+
     def test_render_preserves_one_continuous_source_pass_instead_of_overlapping_shots(self):
         with tempfile.TemporaryDirectory() as folder, patch.object(p,'probe',return_value=({},30)), \
              patch.object(p,'command',return_value='') as command:
