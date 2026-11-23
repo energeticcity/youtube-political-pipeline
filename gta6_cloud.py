@@ -117,6 +117,11 @@ def instagram_cli_check():
     result=subprocess.run(['sau','instagram','check','--account','gtaviclipfix'],cwd=repo,
         capture_output=True,text=True,timeout=150,stdin=subprocess.DEVNULL)
     if result.returncode or result.stdout.strip()!='valid':
+        diagnostic={'exit_code':result.returncode,'result':'invalid' if result.stdout.strip()=='invalid' else 'error'}
+        for line in result.stdout.splitlines():
+            if line.startswith('IG_AUTH_DIAGNOSTIC '):
+                diagnostic.update(json.loads(line.removeprefix('IG_AUTH_DIAGNOSTIC ')))
+        (OUT/'instagram-auth-check.json').write_text(json.dumps(diagnostic,indent=2))
         raise RuntimeError('Instagram CLI authentication check failed; no upload attempted')
     return {'username':'gtaviclipfix','user_id':'34024392171','status':'connected','uploader':'sau CLI'}
 

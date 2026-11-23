@@ -115,6 +115,7 @@ jobs:
             gta6-output/selection.json
             gta6-output/cloud-delivery.json
             gta6-output/instagram-cli-result.json
+            gta6-output/instagram-auth-check.json
             gta6-output/youtube-upload-screen.txt
             gta6-output/youtube-api-result.json
             gta6-output/discovery.json
