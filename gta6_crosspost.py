@@ -8,6 +8,7 @@ import re
 import subprocess
 import time
 import requests
+from archive_recovery_check import quota_evidence
 
 BASE = 'https://api.postforme.dev/v1'
 DESTINATIONS = {
@@ -86,7 +87,7 @@ def status(post_id):
         if successful:
             out[platform] = {'status': 'provider_success', 'url': (successful[-1].get('platform_data') or {}).get('url')}
         elif matches and all(r.get('success') is False for r in matches):
-            out[platform] = {'status': 'failed', 'result_id': matches[-1].get('id'),'quota':__import__('archive_recovery_check').quota_evidence(matches[-1].get('error'))}
+            out[platform] = {'status': 'failed', 'result_id': matches[-1].get('id'),'quota':quota_evidence(matches[-1].get('error'))}
         else:
             out[platform] = {'status': 'pending'}
     Path('gta6-output').mkdir(exist_ok=True)

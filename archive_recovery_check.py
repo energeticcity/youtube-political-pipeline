@@ -53,6 +53,7 @@ def quota_evidence(error):
         project = re.search(r'project_number:(\d+)', text)
         if project:
             evidence['consumer'] = 'project_number:' + project[1]
+    if 'uploadLimitExceeded' in text:evidence['classification']='youtube_channel_daily_upload_limit'
     for label in ('rateLimitExceeded', 'RESOURCE_EXHAUSTED', 'uploadLimitExceeded'):
         if label in text:
             evidence[label] = True

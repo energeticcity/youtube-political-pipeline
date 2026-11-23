@@ -23,7 +23,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   gate:
-    if: vars.GTA6_CLOUD_ENABLED == 'true' || github.event_name == 'workflow_dispatch'
+    if: vars.GTA6_CLOUD_ENABLED == 'true' || (github.event_name == 'workflow_dispatch' && inputs.operation != 'tick')
     runs-on: ubuntu-latest
     timeout-minutes: 3
     outputs:

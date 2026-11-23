@@ -14,6 +14,7 @@ import time
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
 import requests
+from archive_recovery_check import quota_evidence
 import gta6_crosspost as cross
 
 TZ = ZoneInfo('America/Dawson_Creek')
@@ -355,7 +356,7 @@ def delivery(post_id):
             url=public_url(platform,(success[-1].get('platform_data') or {}).get('url'))
             result[platform]={'status':'published' if url else 'provider_success_unverified','url':url}
         elif matches and all(r.get('success') is False for r in matches):
-            result[platform]={'status':'failed','result_id':matches[-1].get('id'),'quota':__import__('archive_recovery_check').quota_evidence(matches[-1].get('error'))}
+            result[platform]={'status':'failed','result_id':matches[-1].get('id'),'quota':quota_evidence(matches[-1].get('error'))}
         else:result[platform]={'status':'pending'}
     return result
 
@@ -437,6 +438,13 @@ def complete_publication(issue_number,row,clip,media,queue_num,queue):
         (OUT/'cloud-delivery.json').write_text(json.dumps(row,ensure_ascii=False,indent=2))
         if row['status']=='partial':raise RuntimeError('A destination needs recovery; completed publications retained')
         return
+    hold=queue.get('destination_holds',{}).get('youtube',{})
+    if 'youtube' not in row['delivery'] and hold.get('until') and datetime.fromisoformat(hold['until'])>now():
+        row['delivery']['youtube']={'status':'blocked','reason':'channel_daily_upload_limit','retry_after':hold['until']}
+        row['status']='partial';save_issue(issue_number,row)
+        clip['status']='submitted';clip['publication_issue']=issue_number;save_issue(queue_num,queue)
+        (OUT/'cloud-delivery.json').write_text(json.dumps(row,ensure_ascii=False,indent=2))
+        print(json.dumps({'issue':issue_number,'delivery':row['delivery']}));return
     if youtube_cli_enabled():
         if 'youtube' in row['delivery']:raise RuntimeError('YouTube already attempted; inspect before retrying')
         row['delivery']['youtube']={'status':'uploading'};save_issue(issue_number,row)
@@ -468,6 +476,10 @@ def complete_publication(issue_number,row,clip,media,queue_num,queue):
         row['delivery']['youtube']=delivery(post_id)['youtube'];row['checked_at']=now().isoformat();save_issue(issue['number'],row)
         if all(d['status']!='pending' for d in row['delivery'].values()):break
         time.sleep(15)
+    if row['delivery'].get('youtube',{}).get('quota',{}).get('uploadLimitExceeded'):
+        until=(now()+timedelta(hours=24)).isoformat()
+        queue.setdefault('destination_holds',{})['youtube']={'reason':'channel_daily_upload_limit','until':until,'publication_issue':issue_number}
+        save_issue(queue_num,queue)
     (OUT/'cloud-delivery.json').write_text(json.dumps(row,ensure_ascii=False,indent=2))
     print(json.dumps({'issue':issue['number'],'delivery':row['delivery']}))
     if any(d['status']=='failed' for d in row['delivery'].values()):

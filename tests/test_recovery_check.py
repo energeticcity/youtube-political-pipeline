@@ -21,7 +21,8 @@ class RecoveryCheckTests(unittest.TestCase):
         self.assertEqual(evidence['http_status'], 429)
         self.assertEqual(evidence['failure_stage'], 'before_resumable_upload_session')
         channel = recovery.quota_evidence({'message': 'uploadLimitExceeded'})
-        self.assertNotEqual(channel['classification'], evidence['classification'])
+        self.assertEqual(channel['classification'],'youtube_channel_daily_upload_limit')
+        self.assertTrue(channel['uploadLimitExceeded'])
 
     def test_transport_and_private_data_not_exported(self):
         evidence = recovery.quota_evidence({'config': {'message': 'secret-token ' + QUOTA},

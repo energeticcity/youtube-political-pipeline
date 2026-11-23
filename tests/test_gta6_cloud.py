@@ -26,6 +26,17 @@ class CloudPipelineTests(unittest.TestCase):
         self.assertEqual(row['delivery'],original)
         self.assertEqual(row['status'],'posted')
 
+    def test_known_channel_upload_limit_holds_youtube_without_repeating_other_platforms(self):
+        until='2099-01-01T00:00:00+00:00'
+        row={'delivery':{'tiktok':{'status':'accepted'},'instagram':{'status':'published'}}}
+        queue={'destination_holds':{'youtube':{'until':until}}}
+        with tempfile.TemporaryDirectory() as folder, patch.object(g,'OUT',g.Path(folder)), patch.object(g,'save_issue'):
+            with patch.object(g.cross,'api') as provider:
+                g.complete_publication(293,row,{},g.Path('unused'),266,queue)
+                provider.assert_not_called()
+        self.assertEqual(row['delivery']['youtube']['status'],'blocked')
+        self.assertEqual(row['status'],'partial')
+
     def test_selects_prepared_priority(self):
         self.assertEqual(g.select_clip(self.q,[],self.time)[0],self.a)
     def test_no_consecutive_creator(self):
