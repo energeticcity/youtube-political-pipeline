@@ -12,7 +12,11 @@ on:
         description: Cloud pipeline action
         type: choice
         default: dry-run
-        options: [inspect, discover, discover-and-publish, preview-commentary, dry-run, publish, publish-next-slot, status]
+        options: [inspect, discover, discover-and-publish, preview-commentary, resume-publication, dry-run, publish, publish-next-slot, status]
+      publication_issue:
+        description: Existing publication issue for explicit recovery only
+        type: string
+        default: ''
 permissions:
   contents: read
   actions: read
@@ -64,7 +68,7 @@ jobs:
             sudo apt-get update -qq
             sudo apt-get install -y -qq ffmpeg
           fi
-      - if: env.OPERATION == 'discover' || env.OPERATION == 'discover-and-publish' || env.OPERATION == 'publish' || env.OPERATION == 'publish-next-slot' || env.OPERATION == 'dry-run'
+      - if: env.OPERATION == 'discover' || env.OPERATION == 'discover-and-publish' || env.OPERATION == 'publish' || env.OPERATION == 'publish-next-slot' || env.OPERATION == 'dry-run' || env.OPERATION == 'resume-publication'
         run: playwright install --with-deps chromium
       - run: python -m unittest discover -s tests -p 'test_gta6*.py' -v
       - name: Run verified cloud pipeline
@@ -84,6 +88,7 @@ jobs:
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
           ELEVENLABS_VOICE_ID: ${{ secrets.ELEVENLABS_VOICE_ID }}
           GTA6_COMMENTARY_ENABLED: ${{ vars.GTA6_COMMENTARY_ENABLED }}
+          GTA6_RESUME_ISSUE: ${{ inputs.publication_issue }}
         run: python gta6_cloud.py "$OPERATION"
       - uses: actions/upload-artifact@v4
         if: always()

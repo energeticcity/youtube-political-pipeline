@@ -17,6 +17,23 @@ def example():
 
 
 class ProductionTests(unittest.TestCase):
+    def test_tiktok_rejection_does_not_block_other_destinations_or_repeat_completed_uploads(self):
+        clip={'id':'123','title':'Commentary','caption':'Caption'}
+        for existing in ({},{'tiktok':{'status':'accepted'},'instagram':{'status':'published','url':'https://www.instagram.com/reel/example/'}}):
+            with tempfile.TemporaryDirectory() as folder, patch.object(cloud,'OUT',Path(folder)), \
+                 patch.object(cloud,'save_issue'), patch.object(cloud,'youtube_cli_enabled',return_value=True), \
+                 patch.object(cloud,'youtube_cli_upload',return_value={'status':'published'}) as youtube, \
+                 patch.object(cloud,'instagram_cli_upload',return_value={'status':'published'}) as instagram, \
+                 patch.object(cloud,'tiktok_cli_upload',side_effect=RuntimeError('status_code=5')) as tiktok:
+                row={'delivery':copy.deepcopy(existing)}
+                cloud.complete_publication(282,row,clip,Path('commentary.mp4'),266,{'items':[clip]})
+                youtube.assert_called_once()
+                if existing:
+                    tiktok.assert_not_called();instagram.assert_not_called()
+                else:
+                    instagram.assert_called_once()
+                    self.assertEqual(row['delivery']['tiktok']['status'],'rejected')
+
     def test_prepared_preview_must_come_from_successful_main_workflow(self):
         import json
         run={'conclusion':'success','head_branch':'untrusted','head_repository':{'full_name':'owner/repo'},'path':'.github/workflows/gta6-cloud.yml'}

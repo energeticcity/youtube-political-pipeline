@@ -393,18 +393,37 @@ def publish(queue_num,queue,all_issues,dry_run=False,next_slot=False):
         reserved_at=now().isoformat(),run_id=os.environ['GITHUB_RUN_ID'])
     issue=cross.gh('POST','issues',json={'title':POST_PREFIX+row['slot'],'body':json.dumps(row,ensure_ascii=False,indent=2)})
     clip['status']='reserved';save_issue(queue_num,queue)
-    row['delivery']={'tiktok':tiktok_cli_upload(media,clip['caption'])}
-    row['status']='tiktok_accepted'
+    complete_publication(issue['number'],row,clip,media,queue_num,queue)
+
+def complete_publication(issue_number,row,clip,media,queue_num,queue):
+    issue={'number':issue_number}
+    row.setdefault('delivery',{})
+    if 'tiktok' not in row['delivery']:
+        try:row['delivery']['tiktok']=tiktok_cli_upload(media,clip['caption'])
+        except RuntimeError as error:
+            row['delivery']['tiktok']={'status':'rejected' if 'status_code=5' in str(error) else 'unconfirmed',
+                'reason':'invalid_parameters' if 'status_code=5' in str(error) else 'inspect_before_retry',
+                'uploader':'autotok CLI'}
+    row['status']='delivery_in_progress'
     save_issue(issue['number'],row)
-    row['delivery']['instagram']=instagram_cli_upload(media,clip['caption'])
+    if 'instagram' not in row['delivery']:
+        row['delivery']['instagram']={'status':'uploading'};save_issue(issue_number,row)
+        row['delivery']['instagram']=instagram_cli_upload(media,clip['caption'])
+    elif row['delivery']['instagram'].get('status')!='published':
+        raise RuntimeError('Instagram publication is uncertain; inspect before retrying')
     row['status']='instagram_published'
     save_issue(issue['number'],row)
     if youtube_cli_enabled():
+        if 'youtube' in row['delivery']:raise RuntimeError('YouTube already attempted; inspect before retrying')
+        row['delivery']['youtube']={'status':'uploading'};save_issue(issue_number,row)
         row['delivery']['youtube']=youtube_cli_upload(media,clip)
         row['status']='posted';save_issue(issue['number'],row)
         clip['status']='submitted';clip['publication_issue']=issue['number'];save_issue(queue_num,queue)
         (OUT/'cloud-delivery.json').write_text(json.dumps(row,ensure_ascii=False,indent=2))
         print(json.dumps({'issue':issue['number'],'delivery':row['delivery']}));return
+    if row.get('provider_post_id') or 'youtube' in row['delivery']:
+        raise RuntimeError('YouTube already attempted; inspect provider before retrying')
+    row['delivery']['youtube']={'status':'uploading'};save_issue(issue_number,row)
     upload=cross.api('POST','/media/create-upload-url')
     if not all(str(upload.get(k,'')).startswith('https://') for k in ['upload_url','media_url']):
         raise ValueError('Invalid media service response; reservation retained')
@@ -571,10 +590,29 @@ def discover(queue_num,queue,all_issues):
     if added==0:raise RuntimeError('No suitable new clips passed cloud review; existing ready queue retained')
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('operation',choices=['inspect','discover','discover-and-publish','preview-commentary','dry-run','publish','publish-next-slot','status'])
+    p=argparse.ArgumentParser();p.add_argument('operation',choices=['inspect','discover','discover-and-publish','preview-commentary','resume-publication','dry-run','publish','publish-next-slot','status'])
     op=p.parse_args().operation
     OUT.mkdir(exist_ok=True)
     all_issues=issues();num,queue=load_queue(all_issues)
+    if op=='resume-publication':
+        if os.environ.get('GITHUB_EVENT_NAME')!='workflow_dispatch':raise ValueError('Recovery requires explicit manual run')
+        number=os.environ.get('GTA6_RESUME_ISSUE','')
+        if not number.isdigit():raise ValueError('Specify one existing publication issue')
+        issue=next(i for i in all_issues if i['number']==int(number) and i['title'].startswith(POST_PREFIX))
+        row=issue_data(issue)
+        clip=next(c for c in queue['items'] if c['id']==row['id'] and c['sha256']==row['sha256'])
+        cross.validate_clip(row);identities()
+        run_id=row['run_id'];repo=os.environ['GITHUB_REPOSITORY']
+        info=json.loads(run('gh','api',f'repos/{repo}/actions/runs/{run_id}'))
+        if info.get('head_repository',{}).get('full_name')!=repo or info.get('head_branch')!='main' or info.get('path')!='.github/workflows/gta6-cloud.yml':
+            raise ValueError('Recovery artifact is not from trusted main workflow')
+        folder=OUT/'production';folder.mkdir(parents=True,exist_ok=True)
+        run('gh','run','download',str(run_id),'-R',repo,'-n','gta6-commentary','-D',str(folder))
+        manifest=json.loads((folder/'production.json').read_text());media=folder/'commentary.mp4'
+        if manifest!=row.get('production') or hashlib.sha256(media.read_bytes()).hexdigest()!=manifest['output_sha256'] or manifest['qa'].get('pass') is not True:
+            raise ValueError('Recovery video does not match reviewed reservation')
+        clip.update(title=row['title'],caption=row['caption'],production=manifest)
+        complete_publication(issue['number'],row,clip,media,num,queue);return
     if op=='preview-commentary':
         from gta6.produce import produce
         rows=history(all_issues,queue)
