@@ -3,9 +3,18 @@
   "title": "GTA VI Creator Audio: Three Checks Before You Upload",
   "description": "An original, illustrated walkthrough of the GTA VI licensed-music setting and a practical pre-upload audio check. Independent commentary. Narrated with a synthetic voice.",
   "sources": [
-    ["Rockstar Support — Muting licensed music in Grand Theft Auto VI", "https://support.rockstargames.com/articles/3imCdEnB8z1bwQ6MNVL8Tr/muting-licensed-music-in-grand-theft-auto-vi"],
-    ["Rockstar Support — Policy on posting copyrighted material", "https://support.rockstargames.com/articles/7bNaeoMFTV0iUDGhStTXvz"],
-    ["YouTube Help — Common copyright myths", "https://support.google.com/youtube/answer/2797449"]
+    [
+      "Rockstar Support — Muting licensed music in Grand Theft Auto VI",
+      "https://support.rockstargames.com/articles/3imCdEnB8z1bwQ6MNVL8Tr/muting-licensed-music-in-grand-theft-auto-vi"
+    ],
+    [
+      "Rockstar Support — Policy on posting copyrighted material",
+      "https://support.rockstargames.com/articles/7bNaeoMFTV0iUDGhStTXvz"
+    ],
+    [
+      "YouTube Help — Common copyright myths",
+      "https://support.google.com/youtube/answer/2797449"
+    ]
   ],
   "chapters": [
     {
@@ -18,7 +27,8 @@
         "There are three checks that make this easier. First, check what the game sends to your recorder.",
         "Second, listen to what your recorder actually saved. Third, look at every sound you added after you hit stop.",
         "I'll walk through the menu, the ten-second recording test, and how I would set up a voice-over without losing the game sounds."
-      ]
+      ],
+      "highlights": [0, 1, 0, 1, 2]
     },
     {
       "title": "Where the setting lives",
@@ -31,7 +41,8 @@
         "Picture an audio wire running from the game into the recording. Changing the setting now changes what reaches the next file.",
         "If you already captured a track with music mixed into it, flipping the switch later leaves that old recording as it was.",
         "That's why I put this step at the top of the checklist, before I find the moment I want to keep."
-      ]
+      ],
+      "highlights": [2, 3, 3, 3, 3]
     },
     {
       "title": "The ten-second test",
@@ -43,7 +54,8 @@
         "Let some ordinary game sound play underneath it. Stop recording and open the actual file.",
         "Ask three questions. Can I understand every word? Can I still hear what happened in the game? Did I capture any music I didn't expect?",
         "Listening to the file catches problems a live monitor can miss. Once the mix sounds right, you're ready to record the real clip."
-      ]
+      ],
+      "highlights": [0, 1, 2, 1]
     },
     {
       "title": "Two tracks make editing easier",
@@ -55,7 +67,8 @@
         "With everything already on one track, lowering the game also lowers your voice. A separate voice-over recorded afterwards can solve the same problem.",
         "For a short clip, I would keep the game sound around the action, then bring it down for the one thing I want the viewer to notice.",
         "Make the point while the moment is on screen. That gives the viewer something to look for as they hear it."
-      ]
+      ],
+      "highlights": [0, 0, 1, 2, 2]
     },
     {
       "title": "Check the final export",
@@ -67,7 +80,8 @@
         "Now check the rest of the export. A song added in your editor comes from a different source.",
         "If you're making one file for Shorts, Reels, and TikTok, use narration and sound you can publish on all three.",
         "Then listen to that final file from start to finish. The menu setting is step one. The file you're about to upload is the real test."
-      ]
+      ],
+      "highlights": [0, 1, 1, 2]
     },
     {
       "title": "A checklist for the next take",
@@ -78,7 +92,8 @@
         "A separate check is permission to use the footage commercially. Rockstar's general fan-footage policy describes non-commercial use. Read it before building a monetized video around game footage.",
         "I made this walkthrough with original diagrams because the audio question is easier to see as a simple path.",
         "Game to recorder, recorder to edit, edit to upload. Find the stage where a sound enters the file, and you'll know where to fix it."
-      ]
+      ],
+      "highlights": [0, 2, 0, 2]
     }
   ]
 }

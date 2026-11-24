@@ -47,7 +47,7 @@ def card(chapter, line, line_index, folder, vertical):
     title_y = 158 if vertical else 102
     text_block(draw, "GTA VI CLIP FIX", (margin, 96 if vertical else 56), 24, 360, accent)
     text_block(draw, chapter["title"], (margin, title_y), 60 if vertical else 57, width - 2 * margin, WHITE)
-    active = line_index * len(chapter["labels"]) // len(chapter["lines"])
+    active = chapter["highlights"][line_index]
     for index, label in enumerate(chapter["labels"]):
         x, y = (margin, 340 + index * 110) if vertical else (734, 236 + index * 89)
         draw.rounded_rectangle((x, y, width - margin, y + (83 if vertical else 67)), 17,
@@ -132,6 +132,11 @@ def build(spec, model, folder):
     if sum("short_title" in chapter for chapter in chapters) != 3:
         raise ValueError("The batch needs exactly three distinct Short chapters")
     for index, chapter in enumerate(chapters):
+        highlights = chapter["highlights"]
+        if len(highlights) != len(chapter["lines"]) or not all(
+            isinstance(item, int) and 0 <= item < len(chapter["labels"]) for item in highlights
+        ):
+            raise ValueError(f"Invalid diagram timing in {chapter['title']}")
         working = temp / f"chapter-{index:02}"
         working.mkdir()
         audio, times = chapter_audio(chapter, voice, working)
