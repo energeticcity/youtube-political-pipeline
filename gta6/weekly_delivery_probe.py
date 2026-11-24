@@ -111,9 +111,48 @@ def main(folder):
     raise RuntimeError("Awaiting YouTube privacy confirmation; do not resubmit")
 
 
+def inspect_rejection(post_id):
+    if not re.fullmatch(r"sp_[A-Za-z0-9]+", post_id):
+        raise ValueError("Unexpected proof post identifier")
+    post = api("GET", "/social-posts/" + post_id)
+    if post.get("external_id") != EXTERNAL_ID:
+        raise ValueError("Post is outside the private proof")
+    results = rows(api("GET", "/social-post-results", params={"post_id": post_id, "limit": 10}))
+    matching = [r for r in results if r.get("post_id") == post_id
+                and r.get("social_account_id") == DESTINATION["id"]]
+    if not matching:
+        raise ValueError("No matching destination receipt")
+
+    def message(value, depth=0):
+        if depth > 4:
+            return ""
+        if isinstance(value, dict):
+            return " | ".join(filter(None, (message(value[k], depth+1) for k in
+                ("message", "error", "reason", "status", "errors", "code") if k in value)))
+        if isinstance(value, list):
+            return " | ".join(message(item, depth+1) for item in value[:5])
+        if isinstance(value, str):
+            try:
+                decoded = json.loads(value)
+            except ValueError:
+                return value
+            if not isinstance(decoded, str):
+                return message(decoded, depth+1)
+        return str(value) if isinstance(value, (str, int)) else ""
+
+    raw = message(matching[-1].get("error"))
+    safe = re.sub(r"https?://[^\s\"']+|[\w.+-]+@[\w.-]+|[A-Za-z0-9_./+=-]{24,}", "[redacted]", raw)
+    safe = re.sub(r"(?i)(bearer|token|key|signature)[:= ]+[^\s,}]+", r"\1 [redacted]", safe)
+    save(stage="inspected_existing_result", provider_post=post_id, result_id=matching[-1].get("id"),
+         success=matching[-1].get("success"), message=safe[:400])
+
+
 if __name__ == "__main__":
     try:
-        main(Path(sys.argv[1]))
+        if len(sys.argv) == 3 and sys.argv[1] == "--inspect":
+            inspect_rejection(sys.argv[2])
+        else:
+            main(Path(sys.argv[1]))
     except (KeyError, requests.RequestException, ValueError, RuntimeError):
         if not REPORT.exists():
             save(stage="preflight_or_submission_failed")

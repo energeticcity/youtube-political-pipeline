@@ -7,6 +7,10 @@ on:
         type: choice
         default: all
         options: [all, tiktok, youtube, youtube-api, youtube-verify, weekly-oauth, weekly-private, instagram]
+      proof_post:
+        description: Existing weekly private test receipt to inspect without uploading
+        type: string
+        default: ''
 permissions:
   contents: read
 concurrency:
@@ -193,6 +197,7 @@ jobs:
         with:
           persist-credentials: false
       - uses: actions/download-artifact@v4
+        if: inputs.proof_post == ''
         with:
           name: gta6-weekly-preview
           github-token: ${{ github.token }}
@@ -202,7 +207,13 @@ jobs:
       - name: Verify and upload the episode as private to the existing YouTube account
         env:
           POSTFORME_API_KEY: ${{ secrets.POSTFORME_API_KEY }}
-        run: python3 -m gta6.weekly_delivery_probe weekly-verified-input
+          PROOF_POST: ${{ inputs.proof_post }}
+        run: |
+          if [[ -n "$PROOF_POST" ]]; then
+            python3 -m gta6.weekly_delivery_probe --inspect "$PROOF_POST"
+          else
+            python3 -m gta6.weekly_delivery_probe weekly-verified-input
+          fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:
