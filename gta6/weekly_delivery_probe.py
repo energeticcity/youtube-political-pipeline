@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 import re
 import sys
+import subprocess
+import os
 import time
 
 import requests
@@ -111,6 +113,47 @@ def main(folder):
     raise RuntimeError("Awaiting YouTube privacy confirmation; do not resubmit")
 
 
+def direct_browser(folder):
+    from gta6_cloud import youtube_session
+    from gta6.sau_youtube_verify import receipts
+    repo, account = youtube_session()
+    environment = dict(os.environ, SAU_EXPECTED_YOUTUBE_CHANNEL=DESTINATION["user_id"])
+    check = subprocess.run(["sau", "youtube", "check", "--account", "gtaviclipfix"],
+        cwd=repo, env=environment, capture_output=True, text=True, timeout=120, stdin=subprocess.DEVNULL)
+    if check.returncode or check.stdout.strip() != "valid":
+        save(stage="browser_preflight_failed", route="social-auto-upload CLI",
+             exact_channel_verified=False)
+        raise RuntimeError("YouTube browser preflight failed")
+    save(stage="browser_preflight_passed", route="social-auto-upload CLI", exact_channel_verified=True)
+    title = TITLE + " (direct CLI proof)"
+    try:
+        prior = receipts(account, title)
+    except (AssertionError, RuntimeError):
+        save(stage="browser_receipt_preflight_failed", route="social-auto-upload CLI",
+             exact_channel_verified=True)
+        raise RuntimeError("YouTube Studio receipt check failed before upload") from None
+    if prior:
+        found = prior
+    else:
+        video = (folder / "episode.mp4").resolve()
+        manifest = json.loads((folder / "manifest.json").read_text())
+        proof = manifest["episode"]
+        with video.open("rb") as stream:
+            if (manifest["id"] != "recording-audio" or manifest.get("background")
+                    or proof["dimensions"] != [1280, 720]
+                    or hashlib.file_digest(stream, "sha256").hexdigest() != proof["sha256"]):
+                raise ValueError("Unexpected weekly browser proof media")
+        result = subprocess.run(["sau", "youtube", "upload-video", "--account", "gtaviclipfix",
+            "--file", str(video), "--title", title, "--desc", (folder / "credits.txt").read_text(),
+            "--visibility", "private", "--headless"], cwd=repo, env=environment,
+            capture_output=True, text=True, timeout=240, stdin=subprocess.DEVNULL)
+        save(stage="browser_upload_returned", route="social-auto-upload CLI", cli_exit_code=result.returncode)
+        found = receipts(account, title)
+    if len(found) != 1 or next(iter(found.values()))["verified_visibility"] != "private":
+        raise RuntimeError("Private YouTube proof receipt unverified")
+    save(stage="verified_private", route="social-auto-upload CLI", video_id=next(iter(found)))
+
+
 def inspect_rejection(post_id):
     if not re.fullmatch(r"sp_[A-Za-z0-9]+", post_id):
         raise ValueError("Unexpected proof post identifier")
@@ -151,6 +194,8 @@ if __name__ == "__main__":
     try:
         if len(sys.argv) == 3 and sys.argv[1] == "--inspect":
             inspect_rejection(sys.argv[2])
+        elif len(sys.argv) == 3 and sys.argv[1] == "--browser":
+            direct_browser(Path(sys.argv[2]))
         else:
             main(Path(sys.argv[1]))
     except (KeyError, requests.RequestException, ValueError, RuntimeError):

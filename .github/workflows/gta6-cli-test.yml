@@ -6,7 +6,7 @@ on:
         description: CLI to test
         type: choice
         default: all
-        options: [all, tiktok, youtube, youtube-api, youtube-verify, weekly-oauth, weekly-private, instagram]
+        options: [all, tiktok, youtube, youtube-api, youtube-verify, weekly-oauth, weekly-private, weekly-browser, instagram]
       proof_post:
         description: Existing weekly private test receipt to inspect without uploading
         type: string
@@ -218,6 +218,42 @@ jobs:
         if: always()
         with:
           name: weekly-delivery-proof
+          path: weekly-delivery-proof.json
+          retention-days: 3
+          if-no-files-found: ignore
+  weekly-browser:
+    if: inputs.platform == 'weekly-browser'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: gta6-weekly-preview
+          github-token: ${{ github.token }}
+          run-id: '45310860016'
+          path: weekly-verified-input
+      - name: Install the existing YouTube Studio CLI
+        run: |
+          git clone https://github.com/dreammis/social-auto-upload.git /tmp/sau
+          git -C /tmp/sau checkout 3847fff01f5434a8a32829833163cd6723cabc59
+          cp /tmp/sau/conf.example.py /tmp/sau/conf.py
+          git -C /tmp/sau apply "$GITHUB_WORKSPACE/gta6/social-auto-upload-youtube.patch"
+          pip install -e /tmp/sau 'requests>=2.32,<3'
+      - name: Check the exact channel and attempt private delivery
+        env:
+          SAU_REPO: /tmp/sau
+          GTA6_YOUTUBE_BROWSER_SESSION: ${{ secrets.GTA6_YOUTUBE_BROWSER_SESSION }}
+        run: python3 -m gta6.weekly_delivery_probe --browser weekly-verified-input
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: weekly-browser-proof
           path: weekly-delivery-proof.json
           retention-days: 3
           if-no-files-found: ignore
