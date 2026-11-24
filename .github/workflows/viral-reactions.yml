@@ -1,5 +1,10 @@
 name: Viral Reaction Videos
 on:
+  schedule:
+    - cron: '30 12 * * *'
+      timezone: America/Dawson_Creek
+    - cron: '30 18 * * *'
+      timezone: America/Dawson_Creek
   workflow_dispatch:
   push:
     branches: [viral-reactions]
@@ -13,8 +18,12 @@ concurrency:
   cancel-in-progress: false
 jobs:
   prepare:
+    if: github.event_name != 'schedule' || (github.ref_name == 'main' && vars.REACTION_ACCOUNTS != '')
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      issues: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -38,11 +47,37 @@ jobs:
           6e742170d309016e5891a994e1ce1559c702a2ccd0075e67ef7157974f6406cb  kokoro.onnx
           bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d  voices.bin
           CHECKSUMS
+      - name: Install the existing TikTok, Instagram and YouTube uploaders
+        if: github.event_name == 'schedule'
+        run: |
+          python -m pip install 'playwright>=1.45,<2' 'autotok==2.1.0' 'youtube-upload @ git+https://github.com/tokland/youtube-upload.git@6a30b55d0fd4976571a5b9b34c01fd41cec49c7a'
+          python gta6/patch_autotok.py
+          git clone https://github.com/dreammis/social-auto-upload.git /tmp/sau
+          git -C /tmp/sau checkout 3847fff01f5434a8a32829833163cd6723cabc59
+          cp /tmp/sau/conf.example.py /tmp/sau/conf.py
+          git -C /tmp/sau apply "$GITHUB_WORKSPACE/gta6/social-auto-upload-instagram.patch"
+          python -m pip install -e /tmp/sau
+          playwright install --with-deps chromium
       - name: Render two narrated preview clips
+        if: github.event_name != 'schedule'
         env:
           GH_TOKEN: ${{ github.token }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: python -m reactions.pipeline preview "$RUNNER_TEMP/reaction-audio"
+      - name: Publish one fresh reaction across the three verified accounts
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          SAU_REPO: /tmp/sau
+          REACTION_SLOT: ${{ github.event.schedule == '30 12 * * *' && 'midday' || 'evening' }}
+          REACTION_ACCOUNTS: ${{ vars.REACTION_ACCOUNTS }}
+          REACTION_TIKTOK_SESSION: ${{ secrets.REACTION_TIKTOK_SESSION }}
+          REACTION_INSTAGRAM_SESSION: ${{ secrets.REACTION_INSTAGRAM_SESSION }}
+          REACTION_YOUTUBE_API_CLIENT_ID: ${{ secrets.REACTION_YOUTUBE_API_CLIENT_ID }}
+          REACTION_YOUTUBE_API_CLIENT_SECRET: ${{ secrets.REACTION_YOUTUBE_API_CLIENT_SECRET }}
+          REACTION_YOUTUBE_API_REFRESH_TOKEN: ${{ secrets.REACTION_YOUTUBE_API_REFRESH_TOKEN }}
+        run: python -m reactions.pipeline publish "$RUNNER_TEMP/reaction-audio"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -50,5 +85,6 @@ jobs:
           path: |
             reaction-output/clip-*/reaction.mp4
             reaction-output/clip-*/receipt.json
+            reaction-output/clip-*/delivery.json
           if-no-files-found: ignore
           retention-days: 5

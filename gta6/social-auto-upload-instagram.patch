@@ -74,7 +74,7 @@ index 8bf501e..b3f387e 100644
 +    inbox=page.locator('a[href^="/direct/inbox/"]')
 +    login=page.locator('input[name="username"], a[href^="/accounts/login/"]').or_(
 +        page.get_by_role('textbox',name='Mobile number, username or email',exact=True))
-+    saved=page.get_by_role('button', name='Continue gtaviclipfix', exact=True)
++    saved=page.get_by_role('button', name='Continue '+os.environ.get('SAU_EXPECTED_INSTAGRAM_USERNAME','gtaviclipfix'), exact=True)
 +    notice=page.get_by_role('heading', name='We suspect automated behavior on your account', exact=True)
 +    outcomes=inbox.or_(login).or_(saved).or_(notice)
 +    for _ in range(3):
@@ -101,7 +101,7 @@ index 8bf501e..b3f387e 100644
 +                        'path':urlparse(page.url).path,
 +                        'inbox_links':await page.locator('a[href^="/direct/inbox/"]').count(),
 +                        'login_inputs':await page.locator('input[name="username"]').count(),
-+                        'saved_continue':await page.get_by_role('button',name='Continue gtaviclipfix',exact=True).count(),
++                        'saved_continue':await page.get_by_role('button',name='Continue '+os.environ.get('SAU_EXPECTED_INSTAGRAM_USERNAME','gtaviclipfix'),exact=True).count(),
 +                        'account_notice':await page.get_by_role('heading',name='We suspect automated behavior on your account',exact=True).count(),
 +                        'owner_links':await page.locator('a[href]').filter(has=page.locator('[aria-selected] img')).count()}
 +            if os.environ.get('SAU_AUTH_DEBUG_SCREENSHOT'):

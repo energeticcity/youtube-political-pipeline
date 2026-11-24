@@ -3,7 +3,7 @@
 from datetime import datetime, timedelta, timezone
 from html import unescape
 import re
-from urllib.parse import quote, unquote, urlsplit
+from urllib.parse import unquote, urlsplit
 
 import requests
 
@@ -60,7 +60,7 @@ def discover(used=(), now=None):
         if count >= 2800 and count - older >= 350 and count >= older * 1.12 and not UNSUITABLE.search(name):
             ranked.append((count - older, count, older, name))
     ranked.sort(reverse=True)
-    records = {name: (growth, count, older) for growth, count, older, name in ranked[:100]}
+    records = {name: (growth, count, older) for growth, count, older, name in ranked[:200]}
     previous_names = {unquote(path.rsplit("/", 1)[-1]).replace("_", " ") for path in previous[1]}
     found = []
     names = list(records)

@@ -61,29 +61,37 @@ def load_queue(all_issues):
     issue=cross.gh('POST','issues',json={'title':QUEUE_TITLE,'body':json.dumps(seed,ensure_ascii=False,indent=2)})
     return issue['number'],seed
 
-def tiktok_client():
+TIKTOK_DESTINATION = {'session_env':'GTA6_TIKTOK_SESSION', 'account':'gta6_clips',
+                      'username':'gtaviclipfix', 'user_id':'7630582867722372104'}
+INSTAGRAM_DESTINATION = {'session_env':'GTA6_INSTAGRAM_BROWSER_SESSION',
+                         'username':'gtaviclipfix', 'user_id':'34024392171'}
+
+
+def tiktok_client(destination=None):
+    destination = destination or TIKTOK_DESTINATION
     from autotok.accounts import Account
     from autotok.uploader import Client
-    account=Account.from_dict(json.loads(os.environ['GTA6_TIKTOK_SESSION']))
-    if account.name!='gta6_clips':raise ValueError('Wrong saved TikTok account name')
+    account=Account.from_dict(json.loads(os.environ[destination['session_env']]))
+    if account.name!=destination['account']:raise ValueError('Wrong saved TikTok account name')
     client=Client(account)
     response=client._session().get('https://www.tiktok.com/passport/web/account/info/',params={'aid':1988},timeout=45)
     if not response.ok:raise RuntimeError('TikTok identity service unavailable')
     data=response.json().get('data',{})
-    if data.get('username')!='gtaviclipfix' or str(data.get('user_id'))!='7630582867722372104':
+    if data.get('username')!=destination['username'] or str(data.get('user_id'))!=destination['user_id']:
         raise ValueError('TikTok session expired or exact numeric identity mismatch')
     return client
 
-def tiktok_cli_upload(media, caption):
+def tiktok_cli_upload(media, caption, destination=None):
     """Run the installed upstream CLI after verifying the exact destination."""
-    tiktok_client()
-    session=json.loads(os.environ['GTA6_TIKTOK_SESSION'])
+    tiktok_client(destination) if destination else tiktok_client()
+    destination = destination or TIKTOK_DESTINATION
+    session=json.loads(os.environ[destination['session_env']])
     with tempfile.TemporaryDirectory(prefix='gta6-autotok-') as folder:
-        account=Path(folder)/'accounts/gta6_clips.json'
+        account=Path(folder)/'accounts'/f"{destination['account']}.json"
         account.parent.mkdir(mode=0o700)
         account.write_text(json.dumps(session));account.chmod(0o600)
         for attempt in range(2):
-            result=subprocess.run(['autotok','upload','-u','gta6_clips','-v',str(Path(media).resolve()),
+            result=subprocess.run(['autotok','upload','-u',destination['account'],'-v',str(Path(media).resolve()),
                 '-t',caption,'-vi','0','-ct','1','-d','0','-st','0'],
                 env=dict(os.environ,AUTOTOK_HOME=folder),capture_output=True,text=True,timeout=360,
                 stdin=subprocess.DEVNULL)
@@ -101,24 +109,27 @@ def tiktok_cli_upload(media, caption):
     item=re.search(r'^Public item id: ([0-9]{15,25})$',result.stdout,re.MULTILINE)
     return {'status':'accepted','video_id':receipt.group(1),
             'public_item_id':item.group(1) if item else None,
-            'url':'https://www.tiktok.com/@gtaviclipfix/video/'+item.group(1) if item else None,
+            'url':'https://www.tiktok.com/@'+destination['username']+'/video/'+item.group(1) if item else None,
             'uploader':'autotok CLI','requested_visibility':'public'}
 
-def instagram_session():
-    state=json.loads(os.environ['GTA6_INSTAGRAM_BROWSER_SESSION'])
+def instagram_session(destination=None):
+    destination = destination or INSTAGRAM_DESTINATION
+    state=json.loads(os.environ[destination['session_env']])
     ids={str(c['value']) for c in state.get('cookies',[]) if c.get('name')=='ds_user_id'
          and c.get('domain','').lstrip('.')=='instagram.com'}
-    if ids!={'34024392171'} or state.get('gta6_verified_username')!='gtaviclipfix':
-        raise ValueError('Instagram saved session does not match @gtaviclipfix')
+    if ids!={destination['user_id']} or state.get('verified_username',state.get('gta6_verified_username'))!=destination['username']:
+        raise ValueError('Instagram saved session does not match the intended account')
     repo=Path(os.environ['SAU_REPO']).resolve()
-    account=repo/'cookies/instagram_gtaviclipfix.json'
+    account=repo/'cookies'/f"instagram_{destination['username']}.json"
     account.parent.mkdir(exist_ok=True,mode=0o700)
     account.write_text(json.dumps({k:state[k] for k in ['cookies','origins']}));account.chmod(0o600)
     return repo
 
-def instagram_cli_check():
-    repo=instagram_session()
-    result=subprocess.run(['sau','instagram','check','--account','gtaviclipfix'],cwd=repo,
+def instagram_cli_check(destination=None):
+    repo=instagram_session(destination) if destination else instagram_session()
+    destination = destination or INSTAGRAM_DESTINATION
+    result=subprocess.run(['sau','instagram','check','--account',destination['username']],cwd=repo,
+        env=dict(os.environ,SAU_EXPECTED_INSTAGRAM_USERNAME=destination['username']),
         capture_output=True,text=True,timeout=150,stdin=subprocess.DEVNULL)
     if result.returncode or result.stdout.strip()!='valid':
         diagnostic={'exit_code':result.returncode,'result':'invalid' if result.stdout.strip()=='invalid' else 'error'}
@@ -127,31 +138,33 @@ def instagram_cli_check():
                 diagnostic.update(json.loads(line.removeprefix('IG_AUTH_DIAGNOSTIC ')))
         (OUT/'instagram-auth-check.json').write_text(json.dumps(diagnostic,indent=2))
         raise RuntimeError('Instagram CLI authentication check failed; no upload attempted')
-    return {'username':'gtaviclipfix','user_id':'34024392171','status':'connected','uploader':'sau CLI'}
+    return {'username':destination['username'],'user_id':destination['user_id'],'status':'connected','uploader':'sau CLI'}
 
-def instagram_cli_upload(media,caption):
-    repo=instagram_session()
+def instagram_cli_upload(media,caption,destination=None):
+    repo=instagram_session(destination) if destination else instagram_session()
+    destination = destination or INSTAGRAM_DESTINATION
     with tempfile.TemporaryDirectory(prefix='gta6-instagram-') as folder:
         receipt=Path(folder)/'result.json'
-        result=subprocess.run(['sau','instagram','upload-video','--account','gtaviclipfix',
+        result=subprocess.run(['sau','instagram','upload-video','--account',destination['username'],
             '--file',str(Path(media).resolve()),'--title',caption,'--headless','--result',str(receipt)],
-            cwd=repo,capture_output=True,text=True,timeout=600,stdin=subprocess.DEVNULL)
+            cwd=repo,env=dict(os.environ,SAU_EXPECTED_INSTAGRAM_USERNAME=destination['username']),
+            capture_output=True,text=True,timeout=600,stdin=subprocess.DEVNULL)
         if not receipt.is_file():
             raise RuntimeError('Instagram CLI returned no receipt; reservation retained')
         data=json.loads(receipt.read_text())
         safe={k:data.get(k) for k in ['status','username','user_id','post_url','stage']}
         safe['cli_exit_code']=result.returncode
         (OUT/'instagram-cli-result.json').write_text(json.dumps(safe,indent=2))
-    if (result.returncode or data.get('status')!='published' or data.get('username')!='gtaviclipfix'
-            or str(data.get('user_id'))!='34024392171' or not public_url('instagram',data.get('post_url'))):
+    if (result.returncode or data.get('status')!='published' or data.get('username')!=destination['username']
+            or str(data.get('user_id'))!=destination['user_id'] or not public_url('instagram',data.get('post_url'))):
         raise RuntimeError('Instagram CLI did not confirm publication to the exact account; reservation retained')
     return {'status':'published','url':data['post_url'],'uploader':'sau CLI'}
 
 def youtube_api_enabled():
     return os.environ.get('GTA6_YOUTUBE_API_ENABLED')=='true'
 
-def youtube_api_client():
-    values={k:os.environ.get('GTA6_YOUTUBE_API_'+k,'') for k in ['CLIENT_ID','CLIENT_SECRET','REFRESH_TOKEN']}
+def youtube_api_client(expected_channel='UCdL4ljG4SqfEA8qk5yd6v5w', prefix='GTA6_YOUTUBE_API_'):
+    values={k:os.environ.get(prefix+k,'') for k in ['CLIENT_ID','CLIENT_SECRET','REFRESH_TOKEN']}
     if not all(values.values()):raise ValueError('GTA6 YouTube API credentials are missing')
     response=requests.post('https://oauth2.googleapis.com/token',data={
         'client_id':values['CLIENT_ID'],'client_secret':values['CLIENT_SECRET'],
@@ -161,12 +174,13 @@ def youtube_api_client():
     response=requests.get('https://www.googleapis.com/youtube/v3/channels',
         params={'part':'id','mine':'true'},headers={'Authorization':'Bearer '+token},timeout=45)
     if not response.ok:raise RuntimeError('YouTube exact channel lookup failed')
-    if [v['id'] for v in response.json().get('items',[])]!=['UCdL4ljG4SqfEA8qk5yd6v5w']:
+    if [v['id'] for v in response.json().get('items',[])]!=[expected_channel]:
         raise ValueError('YouTube OAuth credentials belong to a different channel')
     return token,values
 
-def youtube_api_cli_upload(media,clip):
-    token,values=youtube_api_client()
+def youtube_api_cli_upload(media,clip,destination=None):
+    channel_id = destination['user_id'] if destination else 'UCdL4ljG4SqfEA8qk5yd6v5w'
+    token,values = youtube_api_client(channel_id,destination['prefix']) if destination else youtube_api_client()
     from oauth2client.client import GoogleCredentials
     with tempfile.TemporaryDirectory(prefix='gta6-youtube-api-') as folder:
         credentials=Path(folder)/'credentials.json';secrets=Path(folder)/'client-secrets.json'
@@ -184,7 +198,7 @@ def youtube_api_cli_upload(media,clip):
     if result.returncode or len(ids)!=1:raise RuntimeError('YouTube CLI receipt unconfirmed; reservation retained')
     video_id=ids[0]
     receipt={'status':'processing','video_id':video_id,'url':'https://www.youtube.com/watch?v='+video_id,
-             'channel_id':'UCdL4ljG4SqfEA8qk5yd6v5w','uploader':'youtube-upload CLI'}
+             'channel_id':channel_id,'uploader':'youtube-upload CLI'}
     OUT.mkdir(exist_ok=True)
     (OUT/'youtube-api-result.json').write_text(json.dumps(receipt,indent=2))
     for attempt in range(12):
