@@ -17,6 +17,7 @@ STORY = object_schema({
     "rotation": {"type": "integer", "enum": [0, 90, 180, 270]},
     "lines": {"type": "array", "minItems": 4, "maxItems": 6, "items": STRING},
     "reaction_id": STRING, "reaction_reason": STRING, "reaction_at": {"type": "number"},
+    "excerpt_start": {"type": "number"}, "excerpt_end": {"type": "number"},
 })
 QA = object_schema({
     "pass": {"type": "boolean"}, "upright": {"type": "boolean"}, "caption_readable": {"type": "boolean"},
@@ -96,8 +97,10 @@ def plan_story(clip, source, model, recent_reactions):
         "Write 4–6 short lines of spoken English, 39–54 words total, each 6–11 words. Lead with a visual hook. "
         "Use accurate names only if supported by the title. Don't refer to virality or claim this happened today. "
         "Return a title at most 41 characters, caption lead at most 115 characters, and video rotation needed. "
-        "Pick exactly one reaction ID from the options, matched to a concrete payoff. "
-        "Give the start point of that reaction in SOURCE seconds, after the hook and before the last 2 seconds. "
+        "Choose one coherent 11–24 second excerpt around the strongest visible moment, "
+        "using the whole video if it is already shorter. Narrate only what is visible inside that interval. "
+        "Specify excerpt_start, excerpt_end, and a supporting reaction_at in original SOURCE seconds. "
+        "Pick exactly one available reaction ID that fits this moment. "
         f"Source length {clip['seconds']:.2f} seconds. Source metadata: {json.dumps(brief)}. "
         f"Reaction options: {json.dumps(choices)}."
     )
@@ -108,8 +111,11 @@ def plan_story(clip, source, model, recent_reactions):
         if not draft["suitable"]:
             raise Rejected("Source did not have a suitable reaction moment")
         errors = []
-        if draft["reaction_id"] not in inventory or not 0 <= draft["reaction_at"] <= clip["seconds"]:
-            errors.append("unsupported reaction ID or invalid source timestamp")
+        begin, end = draft["excerpt_start"], draft["excerpt_end"]
+        if (draft["reaction_id"] not in inventory
+                or not 0 <= begin <= draft["reaction_at"] <= end <= clip["seconds"] + 0.15
+                or not 10.85 <= end - begin <= 26):
+            errors.append("select a valid 11–24 second excerpt containing the reaction timestamp")
         if not 5 < len(draft["title"]) <= 56 or not 10 <= len(draft["lead"]) <= 160:
             errors.append("title or lead length")
         if (not all(4 <= len(line.split()) <= 15 and not re.search(r"[{}\\\n]", line) for line in lines)
@@ -155,18 +161,21 @@ def compose(clip, model, voice, folder, recent_reactions=()):
             raise Rejected("Reaction file checksum does not match the reviewed library")
     audio, times = chapter_audio(draft, voice, folder)
     _, source_time = probe(source)
+    start = draft.get("excerpt_start", 0)
+    end = min(source_time, draft.get("excerpt_end", source_time))
+    excerpt_time = end - start
     spoken_time = sum(times)
-    duration = max(15, source_time * 0.73, spoken_time)
+    duration = max(15, excerpt_time * 0.73, spoken_time)
     tempo = spoken_time / duration
-    if not 15 <= duration <= 36 or tempo < 0.70 or duration / source_time > 2:
+    if not 15 <= duration <= 36 or tempo < 0.70 or duration / excerpt_time > 2:
         raise Rejected("Source pacing and original narration are mismatched")
     times = [seconds / tempo for seconds in times]
     rotation = {0: "", 90: "transpose=clock,", 180: "hflip,vflip,", 270: "transpose=cclock,"}[draft["rotation"]]
-    reaction_at = min(duration - 2.2, max(2, draft["reaction_at"] * duration / source_time))
+    reaction_at = min(duration - 2.2, max(2, (draft["reaction_at"] - start) * duration / excerpt_time))
     captions = make_graphics(draft, clip, times, folder)
     output = folder / "reaction.mp4"
     filters = (
-        f"[0:v]{rotation}setpts={duration/source_time:.7f}*(PTS-STARTPTS),"
+        f"[0:v]{rotation}trim=start={start:.6f}:end={end:.6f},setpts={duration/excerpt_time:.7f}*(PTS-STARTPTS),"
         "scale=1080:925:force_original_aspect_ratio=decrease,"
         "pad=1080:1920:(ow-iw)/2:(oh-ih)/2-100:color=0x151021,setsar=1,fps=30[clip];"
         f"[1:v]fps=30,scale=256:-1,format=rgba,trim=duration=2,setpts=PTS-STARTPTS+{reaction_at:.6f}/TB[reaction];"
@@ -199,7 +208,8 @@ def compose(clip, model, voice, folder, recent_reactions=()):
         "id": clip["id"], "title": draft["title"], "caption": caption, "source": clip["source"],
         "license": clip["license"], "traffic": clip["traffic"], "reaction_id": reaction["id"],
         "reaction_at": round(reaction_at, 2), "reason": draft["reaction_reason"],
-        "seconds": round(seconds, 2), "media_sha256": media_hash, "qa": report,
+        "seconds": round(seconds, 2), "excerpt": [round(start, 2), round(end, 2)],
+        "media_sha256": media_hash, "qa": report,
     }
     (folder / "receipt.json").write_text(json.dumps(rendered, indent=2, ensure_ascii=False) + "\n")
     return output, rendered

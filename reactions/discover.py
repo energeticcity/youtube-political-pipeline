@@ -14,8 +14,8 @@ LICENSE = re.compile(r"https?://creativecommons\.org/(?:licenses/by/(?:2\.0|2\.5
 UNSUITABLE = re.compile(
     r"\b(?:sex(?:ual|uality)?|porn\w*|nude|naked|breastfeeding|masturbat\w*|ejaculat\w*|penis|vagina|fetish|"
     r"2 girls 1 cup|rape|terror\w*|IED|explos\w*|shoot\w*|murder\w*|sniper\w*|massacre|attack\w*|helicopter crash|"
-    r"suicide|death|killed|war|protest\w*|genocide|blood|gore|politic\w*|president|assault|trailer|"
-    r"full episode|tsunami|landing on mars|apollo\s*11)\b", re.I,
+    r"suicide|death|killed|war|military|unmanned surface|terror|protest\w*|genocide|blood|gore|politic\w*|president|assault|trailer|"
+    r"teaser|episode|fucking|tsunami|landing on mars|apollo\s*11)\b", re.I,
 )
 
 
@@ -60,7 +60,7 @@ def discover(used=(), now=None):
         if count >= 2800 and count - older >= 350 and count >= older * 1.12 and not UNSUITABLE.search(name):
             ranked.append((count - older, count, older, name))
     ranked.sort(reverse=True)
-    records = {name: (growth, count, older) for growth, count, older, name in ranked[:200]}
+    records = {name: (growth, count, older) for growth, count, older, name in ranked[:320]}
     previous_names = {unquote(path.rsplit("/", 1)[-1]).replace("_", " ") for path in previous[1]}
     found = []
     names = list(records)
