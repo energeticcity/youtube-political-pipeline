@@ -104,14 +104,17 @@ def news_topic(used):
         except (requests.RequestException, ValueError):
             continue
         headline = re.search(r"<h1\b[^>]*>(.*?)</h1>", article, re.I | re.S)
-        title = plain_markup(headline[1]) if headline else ""
+        metadata = dict(re.findall(r'<meta property="og:(title|description)" content="([^"]*)"', article))
+        title = plain_markup(headline[1] if headline else metadata.get("title", "")).removesuffix(" - Rockstar Games")
         if (not re.search(r"\b(?:GTA\s?VI|Grand Theft Auto VI|Leonida|Vice City)\b", title, re.I)
                 or re.search(r"pre-order|pre-load|pre-purchase|store collection|trailer is coming", title, re.I)):
             continue
         body = " ".join(plain_markup(p) for p in re.findall(r"<p\b[^>]*>(.*?)</p>", article, re.I | re.S))
-        if 90 <= len(body.split()) and len(title) <= 140:
+        summary = plain_markup(metadata.get("description", ""))
+        facts = body if len(body.split()) >= 90 else summary
+        if len(facts.split()) >= 33 and len(title) <= 140:
             return {"id": topic_id, "subject": title, "source": [f"Rockstar Newswire — {title}", f"{ROCKSTAR}{path}"],
-                    "facts": body[:4800]}
+                    "facts": facts[:4800]}
     return None
 
 
@@ -207,7 +210,7 @@ def write_story(brief, recent_titles, template, week):
         if review["approved"] is True:
             break
         if attempt:
-            raise RuntimeError("Weekly GTA 6 script did not pass editorial source review")
+            raise ValueError("Weekly GTA 6 script did not pass editorial source review")
         prompt += "\nThe prior draft failed source review. Make only source-backed claims and label suggestions."
     offset = (date.fromisoformat(week) - START).days // 7
     spec = {**template, "id": brief["id"], "title": story["title"], "description": story["description"],
@@ -240,10 +243,19 @@ def plan_week(monday):
     else:
         briefs = json.loads((TOPICS / "briefs.json").read_text())
         brief = next((item for item in briefs if item["id"] not in used), None)
-        if brief is None or ((monday - START).days // 7) % 3 == 2:
-            brief = news_topic(used) or brief
-        if brief is None:
-            raise RuntimeError("No unused sourced GTA VI topic is available; no video will be uploaded this week")
         template = {key: seed[key] for key in ("footage", "footage_credit")}
-        spec = write_story(brief, [item["title"] for item in history[:12]], template, week)
+        recent_titles = [item["title"] for item in history]
+        recent_titles.extend(json.loads(path.read_text())["title"]
+                             for path in TOPICS.with_name("weekly").glob("*.json"))
+        news = news_topic(used) if brief is None or ((monday - START).days // 7) % 3 == 2 else None
+        spec = None
+        if news:
+            try:
+                spec = write_story(news, recent_titles, template, week)
+            except ValueError:
+                print("Rockstar Newswire draft did not pass editorial checks; choosing an evergreen guide.")
+        if spec is None:
+            if brief is None:
+                raise RuntimeError("No unused sourced GTA VI topic passed the checks this week")
+            spec = write_story(brief, recent_titles, template, week)
     return save_plan(week, {**spec, "preview_week": week})
