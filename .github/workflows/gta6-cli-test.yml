@@ -238,6 +238,9 @@ jobs:
           github-token: ${{ github.token }}
           run-id: '45310860016'
           path: weekly-verified-input
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - name: Install the existing YouTube Studio CLI
         run: |
           git clone https://github.com/dreammis/social-auto-upload.git /tmp/sau
