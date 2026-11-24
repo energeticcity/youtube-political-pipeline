@@ -6,7 +6,7 @@ on:
         description: CLI to test
         type: choice
         default: all
-        options: [all, tiktok, youtube, youtube-api, youtube-verify, instagram]
+        options: [all, tiktok, youtube, youtube-api, youtube-verify, weekly-oauth, instagram]
 permissions:
   contents: read
 concurrency:
@@ -133,3 +133,51 @@ jobs:
           name: cli-test-youtube-api
           path: cli-test-results/youtube-api.json
           retention-days: 7
+  weekly-oauth:
+    if: inputs.platform == 'weekly-oauth'
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Verify an existing OAuth connection for the exact GTA channel
+        env:
+          CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+        run: |
+          python3 - <<'PYTHON'
+          import json, os, urllib.request, urllib.parse, urllib.error
+          from pathlib import Path
+
+          def read(req):
+              try:
+                  with urllib.request.urlopen(req, timeout=25) as response:
+                      return response.status, json.load(response)
+              except urllib.error.HTTPError as error:
+                  return error.code, json.load(error)
+
+          values = {key.lower(): os.environ.get(key, '') for key in ('CLIENT_ID', 'CLIENT_SECRET', 'REFRESH_TOKEN')}
+          result = {'connection': 'missing_credentials', 'identity': 'unverified'}
+          if all(values.values()):
+              code, data = read(urllib.request.Request('https://oauth2.googleapis.com/token',
+                  data=urllib.parse.urlencode(dict(values, grant_type='refresh_token')).encode()))
+              if code == 200 and 'access_token' in data:
+                  status, channels = read(urllib.request.Request(
+                      'https://www.googleapis.com/youtube/v3/channels?part=id&mine=true',
+                      headers={'Authorization': 'Bearer '+data['access_token']}))
+                  result = {'connection': 'authenticated', 'channel_lookup_http': status,
+                            'identity': 'matched' if [item['id'] for item in channels.get('items', [])]
+                            == ['UCdL4ljG4SqfEA8qk5yd6v5w'] else 'unverified',
+                            'upload_scope': any(scope.endswith(('/auth/youtube.upload', '/auth/youtube',
+                                '/auth/youtube.force-ssl')) for scope in data.get('scope', '').split())}
+              else:
+                  error = data.get('error', '')
+                  result = {'connection': error if error in ('deleted_client', 'invalid_grant', 'invalid_client',
+                      'unauthorized_client') else 'token_exchange_failed', 'token_http': code, 'identity': 'unverified'}
+          print(json.dumps(result))
+          Path('weekly-oauth-proof.json').write_text(json.dumps(result))
+          PYTHON
+      - uses: actions/upload-artifact@v4
+        with:
+          name: weekly-oauth-proof
+          path: weekly-oauth-proof.json
+          retention-days: 3
