@@ -1,4 +1,4 @@
-name: Stage GTA VI HUD YouTube release
+name: Inspect scheduled GTA VI HUD YouTube release
 on:
   workflow_dispatch:
 permissions:
@@ -16,25 +16,29 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - uses: actions/download-artifact@v4
-        with:
-          name: gta6-weekly-preview
-          github-token: ${{ github.token }}
-          run-id: '45321995123'
-          path: gta6-output/weekly
-      - run: python -m pip install 'requests>=2.32,<3' 'Pillow>=10,<13' 'youtube-upload @ git+https://github.com/tokland/youtube-upload.git@6a30b55d0fd4976571a5b9b34c01fd41cec49c7a'
-      - name: Schedule and verify the exact HUD release in YouTube
+      - run: python -m pip install 'requests>=2.32,<3'
+      - name: Confirm the existing YouTube ID without uploading
         env:
+          GH_TOKEN: ${{ github.token }}
           GTA6_YOUTUBE_API_CLIENT_ID: ${{ secrets.GTA6_YOUTUBE_API_CLIENT_ID }}
           GTA6_YOUTUBE_API_CLIENT_SECRET: ${{ secrets.GTA6_YOUTUBE_API_CLIENT_SECRET }}
           GTA6_YOUTUBE_API_REFRESH_TOKEN: ${{ secrets.GTA6_YOUTUBE_API_REFRESH_TOKEN }}
         run: |
-          jq -e '.id == "hud-readability" and .preview_week == "2026-11-30"' gta6-output/weekly/episode-spec.json >/dev/null
-          python -m gta6.weekly_youtube gta6-output/weekly/episode-spec.json gta6-output/weekly --publish-at 2026-12-02T01:17:00Z
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: gta6-hud-release-receipt
-          path: gta6-weekly-youtube.json
-          retention-days: 90
-          if-no-files-found: ignore
+          python - <<'PYTHON'
+          import json
+          from gta6.weekly_autoplan import load_plan
+          from gta6.weekly_youtube import verify_public, videos, youtube_api_client
+
+          plan = load_plan("gta6/weekly-plans/2026-11-30--hud-readability.json")
+          release = plan["scheduled_release"]
+          assert release["video_id"] == "ascnC6WCd2o"
+          token, _ = youtube_api_client()
+          headers = {"Authorization": f"Bearer {token}"}
+          duration = verify_public(headers, release["video_id"], plan["title"], plan["description"],
+                                   release=release, scheduled_at=release["publish_at"])
+          item = videos(headers, [release["video_id"]])[0]
+          print(json.dumps({"id": release["video_id"], "scheduled": item["status"]["publishAt"],
+                            "title": item["snippet"]["title"], "description": "verified",
+                            "custom_thumbnail": item["contentDetails"].get("hasCustomThumbnail"),
+                            "duration": duration}))
+          PYTHON
