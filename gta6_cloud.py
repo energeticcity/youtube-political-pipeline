@@ -315,7 +315,7 @@ def source_media(clip):
         raise ValueError('Media fingerprint differs from reviewed clip')
     return file
 
-def materialize(clip):
+def materialize(clip, recent_commentary=None):
     file=source_media(clip)
     if os.environ.get('GTA6_COMMENTARY_ENABLED')=='true':
         from gta6.produce import produce
@@ -323,8 +323,8 @@ def materialize(clip):
         cached=None
         if prepared:
             from gta6.produce import load_prepared
-            cached=load_prepared(clip,prepared,OUT/'production')
-        target,manifest=cached or produce(file,clip,model_name(commentary=True),OUT/'production')
+            cached=load_prepared(clip,prepared,OUT/'production',recent_commentary=recent_commentary)
+        target,manifest=cached or produce(file,clip,model_name(commentary=True),OUT/'production',recent_commentary=recent_commentary)
         clip['title']=manifest['title'];clip['caption']=manifest['caption']
         clip['production']=manifest
         return target
@@ -375,6 +375,11 @@ def reconcile(all_issues):
         if any(d['status']=='failed' for d in row['delivery'].values()):
             raise RuntimeError('A platform delivery failed; inspect cloud post issue before retrying')
 
+def commentary_history(rows):
+    recent=sorted(rows,key=lambda r:r.get('reserved_at',''),reverse=True)[:24]
+    return [{k:str(row.get('production',{}).get(k) or row.get(k) or '')[:600]
+             for k in ('analysis_angle','title','caption','script')} for row in recent]
+
 def publish(queue_num,queue,all_issues,dry_run=False,next_slot=False):
     local=now().astimezone(TZ)
     if next_slot:
@@ -392,7 +397,7 @@ def publish(queue_num,queue,all_issues,dry_run=False,next_slot=False):
     (OUT/'selection.json').write_text(json.dumps(summary,indent=2));print(json.dumps(summary))
     if not clip:return
     cross.validate_clip(clip)
-    try:media=materialize(clip)
+    try:media=materialize(clip,recent_commentary=commentary_history(rows))
     except ValueError:
         # Reject an editorial failure before creating any publication reservation.
         # Service outages (RuntimeError) leave the source ready for a later run.
@@ -687,7 +692,7 @@ def main():
         candidates=[c for c in queue['items'] if c.get('status')=='ready' and c['sha256'] not in used and c.get('duration_seconds',0)>=20]
         if not candidates:raise ValueError('No unused commentary-length source ready')
         clip=sorted(candidates,key=lambda c:(c.get('priority',100),c.get('reviewed_at','')))[0]
-        output,manifest=produce(source_media(clip),clip,model_name(commentary=True),OUT/'production')
+        output,manifest=produce(source_media(clip),clip,model_name(commentary=True),OUT/'production',recent_commentary=commentary_history(rows))
         clip['prepared_commentary_run']=os.environ['GITHUB_RUN_ID']
         save_issue(num,queue)
         print(json.dumps({'preview':str(output),'source':clip['source'],'title':manifest['title'],'qa':manifest['qa']}));return

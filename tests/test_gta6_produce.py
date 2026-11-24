@@ -9,7 +9,8 @@ import gta6_cloud as cloud
 
 
 def example():
-    return {'suitable': True, 'rotation_clockwise': 0, 'title': 'Look at the background',
+    return {'suitable': True, 'analysis_angle':'Independent crowd movements make the background feel busy',
+            'repeats_recent_angle':False, 'rotation_clockwise': 0, 'title': 'Look at the background',
             'caption': 'A closer look at the crowd in this fan edit.', 'beats': [
         {'start': 0, 'text': 'Look past the main character in this shot and watch what the people in the background are doing.', 'evidence': 'Visible crowd'},
         {'start': 3, 'text': 'Their different movements give the scene a busy feeling, rather than making everyone seem like part of the same animation.', 'evidence': 'Different movements'},
@@ -17,6 +18,24 @@ def example():
 
 
 class ProductionTests(unittest.TestCase):
+    def test_reworded_lighting_angle_and_recorded_topic_are_rejected(self):
+        plan=example()
+        plan.update(analysis_angle='How shadows shift the atmosphere',title='Visual storytelling')
+        with self.assertRaisesRegex(p.Rejected,'retired'):p.validate_angle(plan,[])
+        plan=example();plan['beats'][1]['text']='The bright to dark lighting makes the mood change.'
+        with self.assertRaisesRegex(p.Rejected,'retired'):p.validate_angle(plan,[])
+        plan=example()
+        with self.assertRaisesRegex(p.Rejected,'recorded angle'):
+            p.validate_angle(plan,[{'analysis_angle':plan['analysis_angle'].upper()}])
+        plan['repeats_recent_angle']=True
+        with self.assertRaisesRegex(p.Rejected,'recent idea'):p.validate_angle(plan,[])
+
+    def test_recent_analysis_is_supplied_to_the_writer(self):
+        recent=[{'analysis_angle':'A character pauses before entering the store'}]
+        with tempfile.TemporaryDirectory() as folder,patch.object(p,'generate',return_value=example()) as generate:
+            p.plan_story(Path('source.mp4'),{'title':'Fan edit','creator':'example'},'test',30,Path(folder),recent)
+        self.assertIn(recent[0]['analysis_angle'],generate.call_args.args[1])
+
     def test_instagram_auth_failure_blocks_only_instagram_upload(self):
         clip={'id':'123','title':'Commentary','caption':'Caption'}
         with tempfile.TemporaryDirectory() as folder, patch.object(cloud,'OUT',Path(folder)), \
