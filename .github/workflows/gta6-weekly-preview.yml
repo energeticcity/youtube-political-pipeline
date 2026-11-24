@@ -24,7 +24,7 @@ concurrency:
 jobs:
   render:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 18
     steps:
       - uses: actions/checkout@v4
         with:
@@ -71,6 +71,22 @@ jobs:
           mkdir -p ffmpeg-bin
           tar -xJf ffmpeg.tar.xz --strip-components=2 -C ffmpeg-bin --wildcards '*/bin/ffmpeg' '*/bin/ffprobe'
           echo "$RUNNER_TEMP/ffmpeg-bin" >> "$GITHUB_PATH"
+      - name: Download Rockstar game footage
+        if: steps.episode.outputs.episode != ''
+        timeout-minutes: 7
+        run: |
+          footage="$RUNNER_TEMP/weekly-footage"
+          mkdir -p "$footage"
+          cd "$footage"
+          base='https://media-rockstargames-com.akamaized.net/VI/downloads/videos'
+          curl -fLsS --retry 1 --max-time 165 \
+            "$base/GTAVI_Out_Now/GTAVI_Out_Now.mp4?weekly=1" -o out.mp4
+          curl -fLsS --retry 1 --max-time 190 \
+            "$base/GTAVI_Launch_Trailer/GTAVI_Launch_Trailer.mp4?weekly=1" -o launch.mp4
+          sha256sum -c <<'CHECKSUMS'
+          cfcdd1651934bee90e9fcba9567a7b0f6f11328d559e48b3229f275691268da3  out.mp4
+          CHECKSUMS
+          test "$(wc -c < launch.mp4)" -eq 781762562
       - name: Render and verify one episode and three Shorts
         if: steps.episode.outputs.episode != ''
         env:
@@ -81,6 +97,7 @@ jobs:
             --model "$RUNNER_TEMP/weekly-audio/kokoro.onnx" \
             --voices "$RUNNER_TEMP/weekly-audio/voices.bin" \
             --music "$RUNNER_TEMP/weekly-audio/electric-dreams.mp3" \
+            --footage-dir "$RUNNER_TEMP/weekly-footage" \
             --out gta6-output/weekly
       - uses: actions/upload-artifact@v4
         if: steps.episode.outputs.episode != ''

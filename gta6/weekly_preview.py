@@ -53,24 +53,35 @@ def card(chapter, line, line_index, folder, vertical, background):
     accent = chapter["accent"]
     image = Image.new("RGBA", (width, height), (13, 15, 24, 65) if background else INK)
     draw = ImageDraw.Draw(image)
-    if background:
-        heading = (27, 65, width - 30, 306) if vertical else (48, 40, 1200, 202)
-        caption = (34, 780, 638, 1182) if vertical else (45, 224, 700, 615)
-        draw.rounded_rectangle(heading, 28, fill=(12, 15, 23, 195))
-        draw.rounded_rectangle(caption, 24, fill=(12, 15, 23, 227))
-    margin = 68 if vertical else 72
-    title_y = 158 if vertical else 102
-    text_block(draw, "GTA VI CLIP FIX", (margin, 96 if vertical else 56), 24, 360, accent)
-    text_block(draw, chapter["title"], (margin, title_y), 60 if vertical else 57, width - 2 * margin, WHITE)
+    margin = 64 if vertical else 76
     active = chapter["highlights"][line_index]
-    for index, label in enumerate(chapter["labels"]):
-        x, y = (margin, 340 + index * 110) if vertical else (734, 236 + index * 89)
-        draw.rounded_rectangle((x, y, width - margin, y + (83 if vertical else 67)), 17,
-                               fill=accent if index == active else PANEL)
-        text_block(draw, label, (x + 24, y + 21 if vertical else y + 15), 30, width - x - margin - 48,
-                   INK if index == active else WHITE)
-    text_block(draw, line, (margin, 790 if vertical else 250), 42 if vertical else 40,
-               width - margin - (135 if vertical else 605), WHITE)
+    if background:
+        heading_bottom = 240 if vertical else 175
+        draw.rounded_rectangle((margin - 23, 44, width - margin + 23, heading_bottom), 24,
+                               fill=(12, 15, 23, 205))
+        text_block(draw, chapter["labels"][active].upper(), (margin, 60), 25, width - 2 * margin, accent)
+        text_block(draw, chapter["title"], (margin, 105), 47 if vertical else 49,
+                   width - 2 * margin, WHITE)
+        size = 50 if vertical else 56
+        font, lines = fit_lines(draw, line, size, width - 2 * margin)
+        baseline = (1090 if vertical else 632) - len(lines) * (size + 9)
+        draw.rounded_rectangle((margin - 24, baseline - 22, width - margin + 24,
+                                1108 if vertical else 650), 24, fill=(12, 15, 23, 213))
+        for index, segment in enumerate(lines):
+            draw.text((margin, baseline + index * (size + 9)), segment, font=font, fill=WHITE)
+    else:
+        title_y = 158 if vertical else 102
+        text_block(draw, "GTA VI CLIP FIX", (margin, 96 if vertical else 56), 24, 360, accent)
+        text_block(draw, chapter["title"], (margin, title_y), 60 if vertical else 57,
+                   width - 2 * margin, WHITE)
+        for index, label in enumerate(chapter["labels"]):
+            x, y = (margin, 340 + index * 110) if vertical else (734, 236 + index * 89)
+            draw.rounded_rectangle((x, y, width - margin, y + (83 if vertical else 67)), 17,
+                                   fill=accent if index == active else PANEL)
+            text_block(draw, label, (x + 24, y + (21 if vertical else 15)), 30, width - x - margin - 48,
+                       INK if index == active else WHITE)
+        text_block(draw, line, (margin, 790 if vertical else 250), 42 if vertical else 40,
+                   width - margin - (135 if vertical else 605), WHITE)
     y = height - (85 if vertical else 61)
     bar = width - 2 * margin
     draw.rounded_rectangle((margin, y, margin + bar, y + 7), 3, fill=PANEL)
@@ -142,6 +153,54 @@ def add_music(video, music, output):
            "-c:a", "aac", "-ar", "48000", "-b:a", "160k", "-movflags", "+faststart", output)
 
 
+def thumbnail(background, offset, headline, output, vertical=False):
+    width, height = (720, 1280) if vertical else (1280, 720)
+    ffmpeg("-ss", offset, "-i", background, "-vf",
+           f"scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height}",
+           "-frames:v", "1", output)
+    with Image.open(output) as still:
+        image = still.convert("RGBA")
+    shade = Image.new("RGBA", image.size)
+    draw = ImageDraw.Draw(shade)
+    edge = height if vertical else width
+    for pixel in range(edge):
+        position = (height - pixel) / height if vertical else pixel / width
+        alpha = round(220 * max(0, 1 - position / 0.72))
+        if vertical:
+            draw.line((0, pixel, width, pixel), fill=(6, 10, 21, alpha))
+        else:
+            draw.line((pixel, 0, pixel, height), fill=(6, 10, 21, alpha))
+    image = Image.alpha_composite(image, shade)
+    draw = ImageDraw.Draw(image)
+    x = 60 if vertical else 66
+    y = 805 if vertical else 236
+    draw.rounded_rectangle((x, y, x + 150, y + 55), 12, fill="#86ebcf")
+    draw.text((x + 19, y + 7), "GTA 6", font=ImageFont.truetype(str(FONT), 33), fill=INK)
+    font, lines = fit_lines(draw, headline, 85 if vertical else 106, 590 if vertical else 690)
+    for index, line in enumerate(lines):
+        draw.text((x, y + 77 + index * (font.size + 4)), line, font=font, fill=WHITE,
+                  stroke_width=3, stroke_fill="#111524")
+    image.convert("RGB").save(output, quality=91, optimize=True)
+    return output.name
+
+
+def prepare_footage(spec, footage_dir, working):
+    parts = []
+    for index, scene in enumerate(spec["footage"]):
+        source = footage_dir / scene["filename"]
+        part = working / f"footage-{index:02}.mp4"
+        ffmpeg("-ss", scene["start"], "-i", source, "-t", scene["seconds"], "-an",
+               "-vf", "fps=30,scale=1280:720:force_original_aspect_ratio=increase,crop=1280:720,setsar=1",
+               "-pix_fmt", "yuv420p", "-c:v", "libx264", "-threads", "3", "-preset", "ultrafast",
+               "-crf", "23", part)
+        parts.append(part)
+    concat = working / "footage.txt"
+    concat.write_text("".join(f"file '{part.name}'\n" for part in parts))
+    background = working / "game-footage.mp4"
+    ffmpeg("-f", "concat", "-safe", "0", "-i", concat, "-c", "copy", background)
+    return background
+
+
 def verify(path, dimensions, minimum, maximum):
     result = subprocess.check_output(["ffprobe", "-v", "error", "-show_streams", "-show_format",
                                       "-of", "json", str(path)])
@@ -159,18 +218,28 @@ def verify(path, dimensions, minimum, maximum):
             "sha256": fingerprint}
 
 
-def build(spec, model, voices, music, folder, background, background_source):
+def build(spec, model, voices, music, folder, background, background_source, footage_dir=None):
     folder = folder.resolve()
     folder.mkdir(parents=True, exist_ok=False)
     temp = folder / "work"
     temp.mkdir()
+    if footage_dir:
+        background = prepare_footage(spec, footage_dir, temp)
+        background_source = spec["footage_credit"]
+    background_duration = None
+    if background:
+        background_duration = float(subprocess.check_output([
+            "ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(background)
+        ]))
     voice = Kokoro(str(model), str(voices))
     offset = 0
-    landscape, shorts = [], []
+    landscape, shorts, chapter_times = [], [], []
     chapters = spec["chapters"]
     if sum("short_title" in chapter for chapter in chapters) != 3:
         raise ValueError("The batch needs exactly three distinct Short chapters")
     for index, chapter in enumerate(chapters):
+        minutes, seconds = divmod(int(offset), 60)
+        chapter_times.append({"timestamp": f"{minutes}:{seconds:02}", "title": chapter["title"]})
         highlights = chapter["highlights"]
         if len(highlights) != len(chapter["lines"]) or not all(
             isinstance(item, int) and 0 <= item < len(chapter["labels"]) for item in highlights
@@ -179,12 +248,18 @@ def build(spec, model, voices, music, folder, background, background_source):
         working = temp / f"chapter-{index:02}"
         working.mkdir()
         audio, times = chapter_audio(chapter, voice, working)
-        landscape.append(render_chapter(chapter, audio, times, working / "wide", False, background, offset))
+        scene_start = offset % background_duration if background_duration else 0
+        landscape.append(render_chapter(chapter, audio, times, working / "wide", False, background, scene_start))
         if "short_title" in chapter:
             output = folder / f"short-{len(shorts) + 1}.mp4"
-            rendered = render_chapter(chapter, audio, times, working / "vertical", True, background, offset)
+            rendered = render_chapter(chapter, audio, times, working / "vertical", True, background, scene_start)
             add_music(rendered, music, output)
-            shorts.append({"title": chapter["short_title"], **verify(output, (720, 1280), 20, 60)})
+            short = {"title": chapter["short_title"], "description": chapter["short_description"],
+                     **verify(output, (720, 1280), 20, 60)}
+            if background:
+                short["thumbnail"] = thumbnail(background, (scene_start + 8) % background_duration,
+                                               chapter["thumbnail_text"], output.with_suffix(".jpg"), True)
+            shorts.append(short)
         offset += sum(times)
     timeline = temp / "episode.txt"
     timeline.write_text("".join(f"file '{part.relative_to(temp)}'\n" for part in landscape))
@@ -194,13 +269,16 @@ def build(spec, model, voices, music, folder, background, background_source):
     add_music(joined, music, episode)
     manifest = {"id": spec["id"], "title": spec["title"], "description": spec["description"],
                 "episode": verify(episode, (1280, 720), 180, 900), "shorts": shorts,
-                "sources": spec["sources"], "visuals": "Original diagrams", "voice": f"Kokoro {VOICE}, synthetic",
+                "chapters": chapter_times, "sources": spec["sources"], "visuals": "Original diagrams", "voice": f"Kokoro {VOICE}, synthetic",
                 "music": MUSIC, "publication_status": "preview"}
     if background:
-        manifest["background"] = {"source": background_source, "audio": "muted", "commercial_rights": "unverified"}
+        manifest["visuals"] = "Rockstar game footage with narrated commentary and on-screen graphics"
+        manifest["background"] = {"source": background_source, "audio": "muted"}
+        manifest["episode"]["thumbnail"] = thumbnail(background, spec["thumbnail_second"], spec["thumbnail_text"],
+                                                     episode.with_suffix(".jpg"))
     (folder / "credits.txt").write_text(
         f"{MUSIC['credit']} {MUSIC['changes']}.\n{MUSIC['source']}\n{MUSIC['license']}\n"
-        + (f"Gameplay background, private preview: {background_source}\n" if background else "")
+        + (f"Game footage: {background_source}\n" if background else "")
     )
     (folder / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     (folder / "script.txt").write_text("\n\n".join(
@@ -218,11 +296,14 @@ def main():
     parser.add_argument("--out", required=True, type=Path)
     parser.add_argument("--background", type=Path)
     parser.add_argument("--background-source")
+    parser.add_argument("--footage-dir", type=Path)
     args = parser.parse_args()
     if bool(args.background) != bool(args.background_source):
         parser.error("--background and --background-source must be supplied together")
+    if args.footage_dir and args.background:
+        parser.error("Choose --footage-dir or --background")
     build(json.loads(args.spec.read_text()), args.model, args.voices, args.music, args.out,
-          args.background, args.background_source)
+          args.background, args.background_source, args.footage_dir)
 
 
 if __name__ == "__main__":
