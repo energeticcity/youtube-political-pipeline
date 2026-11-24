@@ -112,12 +112,12 @@ def chapter_audio(chapter, voice, folder):
     return audio, durations
 
 
-def render_chapter(chapter, audio, times, folder, vertical, background, offset):
+def render_chapter(chapter, audio, times, folder, vertical, background, offset, tempo):
     folder.mkdir(parents=True)
     sequence = []
     for index, (line, duration) in enumerate(zip(chapter["lines"], times, strict=True)):
         frame = card(chapter, line, index, folder, vertical, background)
-        sequence.extend([f"file '{frame.name}'", f"duration {duration:.6f}"])
+        sequence.extend([f"file '{frame.name}'", f"duration {duration / tempo:.6f}"])
     sequence.append(sequence[-2])
     timeline = folder / "slides.txt"
     timeline.write_text("\n".join(sequence) + "\n")
@@ -132,7 +132,7 @@ def render_chapter(chapter, audio, times, folder, vertical, background, offset):
                  "[bg][graphics]overlay=shortest=1[v]", "-map", "[v]"]
     else:
         args += ["-vf", "fps=30,setsar=1", "-map", "0:v:0"]
-    ffmpeg(*args, "-map", "1:a:0", "-af", "highpass=f=78,loudnorm=I=-15:TP=-2:LRA=8",
+    ffmpeg(*args, "-map", "1:a:0", "-af", f"atempo={tempo:.6f},highpass=f=78,loudnorm=I=-15:TP=-2:LRA=8",
            "-shortest", "-threads", "2", "-pix_fmt", "yuv420p", "-c:v", "libx264",
            "-preset", "veryfast", "-crf", "20", "-c:a", "aac", "-ar", "48000", "-b:a", "128k", result)
     return result
@@ -237,9 +237,8 @@ def build(spec, model, voices, music, folder, background, background_source, foo
     chapters = spec["chapters"]
     if sum("short_title" in chapter for chapter in chapters) != 3:
         raise ValueError("The batch needs exactly three distinct Short chapters")
+    narrated = []
     for index, chapter in enumerate(chapters):
-        minutes, seconds = divmod(int(offset), 60)
-        chapter_times.append({"timestamp": f"{minutes}:{seconds:02}", "title": chapter["title"]})
         highlights = chapter["highlights"]
         if len(highlights) != len(chapter["lines"]) or not all(
             isinstance(item, int) and 0 <= item < len(chapter["labels"]) for item in highlights
@@ -248,11 +247,21 @@ def build(spec, model, voices, music, folder, background, background_source, foo
         working = temp / f"chapter-{index:02}"
         working.mkdir()
         audio, times = chapter_audio(chapter, voice, working)
+        narrated.append((chapter, audio, times, working))
+    narration_seconds = sum(sum(times) for _, _, times, _ in narrated)
+    episode_tempo = min(1.0, narration_seconds / 189)
+    if episode_tempo < 0.78:
+        raise ValueError("Weekly narration needs a fuller script to keep the delivery natural")
+    for chapter, audio, times, working in narrated:
+        minutes, seconds = divmod(int(offset), 60)
+        chapter_times.append({"timestamp": f"{minutes}:{seconds:02}", "title": chapter["title"]})
+        seconds = sum(times)
+        tempo = min(episode_tempo, seconds / 22) if "short_title" in chapter else episode_tempo
         scene_start = offset % background_duration if background_duration else 0
-        landscape.append(render_chapter(chapter, audio, times, working / "wide", False, background, scene_start))
+        landscape.append(render_chapter(chapter, audio, times, working / "wide", False, background, scene_start, tempo))
         if "short_title" in chapter:
             output = folder / f"short-{len(shorts) + 1}.mp4"
-            rendered = render_chapter(chapter, audio, times, working / "vertical", True, background, scene_start)
+            rendered = render_chapter(chapter, audio, times, working / "vertical", True, background, scene_start, tempo)
             add_music(rendered, music, output)
             short = {"title": chapter["short_title"], "description": chapter["short_description"],
                      **verify(output, (720, 1280), 20, 60)}
@@ -260,7 +269,7 @@ def build(spec, model, voices, music, folder, background, background_source, foo
                 short["thumbnail"] = thumbnail(background, chapter["thumbnail_second"],
                                                chapter["thumbnail_text"], output.with_suffix(".jpg"), True)
             shorts.append(short)
-        offset += sum(times)
+        offset += seconds / tempo
     timeline = temp / "episode.txt"
     timeline.write_text("".join(f"file '{part.relative_to(temp)}'\n" for part in landscape))
     episode = folder / "episode.mp4"
