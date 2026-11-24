@@ -6,7 +6,7 @@ on:
         description: CLI to test
         type: choice
         default: all
-        options: [all, tiktok, youtube, youtube-api, youtube-verify, weekly-oauth, instagram]
+        options: [all, tiktok, youtube, youtube-api, youtube-verify, weekly-oauth, weekly-private, instagram]
 permissions:
   contents: read
 concurrency:
@@ -181,3 +181,32 @@ jobs:
           name: weekly-oauth-proof
           path: weekly-oauth-proof.json
           retention-days: 3
+  weekly-private:
+    if: inputs.platform == 'weekly-private'
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: gta6-weekly-preview
+          github-token: ${{ github.token }}
+          run-id: '45310860016'
+          path: weekly-verified-input
+      - run: python3 -m pip install 'requests>=2.32,<3'
+      - name: Verify and upload the episode as private to the existing YouTube account
+        env:
+          POSTFORME_API_KEY: ${{ secrets.POSTFORME_API_KEY }}
+        run: python3 -m gta6.weekly_delivery_probe weekly-verified-input
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: weekly-delivery-proof
+          path: weekly-delivery-proof.json
+          retention-days: 3
+          if-no-files-found: ignore
