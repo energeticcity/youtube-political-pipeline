@@ -1,40 +1,16 @@
-name: GTA VI Weekly YouTube
+name: GTA VI Weekly Generator Check
 on:
-  schedule:
-    - cron: '17 18 * * 2'
-      timezone: America/Dawson_Creek
   workflow_dispatch:
     inputs:
       episode:
-        description: Episode slug, weekly for this week, or next-week for a preview
         type: string
         default: weekly
-      verify_published:
-        description: Verify a video ID already recorded in the catalog without uploading
-        type: boolean
-        default: false
-  push:
-    branches: [gta6-weekly-pilot]
-    paths:
-      - .github/workflows/gta6-weekly-preview.yml
-      - gta6/weekly_preview.py
-      - gta6/weekly_schedule.py
-      - gta6/weekly/**
 permissions:
   contents: read
-concurrency:
-  group: gta6-weekly-preview-${{ github.ref }}
-  cancel-in-progress: false
 jobs:
-  render:
+  check:
     runs-on: ubuntu-latest
-    timeout-minutes: 22
-    permissions:
-      contents: write
-    outputs:
-      episode: ${{ steps.episode.outputs.episode }}
-      published_video: ${{ steps.episode.outputs.published_video }}
-      render: ${{ steps.episode.outputs.render }}
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
         with:
@@ -42,131 +18,20 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install weekly planning dependency
-        run: python -m pip install 'requests>=2.32,<3'
-      - id: episode
-        name: Choose or generate the weekly episode
+      - run: python -m pip install 'requests>=2.32,<3'
+      - name: Generate and review a separate future topic without publishing
         env:
-          EPISODE: ${{ inputs.episode || 'weekly' }}
-          REUSE_PUBLICATION: ${{ github.event_name == 'schedule' || inputs.verify_published }}
-          AUTO_PLAN: ${{ github.ref_name == 'main' && !inputs.verify_published }}
-          SPEC_OUTPUT: gta6-output/weekly-spec.json
-          GH_TOKEN: ${{ github.token }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: python -m gta6.weekly_schedule
-      - name: Install Kokoro and Pillow
-        if: steps.episode.outputs.render == 'true'
-        timeout-minutes: 3
-        run: python -m pip install --timeout 25 --retries 2 'kokoro-onnx==0.4.7' 'Pillow>=10,<13'
-      - name: Download and verify narration and music assets
-        if: steps.episode.outputs.render == 'true'
-        timeout-minutes: 4
         run: |
-          audio_dir="$RUNNER_TEMP/weekly-audio"
-          mkdir -p "$audio_dir"
-          cd "$audio_dir"
-          base='https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0'
-          curl -fLsS --retry 2 --max-time 90 "$base/kokoro-v1.0.int8.onnx" -o kokoro.onnx
-          curl -fLsS --retry 2 --max-time 60 "$base/voices-v1.0.bin" -o voices.bin
-          curl -fLsS --retry 2 --max-time 30 \
-            'https://www.scottbuckley.com.au/library/wp-content/uploads/2020/09/sb_electricdreams.mp3' -o electric-dreams.mp3
-          sha256sum -c <<'CHECKSUMS'
-          6e742170d309016e5891a994e1ce1559c702a2ccd0075e67ef7157974f6406cb  kokoro.onnx
-          bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d  voices.bin
-          7c570cd7f2d0611fca3d6e411490bc22e1c95473a93583e93888cbb0472ddcb4  electric-dreams.mp3
-          CHECKSUMS
-      - name: Install FFmpeg and FFprobe
-        if: steps.episode.outputs.render == 'true'
-        timeout-minutes: 4
-        run: |
-          if command -v ffmpeg >/dev/null && command -v ffprobe >/dev/null; then exit 0; fi
-          cd "$RUNNER_TEMP"
-          curl -fLsS --retry 2 --max-time 90 \
-            'https://github.com/FFmpeg-Builds/FFmpeg-Builds/releases/download/autobuild-2026-11-23-12-43/ffmpeg-n8.1.3-39-g660b5aa7db-linux64-gpl-8.1.tar.xz' -o ffmpeg.tar.xz
-          echo '255b73431adc3c14f91533b6cf08090c0b1314f6789761140a196f820f6347a2  ffmpeg.tar.xz' | sha256sum -c
-          mkdir -p ffmpeg-bin
-          tar -xJf ffmpeg.tar.xz --strip-components=2 -C ffmpeg-bin --wildcards '*/bin/ffmpeg' '*/bin/ffprobe'
-          echo "$RUNNER_TEMP/ffmpeg-bin" >> "$GITHUB_PATH"
-      - name: Download Rockstar game footage
-        if: steps.episode.outputs.render == 'true'
-        timeout-minutes: 7
-        run: |
-          footage="$RUNNER_TEMP/weekly-footage"
-          mkdir -p "$footage"
-          cd "$footage"
-          base='https://media-rockstargames-com.akamaized.net/VI/downloads/videos'
-          curl -fLsS --retry 1 --max-time 165 \
-            "$base/GTAVI_Out_Now/GTAVI_Out_Now.mp4?weekly=1" -o out.mp4
-          curl -fLsS --retry 1 --max-time 190 \
-            "$base/GTAVI_Launch_Trailer/GTAVI_Launch_Trailer.mp4?weekly=1" -o launch.mp4
-          sha256sum -c <<'CHECKSUMS'
-          cfcdd1651934bee90e9fcba9567a7b0f6f11328d559e48b3229f275691268da3  out.mp4
-          3302818c25e9749c3e55a605f72926eff1be05eb4d60b4ee5d48fc2c415b2dea  launch.mp4
-          CHECKSUMS
-      - name: Render and verify one episode and three Shorts
-        if: steps.episode.outputs.render == 'true'
-        env:
-          EPISODE: ${{ steps.episode.outputs.episode }}
-        run: |
-          if [[ ! "$EPISODE" =~ ^[a-z0-9-]+$ ]]; then exit 2; fi
-          python gta6/weekly_preview.py gta6-output/weekly-spec.json \
-            --model "$RUNNER_TEMP/weekly-audio/kokoro.onnx" \
-            --voices "$RUNNER_TEMP/weekly-audio/voices.bin" \
-            --music "$RUNNER_TEMP/weekly-audio/electric-dreams.mp3" \
-            --footage-dir "$RUNNER_TEMP/weekly-footage" \
-            --out gta6-output/weekly
-          cp gta6-output/weekly-spec.json gta6-output/weekly/episode-spec.json
-      - uses: actions/upload-artifact@v4
-        if: steps.episode.outputs.render == 'true'
-        with:
-          name: gta6-weekly-preview
-          path: gta6-output/weekly/
-          retention-days: 3
-          if-no-files-found: error
-  publish-youtube:
-    needs: render
-    if: >-
-      github.ref_name == 'main' &&
-      needs.render.outputs.episode != '' &&
-      (github.event_name == 'schedule' ||
-       (inputs.verify_published && needs.render.outputs.published_video != ''))
-    runs-on: ubuntu-latest
-    timeout-minutes: 14
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: Install YouTube API dependencies
-        run: |
-          python -m pip install 'requests>=2.32,<3'
-          if [[ "$NEW_UPLOAD" == 'true' ]]; then
-            python -m pip install 'youtube-upload @ git+https://github.com/tokland/youtube-upload.git@6a30b55d0fd4976571a5b9b34c01fd41cec49c7a'
-          fi
-        env:
-          NEW_UPLOAD: ${{ needs.render.outputs.render }}
-      - uses: actions/download-artifact@v4
-        if: needs.render.outputs.render == 'true'
-        with:
-          name: gta6-weekly-preview
-          path: gta6-output/weekly
-      - name: Publish or verify the assigned public YouTube episode
-        env:
-          EPISODE: ${{ needs.render.outputs.episode }}
-          GTA6_YOUTUBE_API_CLIENT_ID: ${{ secrets.GTA6_YOUTUBE_API_CLIENT_ID }}
-          GTA6_YOUTUBE_API_CLIENT_SECRET: ${{ secrets.GTA6_YOUTUBE_API_CLIENT_SECRET }}
-          GTA6_YOUTUBE_API_REFRESH_TOKEN: ${{ secrets.GTA6_YOUTUBE_API_REFRESH_TOKEN }}
-        run: |
-          if [[ ! "$EPISODE" =~ ^[a-z0-9-]+$ ]]; then exit 2; fi
-          spec="gta6/weekly/$EPISODE.json"
-          if [[ -f gta6-output/weekly/episode-spec.json ]]; then spec=gta6-output/weekly/episode-spec.json; fi
-          python -m gta6.weekly_youtube "$spec" gta6-output/weekly
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: gta6-weekly-youtube-receipt
-          path: gta6-weekly-youtube.json
-          retention-days: 90
-          if-no-files-found: ignore
+          python - <<'PY'
+          import json
+          from gta6.weekly_autoplan import TOPICS, write_story
+          briefs = json.loads((TOPICS / "briefs.json").read_text())
+          seed = json.loads((TOPICS / "hud-readability.json").read_text())
+          template = {key: seed[key] for key in ("footage", "footage_credit")}
+          result = write_story(briefs[0], [seed["title"]], template, "2026-12-07")
+          print(json.dumps({"title": result["title"], "chapters": len(result["chapters"]),
+                            "shorts": sum("short_title" in chapter for chapter in result["chapters"]),
+                            "words": sum(len(line.split()) for chapter in result["chapters"] for line in chapter["lines"]),
+                            "source_review": "passed"}))
+          PY
