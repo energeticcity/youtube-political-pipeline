@@ -25,21 +25,24 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install Piper and Pillow
+      - name: Install Kokoro and Pillow
         timeout-minutes: 3
-        run: python -m pip install --timeout 25 --retries 2 'piper-tts==1.8.0' 'Pillow>=10,<13'
-      - name: Download and verify the narration voice
+        run: python -m pip install --timeout 25 --retries 2 'kokoro-onnx==0.4.7' 'Pillow>=10,<13'
+      - name: Download and verify narration and music assets
         timeout-minutes: 4
         run: |
-          voice_dir="$RUNNER_TEMP/voices"
-          mkdir -p "$voice_dir"
-          cd "$voice_dir"
-          base='https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/ljspeech/medium/en_US-ljspeech-medium'
-          curl -fLsS --retry 2 --max-time 90 "$base.onnx?download=true" -o en_US-ljspeech-medium.onnx
-          curl -fLsS --retry 2 --max-time 30 "$base.onnx.json?download=true" -o en_US-ljspeech-medium.onnx.json
+          audio_dir="$RUNNER_TEMP/weekly-audio"
+          mkdir -p "$audio_dir"
+          cd "$audio_dir"
+          base='https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0'
+          curl -fLsS --retry 2 --max-time 90 "$base/kokoro-v1.0.int8.onnx" -o kokoro.onnx
+          curl -fLsS --retry 2 --max-time 60 "$base/voices-v1.0.bin" -o voices.bin
+          curl -fLsS --retry 2 --max-time 30 \
+            'https://www.scottbuckley.com.au/library/wp-content/uploads/2020/09/sb_electricdreams.mp3' -o electric-dreams.mp3
           sha256sum -c <<'CHECKSUMS'
-          6f52a751e2349abe7a76735eb09dc1875298c77ea2342ffd2fef79ff81b87f22  en_US-ljspeech-medium.onnx
-          141d612cc0a95ed7efc1ca936b845c2364967f2e9217c5dbfcf69fc4d6c65860  en_US-ljspeech-medium.onnx.json
+          6e742170d309016e5891a994e1ce1559c702a2ccd0075e67ef7157974f6406cb  kokoro.onnx
+          bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d  voices.bin
+          7c570cd7f2d0611fca3d6e411490bc22e1c95473a93583e93888cbb0472ddcb4  electric-dreams.mp3
           CHECKSUMS
       - name: Install FFmpeg and FFprobe
         timeout-minutes: 4
@@ -58,7 +61,9 @@ jobs:
         run: |
           if [[ ! "$EPISODE" =~ ^[a-z0-9-]+$ ]]; then exit 2; fi
           python gta6/weekly_preview.py "gta6/weekly/$EPISODE.json" \
-            --model "$RUNNER_TEMP/voices/en_US-ljspeech-medium.onnx" \
+            --model "$RUNNER_TEMP/weekly-audio/kokoro.onnx" \
+            --voices "$RUNNER_TEMP/weekly-audio/voices.bin" \
+            --music "$RUNNER_TEMP/weekly-audio/electric-dreams.mp3" \
             --out gta6-output/weekly
       - uses: actions/upload-artifact@v4
         with:
