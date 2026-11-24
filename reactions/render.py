@@ -62,12 +62,16 @@ def make_graphics(plan, clip, times, folder):
         frame = Image.new("RGBA", (1080, 1920))
         draw = ImageDraw.Draw(frame)
         title = wrap(draw, plan["title"], title_font, 900)
-        caption = wrap(draw, phrase, caption_font, 850)
+        font = caption_font
+        caption = wrap(draw, phrase, font, 870)
+        if caption.count("\n") >= 3:
+            font = ImageFont.truetype(str(heavy), 72)
+            caption = wrap(draw, phrase, font, 870)
         draw.multiline_text((62, 135), title, fill="#fafeff", font=title_font, spacing=6,
                             stroke_width=4, stroke_fill="#151021")
-        draw.multiline_text((62, 1400), caption, fill="#fafeff", font=caption_font, spacing=10,
+        draw.multiline_text((62, 1370), caption, fill="#fafeff", font=font, spacing=10,
                             stroke_width=6, stroke_fill="#151021")
-        draw.text((64, 1720), f"Footage: {clip['creator'][:46]} · Original narration",
+        draw.text((64, 1720), f"Footage: {clip['creator'][:46]}",
                   fill="#decbe8", font=credit_font, stroke_width=3, stroke_fill="#151021")
         name = f"caption-{index}.png"
         frame.save(folder / name)
@@ -165,11 +169,12 @@ def compose(clip, model, voice, folder, recent_reactions=()):
         f"[0:v]{rotation}setpts={duration/source_time:.7f}*(PTS-STARTPTS),"
         "scale=1080:925:force_original_aspect_ratio=decrease,"
         "pad=1080:1920:(ow-iw)/2:(oh-ih)/2-100:color=0x151021,setsar=1,fps=30[clip];"
-        "[1:v]fps=30,scale=256:-1,format=rgba[reaction];"
-        f"[clip][reaction]overlay=x=735:y=1090:enable='between(t,{reaction_at:.3f},{reaction_at+2.0:.3f})'[stage];"
+        f"[1:v]fps=30,scale=256:-1,format=rgba,trim=duration=2,setpts=PTS-STARTPTS+{reaction_at:.6f}/TB[reaction];"
+        f"[clip][reaction]overlay=x=735:y=1090:eof_action=pass:repeatlast=0:"
+        f"enable='between(t,{reaction_at:.3f},{reaction_at+2.0:.3f})'[stage];"
         "[3:v]fps=30,format=rgba[graphics];[stage][graphics]overlay[final]"
     )
-    command("ffmpeg", "-v", "error", "-y", "-i", source, "-ignore_loop", "0", "-i", animation, "-i", audio,
+    command("ffmpeg", "-v", "error", "-y", "-i", source, "-stream_loop", "-1", "-ignore_loop", "1", "-i", animation, "-i", audio,
             "-f", "concat", "-safe", "0", "-i", captions, "-filter_complex_threads", "2", "-filter_complex", filters, "-map", "[final]", "-map", "2:a:0",
             "-af", f"atempo={tempo:.6f},highpass=f=78,loudnorm=I=-16:TP=-1.5:LRA=8", "-t", f"{duration:.4f}",
             "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
