@@ -1,19 +1,26 @@
 name: GTA VI Weekly Preview
 on:
+  schedule:
+    - cron: '17 18 * * 2'
+      timezone: America/Dawson_Creek
   workflow_dispatch:
     inputs:
       episode:
-        description: Episode specification slug in gta6/weekly
+        description: Episode specification slug or weekly to select the current batch
         type: string
-        default: recording-audio
+        default: weekly
   push:
     branches: [gta6-weekly-pilot]
     paths:
       - .github/workflows/gta6-weekly-preview.yml
       - gta6/weekly_preview.py
+      - gta6/weekly_schedule.py
       - gta6/weekly/**
 permissions:
   contents: read
+concurrency:
+  group: gta6-weekly-preview-${{ github.ref }}
+  cancel-in-progress: false
 jobs:
   render:
     runs-on: ubuntu-latest
@@ -22,13 +29,21 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+      - id: episode
+        name: Select the assigned weekly episode
+        env:
+          EPISODE: ${{ inputs.episode || 'weekly' }}
+        run: python3 gta6/weekly_schedule.py
       - uses: actions/setup-python@v5
+        if: steps.episode.outputs.episode != ''
         with:
           python-version: '3.12'
       - name: Install Kokoro and Pillow
+        if: steps.episode.outputs.episode != ''
         timeout-minutes: 3
         run: python -m pip install --timeout 25 --retries 2 'kokoro-onnx==0.4.7' 'Pillow>=10,<13'
       - name: Download and verify narration and music assets
+        if: steps.episode.outputs.episode != ''
         timeout-minutes: 4
         run: |
           audio_dir="$RUNNER_TEMP/weekly-audio"
@@ -45,6 +60,7 @@ jobs:
           7c570cd7f2d0611fca3d6e411490bc22e1c95473a93583e93888cbb0472ddcb4  electric-dreams.mp3
           CHECKSUMS
       - name: Install FFmpeg and FFprobe
+        if: steps.episode.outputs.episode != ''
         timeout-minutes: 4
         run: |
           if command -v ffmpeg >/dev/null && command -v ffprobe >/dev/null; then exit 0; fi
@@ -56,8 +72,9 @@ jobs:
           tar -xJf ffmpeg.tar.xz --strip-components=2 -C ffmpeg-bin --wildcards '*/bin/ffmpeg' '*/bin/ffprobe'
           echo "$RUNNER_TEMP/ffmpeg-bin" >> "$GITHUB_PATH"
       - name: Render and verify one episode and three Shorts
+        if: steps.episode.outputs.episode != ''
         env:
-          EPISODE: ${{ inputs.episode || 'recording-audio' }}
+          EPISODE: ${{ steps.episode.outputs.episode }}
         run: |
           if [[ ! "$EPISODE" =~ ^[a-z0-9-]+$ ]]; then exit 2; fi
           python gta6/weekly_preview.py "gta6/weekly/$EPISODE.json" \
@@ -66,6 +83,7 @@ jobs:
             --music "$RUNNER_TEMP/weekly-audio/electric-dreams.mp3" \
             --out gta6-output/weekly
       - uses: actions/upload-artifact@v4
+        if: steps.episode.outputs.episode != ''
         with:
           name: gta6-weekly-preview
           path: gta6-output/weekly/
