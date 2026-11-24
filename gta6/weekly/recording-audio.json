@@ -1,8 +1,19 @@
 {
   "id": "recording-audio",
   "preview_week": "2026-11-23",
-  "title": "GTA VI Creator Audio: Three Checks Before You Upload",
-  "description": "An original, illustrated walkthrough of the GTA VI licensed-music setting and a practical pre-upload audio check. Independent commentary. Narrated with a synthetic voice.",
+  "title": "GTA 6 Recording Audio: 3 Checks Before You Upload",
+  "description": "Recording GTA 6 for YouTube, TikTok, or Instagram? Find the Mute Licensed Music setting, run a 10-second mic and game-audio test, and listen to your final export before you post. Includes a tip for recording your mic and game audio on separate tracks. Independent GTA 6 commentary with original analysis and synthetic narration.",
+  "thumbnail_text": "CHECK YOUR AUDIO",
+  "thumbnail_second": 20,
+  "footage_credit": "Rockstar Games, GTA VI Launch Trailer and Out Now. https://www.rockstargames.com/VI/media/videos",
+  "footage": [
+    {"filename": "out.mp4", "start": 7, "seconds": 7},
+    {"filename": "launch.mp4", "start": 8, "seconds": 20},
+    {"filename": "out.mp4", "start": 16, "seconds": 4},
+    {"filename": "launch.mp4", "start": 28, "seconds": 23},
+    {"filename": "out.mp4", "start": 1, "seconds": 4},
+    {"filename": "launch.mp4", "start": 51, "seconds": 18}
+  ],
   "sources": [
     [
       "Rockstar Support — Muting licensed music in Grand Theft Auto VI",
@@ -33,7 +44,7 @@
     },
     {
       "title": "Where the setting lives",
-      "short_title": "The GTA VI setting to check before recording",
+      "short_title": "GTA 6: Where to Find Mute Licensed Music",
       "labels": ["Pause", "Settings", "Audio", "Mute Licensed Music"],
       "accent": "#f4ba82",
       "lines": [
@@ -43,11 +54,13 @@
         "If you already captured a track with music mixed into it, flipping the switch later leaves that old clip as it was.",
         "That's why I put this step at the top of the checklist, before I find the moment I want to keep."
       ],
-      "highlights": [2, 3, 3, 3, 3]
+      "highlights": [2, 3, 3, 3, 3],
+      "short_description": "Here’s where to find Mute Licensed Music in GTA 6. Check the setting before recording, then play back a short clip to hear what your capture actually picked up.",
+      "thumbnail_text": "MUTE THE MUSIC?"
     },
     {
       "title": "The ten-second test",
-      "short_title": "Do this 10-second test before recording GTA VI",
+      "short_title": "GTA 6 Recording: Do This 10-Second Audio Test",
       "labels": ["Record", "Play back", "Check the mix"],
       "accent": "#d7adff",
       "lines": [
@@ -56,7 +69,9 @@
         "Ask three questions. Can I understand every word? Can I still hear what happened in the game? Did I capture any music I didn't expect?",
         "Listening to the file catches problems a live monitor can miss. Once the mix sounds right, you're ready to capture the real clip."
       ],
-      "highlights": [0, 1, 2, 1]
+      "highlights": [0, 1, 2, 1],
+      "short_description": "Before recording GTA 6, capture 10 seconds and play it back. Listen for your mic, dialogue, effects, and any music your recorder picked up.",
+      "thumbnail_text": "10-SECOND TEST"
     },
     {
       "title": "Two tracks make editing easier",
@@ -73,7 +88,7 @@
     },
     {
       "title": "Check the final export",
-      "short_title": "What GTA VI’s mute setting actually changes",
+      "short_title": "What GTA 6’s Mute Licensed Music Setting Actually Does",
       "labels": ["Game capture", "Added sounds", "Upload review"],
       "accent": "#f4ba82",
       "lines": [
@@ -82,7 +97,9 @@
         "If you're making one file for Shorts, Reels, and TikTok, use narration and sound you can publish on all three.",
         "Then listen to that final file from start to finish. The menu setting is step one. The file you're about to upload is the real test."
       ],
-      "highlights": [0, 1, 1, 2]
+      "highlights": [0, 1, 1, 2],
+      "short_description": "Changing Mute Licensed Music affects future GTA 6 recordings. Listen to your finished export to check the audio your viewers will hear.",
+      "thumbnail_text": "CHECK THE EXPORT"
     },
     {
       "title": "A checklist for the next take",
