@@ -137,10 +137,14 @@ def verify_public(headers, video_id, title, description, *, release=None, schedu
                 raise RuntimeError(f"YouTube did not process weekly video {video_id}")
             visibility_ok = status["privacyStatus"] == "public"
             if scheduled_at:
-                visibility_ok = status["privacyStatus"] == "private" and status.get("publishAt") == scheduled_at
+                saved_time = status.get("publishAt", "")
+                visibility_ok = (
+                    status["privacyStatus"] == "private" and bool(saved_time)
+                    and datetime.fromisoformat(saved_time) == datetime.fromisoformat(scheduled_at)
+                )
             thumbnail_ok = bool(snippet.get("thumbnails"))
             if visibility_ok and status["uploadStatus"] == "processed":
-                if release:
+                if release and not scheduled_at:
                     thumbnail_ok = matches_cover(snippet, release["cover_sample"])
                 if thumbnail_ok:
                     return item["contentDetails"]["duration"]
@@ -199,7 +203,7 @@ def publish(spec, folder, publish_at=None):
                    "description_sha256": description_hash(description), "cover_sample": cover_sample(cover)}
         duration = verify_public(headers, video_id, title, description, release=release, scheduled_at=publish_at)
         return {"status": "scheduled", "video_id": video_id, "title": title, "duration": duration,
-                "description": "verified", "thumbnail": "verified", "scheduled_release": release}
+                "description": "verified", "thumbnail": "applied", "scheduled_release": release}
     duration = verify_public(headers, video_id, title, description)
     return {"status": "public", "video_id": video_id, "duration": duration, "thumbnail": "applied"}
 
