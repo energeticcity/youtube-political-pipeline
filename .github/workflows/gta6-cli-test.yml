@@ -115,6 +115,9 @@ jobs:
     if: inputs.platform == 'youtube-api'
     runs-on: ubuntu-latest
     timeout-minutes: 12
+    permissions:
+      actions: read
+      contents: read
     steps:
       - uses: actions/checkout@v4
         with:
@@ -124,13 +127,18 @@ jobs:
           python-version: '3.12'
       - name: Install pinned upstream YouTube API CLI
         run: pip install 'youtube-upload @ git+https://github.com/tokland/youtube-upload.git@6a30b55d0fd4976571a5b9b34c01fd41cec49c7a' 'requests>=2.32,<3'
-      - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
-      - name: Verify exact channel and upload a private fixture
+      - uses: actions/download-artifact@v4
+        with:
+          name: gta6-weekly-preview
+          github-token: ${{ github.token }}
+          run-id: '45312836236'
+          path: weekly-verified-input
+      - name: Verify exact channel and upload the full weekly episode privately
         env:
           YOUTUBE_CLIENT_ID: ${{ secrets.GTA6_YOUTUBE_API_CLIENT_ID }}
           YOUTUBE_CLIENT_SECRET: ${{ secrets.GTA6_YOUTUBE_API_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.GTA6_YOUTUBE_API_REFRESH_TOKEN }}
-        run: python gta6/cli_connection_test.py youtube-api
+        run: python gta6/cli_connection_test.py youtube-api weekly-verified-input
       - uses: actions/upload-artifact@v4
         if: always()
         with:

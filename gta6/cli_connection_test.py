@@ -3,6 +3,7 @@
 Only sanitized results leave the runner. TikTok/YouTube tests request private
 visibility. Instagram checks login only: the upstream CLI has no draft switch.
 """
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -10,6 +11,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import time
 from urllib.parse import unquote
 
 import requests
@@ -174,6 +176,20 @@ def youtube_api():
     if ids != ['UCdL4ljG4SqfEA8qk5yd6v5w']:
         raise RuntimeError('unexpected_youtube_channel')
     RESULT.update(account='@gtaviclipfix', channel_id=ids[0], authenticated_check='passed')
+    folder = Path(sys.argv[2])
+    manifest = json.loads((folder / 'manifest.json').read_text())
+    episode = manifest['episode']
+    if (manifest['id'] != 'recording-audio' or episode['filename'] != 'episode.mp4'
+            or not 180 <= episode['seconds'] <= 900):
+        raise RuntimeError('unexpected_weekly_episode')
+    media = folder / episode['filename']
+    with media.open('rb') as stream:
+        if hashlib.file_digest(stream, 'sha256').hexdigest() != episode['sha256']:
+            raise RuntimeError('weekly_episode_checksum_mismatch')
+    run_number = os.environ['GITHUB_RUN_ID']
+    title = f'Private GitHub Actions proof — GTA VI Creator Audio ({run_number})'
+    description = manifest['description'] + '\n\n' + (folder / 'credits.txt').read_text()
+    RESULT.update(episode=manifest['id'], episode_seconds=episode['seconds'])
     with tempfile.TemporaryDirectory() as tmp:
         credentials = Path(tmp) / 'credentials.json'
         secrets = Path(tmp) / 'client-secrets.json'
@@ -192,19 +208,34 @@ def youtube_api():
         save()
         output = command(['youtube-upload', '--client-secrets', str(secrets),
                           '--credentials-file', str(credentials), '--privacy', 'private',
-                          '--title', 'Private uploader connection test', fixture()], timeout=360)
+                          '--title', title, '--description', description, str(media)], timeout=360)
         ids = re.findall(r'^[A-Za-z0-9_-]{11}$', output, re.M)
         if len(ids) != 1:
             raise RuntimeError('upload_receipt_not_found_do_not_retry_blindly')
-        video_id = ids[0]
-        r = requests.get('https://www.googleapis.com/youtube/v3/videos',
-                         params={'part': 'status,snippet', 'id': video_id},
-                         headers={'Authorization': 'Bearer ' + token}, timeout=45)
-        r.raise_for_status()
-        item = r.json()['items'][0]
-        if item['snippet']['channelId'] != RESULT['channel_id'] or item['status']['privacyStatus'] != 'private':
-            raise RuntimeError('youtube_upload_identity_or_privacy_mismatch')
-        RESULT.update(upload='verified_private_test', video_id=video_id, verified_visibility='private')
+    video_id = ids[0]
+    RESULT.update(upload='awaiting_verification', video_id=video_id,
+                  studio_url=f'https://studio.youtube.com/video/{video_id}/edit')
+    save()
+    for _ in range(15):
+        response = requests.get('https://www.googleapis.com/youtube/v3/videos',
+                                params={'part': 'status,snippet,contentDetails', 'id': video_id},
+                                headers={'Authorization': 'Bearer ' + token}, timeout=25)
+        response.raise_for_status()
+        items = response.json().get('items', [])
+        if items:
+            item = items[0]
+            if item['snippet']['channelId'] != RESULT['channel_id'] or item['status']['privacyStatus'] != 'private':
+                raise RuntimeError('youtube_upload_identity_or_privacy_mismatch')
+            RESULT['verified_visibility'] = 'private'
+            upload_status = item['status']['uploadStatus']
+            RESULT['video_status'] = upload_status
+            if upload_status == 'processed':
+                RESULT.update(upload='verified_private_test', duration=item['contentDetails']['duration'])
+                return
+            if upload_status in ('failed', 'rejected', 'deleted'):
+                raise RuntimeError('youtube_processing_failed')
+        time.sleep(8)
+    raise RuntimeError('youtube_still_processing_inspect_saved_video_id')
 
 
 def tiktok_browser():
