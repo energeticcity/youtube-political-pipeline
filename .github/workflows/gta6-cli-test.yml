@@ -57,8 +57,9 @@ jobs:
           cp /tmp/sau/conf.example.py /tmp/sau/conf.py
           git -C /tmp/sau apply "$GITHUB_WORKSPACE/gta6/social-auto-upload-youtube.patch"
           pip install -e /tmp/sau
-      - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
-      - name: Verify exact channel and run private CLI upload
+      - if: inputs.platform != 'youtube-verify'
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+      - name: Check the exact YouTube channel and private test receipt
         env:
           SAU_REPO: /tmp/sau
           GTA6_YOUTUBE_BROWSER_SESSION: ${{ secrets.GTA6_YOUTUBE_BROWSER_SESSION }}
