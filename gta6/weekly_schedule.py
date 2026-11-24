@@ -28,13 +28,28 @@ def choose(catalog, now, requested):
 
 
 if __name__ == "__main__":
-    episode = choose(CATALOG, datetime.now(ZoneInfo("UTC")), os.environ.get("EPISODE"))
-    published_video = ""
-    if episode:
-        spec = json.loads((CATALOG / f"{episode}.json").read_text())
-        published_video = spec.get("published_youtube_id", "")
-        if published_video and not re.fullmatch(r"[A-Za-z0-9_-]{11}", published_video):
-            raise ValueError("Invalid published YouTube video ID in weekly catalog")
+    now = datetime.now(ZoneInfo("UTC"))
+    requested = os.environ.get("EPISODE")
+    if requested == "next-week":
+        now += timedelta(days=7)
+        requested = "weekly"
+    episode = choose(CATALOG, now, requested)
+    spec = json.loads((CATALOG / f"{episode}.json").read_text()) if episode else {}
+    if not spec and os.environ.get("AUTO_PLAN") == "true":
+        from gta6.weekly_autoplan import START, plan_week
+
+        local = now.astimezone(ZoneInfo("America/Dawson_Creek")).date()
+        monday = local - timedelta(days=local.weekday())
+        if monday >= START:
+            spec = plan_week(monday)
+            episode = spec["id"]
+    published_video = spec.get("published_youtube_id", "")
+    if published_video and not re.fullmatch(r"[A-Za-z0-9_-]{11}", published_video):
+        raise ValueError("Invalid published YouTube video ID in weekly catalog")
+    if spec and os.environ.get("SPEC_OUTPUT"):
+        spec_path = Path(os.environ["SPEC_OUTPUT"])
+        spec_path.parent.mkdir(parents=True, exist_ok=True)
+        spec_path.write_text(json.dumps(spec, ensure_ascii=False, indent=2) + "\n")
     render = bool(episode and not (published_video and os.environ.get("REUSE_PUBLICATION") == "true"))
     with Path(os.environ["GITHUB_OUTPUT"]).open("a") as stream:
         print(f"episode={episode}", file=stream)

@@ -1,0 +1,174 @@
+{
+  "id": "hud-readability",
+  "title": "GTA 6 HUD Settings: Make Your Screen Easier to Read",
+  "description": "Make GTA 6 easier to read from your couch or monitor. See where Rockstar puts HUD scaling, subtitles, navigation, and notifications, then use a one-minute drive to test what works for you. Independent commentary with synthetic narration.",
+  "thumbnail_text": "FIX YOUR HUD",
+  "thumbnail_second": 50,
+  "footage": [
+    {
+      "filename": "out.mp4",
+      "start": 7,
+      "seconds": 7
+    },
+    {
+      "filename": "launch.mp4",
+      "start": 8,
+      "seconds": 20
+    },
+    {
+      "filename": "out.mp4",
+      "start": 16,
+      "seconds": 4
+    },
+    {
+      "filename": "launch.mp4",
+      "start": 28,
+      "seconds": 23
+    },
+    {
+      "filename": "out.mp4",
+      "start": 1,
+      "seconds": 4
+    },
+    {
+      "filename": "launch.mp4",
+      "start": 51,
+      "seconds": 18
+    }
+  ],
+  "footage_credit": "Rockstar Games, GTA VI Launch Trailer and Out Now. https://www.rockstargames.com/VI/media/videos",
+  "sources": [
+    [
+      "Rockstar Support — GTA 6 settings menu and UI categories",
+      "https://support.rockstargames.com/articles/4jUHNdP22SmaKSF8DWqhXC/how-to-change-grand-theft-auto-vi-settings"
+    ]
+  ],
+  "chapters": [
+    {
+      "title": "Make the screen easier to read",
+      "labels": [
+        "On-screen information"
+      ],
+      "accent": "#86ebcf",
+      "lines": [
+        "You can make Grand Theft Auto Six easier to read without turning the screen into a wall of prompts.",
+        "Start with the information you miss most. Maybe a subtitle disappears before you finish reading it, or the notifications pull your eye away from the road.",
+        "We'll go through readability, subtitles, and notifications, then I'll show you a quick way to decide what to keep.",
+        "Start from the pause menu, select Settings, and look for U I. That's where Rockstar groups the on-screen options in this guide."
+      ],
+      "highlights": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "title": "Start with scaling and readability",
+      "labels": [
+        "Scaling and readability"
+      ],
+      "accent": "#f4ba82",
+      "lines": [
+        "If you keep leaning toward the screen in Grand Theft Auto Six, look for Scaling and Readability under U I in Settings.",
+        "Start from the seat you actually play in. Something that looks fine close to a monitor can feel tiny across a living room.",
+        "Change one option, return to the game, and check whether you can read a prompt at a glance.",
+        "Use the smallest change that solves the problem. If you can read comfortably without your attention leaving the road or the scene, you've found a good place to stop."
+      ],
+      "highlights": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "short_title": "GTA 6 HUD Text Too Small? Start Here",
+      "short_description": "Check Scaling and Readability in GTA 6, then test the change from the seat where you actually play.",
+      "thumbnail_text": "BIGGER HUD TEXT",
+      "thumbnail_second": 45
+    },
+    {
+      "title": "Make subtitles work in motion",
+      "labels": [
+        "Subtitles and captions"
+      ],
+      "accent": "#d7adff",
+      "lines": [
+        "For subtitles in Grand Theft Auto Six, open Settings and look under U I for Subtitles and Captions.",
+        "I would test these during dialogue while the camera is moving. A quiet menu won't tell you how well you'll catch a line while watching the scene.",
+        "See if you can follow the dialogue without losing track of what's happening around the character.",
+        "Then try the same idea in a brighter area. A comfortable setting is one you can use across scenes, even when the background changes."
+      ],
+      "highlights": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "short_title": "GTA 6 Subtitles: Try This While Driving",
+      "short_description": "Find Subtitles and Captions in GTA 6 and test your setup during dialogue while the camera moves.",
+      "thumbnail_text": "READ IN MOTION",
+      "thumbnail_second": 50
+    },
+    {
+      "title": "Keep directions you actually use",
+      "labels": [
+        "Navigation"
+      ],
+      "accent": "#81c9f4",
+      "lines": [
+        "Rockstar lists Navigation as its own group under U I. That makes it a separate decision from how large the on-screen text should be.",
+        "I would test it on a short route with a couple of turns. Pay attention to the moment you decide where to turn.",
+        "If you hesitate or look away from the road, keep more guidance while you learn the route.",
+        "Once you're comfortable, adjust a single option and run the same stretch again. The comparison tells you whether the change helps you drive."
+      ],
+      "highlights": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "title": "Reduce distractions in the HUD",
+      "labels": [
+        "HUD notifications"
+      ],
+      "accent": "#f4ba82",
+      "lines": [
+        "If too much keeps pulling your eye away in Grand Theft Auto Six, look for HUD Notifications and Progress Notifications under U I.",
+        "Think about those groups separately. You may want an on-screen status update while driving, but prefer to check progress in a quiet moment.",
+        "Change one option, take a short drive, and see if you still catch the updates you care about.",
+        "Remember which setting you changed. If you start missing information you relied on, put that setting back and try a different one."
+      ],
+      "highlights": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "short_title": "GTA 6 HUD Notifications: Keep What Matters",
+      "short_description": "Tune HUD Notifications and Progress Notifications separately, then test the changes on a short route.",
+      "thumbnail_text": "LESS HUD CLUTTER",
+      "thumbnail_second": 29.4
+    },
+    {
+      "title": "Take one short test drive",
+      "labels": [
+        "Your test drive"
+      ],
+      "accent": "#86ebcf",
+      "lines": [
+        "Here's the quick test I would use. Pick a route you know, play at your usual distance, and give yourself a minute.",
+        "Can you read a prompt? Can you follow dialogue while moving? Can you catch the notifications that matter without hunting for them?",
+        "Change the option linked to the first thing you missed, then repeat the route.",
+        "Keep what helps in motion. If you want to start over, Rockstar lists Restore All and Restore Default at the bottom of the settings screen."
+      ],
+      "highlights": [
+        0,
+        0,
+        0,
+        0
+      ]
+    }
+  ]
+}

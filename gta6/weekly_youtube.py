@@ -138,7 +138,8 @@ def publish(spec, folder):
             raise ValueError("Weekly episode checksum mismatch")
 
     chapters = "\n".join(f"{chapter['timestamp']} {chapter['title']}" for chapter in manifest["chapters"])
-    description = f"{description}\n\n{chapters}\n\n{(folder / 'credits.txt').read_text().strip()}"
+    sources = "\n".join(f"{label} — {url}" for label, url in spec["sources"])
+    description = f"{description}\n\n{chapters}\n\nSources\n{sources}\n\n{(folder / 'credits.txt').read_text().strip()}"
     week = spec["preview_week"]
     tag = f"gtaviclipfix-weekly-{week}-{spec['id']}"
     video_id = recent_episode(headers, tag, week)

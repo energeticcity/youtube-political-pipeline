@@ -1,0 +1,50 @@
+[
+  {
+    "id": "leonida-keys",
+    "subject": "How to explore the Leonida Keys at your own pace",
+    "source": ["Rockstar Games — Leonida Keys", "https://www.rockstargames.com/VI/only-in-leonida/leonida-keys"],
+    "facts": "Rockstar presents the Keys as a tropical archipelago in Leonida, with a laid-back pace alongside the nearby dangers. Explain how to make a scenic first visit and what to observe from the land and waterfront. Present suggested routes as personal exploration ideas. Do not invent landmarks, rewards, named roads, or unlock requirements."
+  },
+  {
+    "id": "camera-comfort",
+    "subject": "A practical camera comfort test for driving and walking",
+    "source": ["Rockstar Support — GTA 6 settings", "https://support.rockstargames.com/articles/4jUHNdP22SmaKSF8DWqhXC/how-to-change-grand-theft-auto-vi-settings"],
+    "facts": "The Pause Menu leads to Settings. Rockstar groups Camera options into On Foot, Land & Water Vehicles, Comfort, Aircraft, Underwater, and Cinematic. Build an original test for walking, turning, stopping, and driving; do not name switches or values the source does not specify."
+  },
+  {
+    "id": "vice-city-visual-guide",
+    "subject": "How Rockstar uses Vice City scenery to tell Jason and Lucia’s story",
+    "source": ["Rockstar Games — GTA VI story and launch gallery", "https://www.rockstargames.com/VI"],
+    "facts": "Rockstar says Jason and Lucia have to depend on each other after a score goes wrong and pulls them into a criminal conspiracy across Leonida. Discuss the contrast between wide coastal skyline shots and tight character framing as an interpretation of official trailer material. Avoid plot spoilers, invented story beats, and gameplay promises."
+  },
+  {
+    "id": "vehicle-control-schemes",
+    "subject": "Three GTA 6 controls to check before switching from a car to a boat",
+    "source": ["Rockstar Support — GTA 6 control scheme categories", "https://support.rockstargames.com/articles/4jUHNdP22SmaKSF8DWqhXC/how-to-change-grand-theft-auto-vi-settings"],
+    "facts": "Under Control Scheme, Rockstar lists tailored layouts for On Foot, Aiming, Melee, Land / Water Vehicles, Aircraft, Bicycle, Swimming, and Parachute. Under Controller it lists Aim & Look Sensitivity, inverted controls, and DualSense features for PS5. Discuss how to practice moving, turning, and stopping with a new layout. Do not give unverified button mappings."
+  },
+  {
+    "id": "leonida-regions",
+    "subject": "How to tell Vice City, Grassrivers, and Mount Kalaga apart",
+    "source": ["Rockstar Games — GTA VI official regional artwork", "https://www.rockstargames.com/VI/media/artwork-wallpapers"],
+    "facts": "Rockstar names Vice City, Leonida Keys, Port Gellhorn, Ambrosia, Grassrivers, and Mount Kalaga National Park on official regional postcards. Discuss their visual identities as city, wetland, and park based on the official names and visual material. No map sizes, travel times, route guarantees, or wildlife claims."
+  },
+  {
+    "id": "playing-away-from-tv",
+    "subject": "What to check before playing GTA 6 away from your main TV",
+    "source": ["Rockstar Support — GTA 6 platforms, editions, and versions", "https://support.rockstargames.com/articles/4QfG4FmZCf5W1gS8jy4UVT/grand-theft-auto-vi-platform-editions-and-versions"],
+    "facts": "Rockstar describes PlayStation Remote Play support and Xbox Cloud Gaming on Xbox Series X|S and Xbox One using Series S graphics settings. Connection speed can change performance versus local play. Explain the practical distinction between streaming from your own PlayStation and Xbox cloud streaming. Do not assert subscription pricing, regional availability, or guaranteed quality."
+  },
+  {
+    "id": "first-aircraft-practice",
+    "subject": "A low-stress practice routine for aircraft in GTA 6",
+    "source": ["Rockstar Support — GTA 6 control and camera categories", "https://support.rockstargames.com/articles/4jUHNdP22SmaKSF8DWqhXC/how-to-change-grand-theft-auto-vi-settings"],
+    "facts": "Rockstar documents Aircraft sections in both Control Scheme and Camera and a separate Parachute control scheme. Offer original practice ideas about using the options menu, learning the camera, and changing one variable before comparing runs. Do not give unverified controls, aircraft spawn points, mission mechanics, or aircraft specs."
+  },
+  {
+    "id": "dual-sense-versus-layout",
+    "subject": "How to tell controller feel apart from button layout in GTA 6",
+    "source": ["Rockstar Support — GTA 6 controller settings", "https://support.rockstargames.com/articles/4jUHNdP22SmaKSF8DWqhXC/how-to-change-grand-theft-auto-vi-settings"],
+    "facts": "Rockstar lists Control Scheme separately from Controller. Aim & Look Sensitivity and Inverted Controls belong to Controller, as do PS5 DualSense features. Explain how to compare two changes independently and use a reversible practice scenario. Avoid exact sensitivity numbers, platform-specific effects, or claims about individual DualSense switches."
+  }
+]
