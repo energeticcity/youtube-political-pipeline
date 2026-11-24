@@ -85,8 +85,8 @@ jobs:
             "$base/GTAVI_Launch_Trailer/GTAVI_Launch_Trailer.mp4?weekly=1" -o launch.mp4
           sha256sum -c <<'CHECKSUMS'
           cfcdd1651934bee90e9fcba9567a7b0f6f11328d559e48b3229f275691268da3  out.mp4
+          3302818c25e9749c3e55a605f72926eff1be05eb4d60b4ee5d48fc2c415b2dea  launch.mp4
           CHECKSUMS
-          test "$(wc -c < launch.mp4)" -eq 781762562
       - name: Render and verify one episode and three Shorts
         if: steps.episode.outputs.episode != ''
         env:

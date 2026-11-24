@@ -4,7 +4,7 @@
   "title": "GTA 6 Recording Audio: 3 Checks Before You Upload",
   "description": "Recording GTA 6 for YouTube, TikTok, or Instagram? Find the Mute Licensed Music setting, run a 10-second mic and game-audio test, and listen to your final export before you post. Includes a tip for recording your mic and game audio on separate tracks. Independent GTA 6 commentary with original analysis and synthetic narration.",
   "thumbnail_text": "CHECK YOUR AUDIO",
-  "thumbnail_second": 20,
+  "thumbnail_second": 25,
   "footage_credit": "Rockstar Games, GTA VI Launch Trailer and Out Now. https://www.rockstargames.com/VI/media/videos",
   "footage": [
     {"filename": "out.mp4", "start": 7, "seconds": 7},
@@ -56,7 +56,8 @@
       ],
       "highlights": [2, 3, 3, 3, 3],
       "short_description": "Here’s where to find Mute Licensed Music in GTA 6. Check the setting before recording, then play back a short clip to hear what your capture actually picked up.",
-      "thumbnail_text": "MUTE THE MUSIC?"
+      "thumbnail_text": "MUTE THE MUSIC?",
+      "thumbnail_second": 45
     },
     {
       "title": "The ten-second test",
@@ -71,7 +72,8 @@
       ],
       "highlights": [0, 1, 2, 1],
       "short_description": "Before recording GTA 6, capture 10 seconds and play it back. Listen for your mic, dialogue, effects, and any music your recorder picked up.",
-      "thumbnail_text": "10-SECOND TEST"
+      "thumbnail_text": "10-SECOND TEST",
+      "thumbnail_second": 50
     },
     {
       "title": "Two tracks make editing easier",
@@ -99,7 +101,8 @@
       ],
       "highlights": [0, 1, 1, 2],
       "short_description": "Changing Mute Licensed Music affects future GTA 6 recordings. Listen to your finished export to check the audio your viewers will hear.",
-      "thumbnail_text": "CHECK THE EXPORT"
+      "thumbnail_text": "CHECK THE EXPORT",
+      "thumbnail_second": 29.4
     },
     {
       "title": "A checklist for the next take",
