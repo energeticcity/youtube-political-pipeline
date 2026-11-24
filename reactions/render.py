@@ -93,19 +93,35 @@ def plan_story(clip, source, model, recent_reactions):
         f"Source length {clip['seconds']:.2f} seconds. Source metadata: {json.dumps(brief)}. "
         f"Reaction options: {json.dumps(choices)}."
     )
-    for attempt in range(2):
-        draft = generate(model, prompt, source, STORY)
+    schema = {**STORY, "properties": {**STORY["properties"], "reaction_id": {"type": "string", "enum": list(inventory)}}}
+    for _ in range(2):
+        draft = review_video(model, prompt, source, schema)
         lines = draft["lines"]
         if not draft["suitable"]:
             raise Rejected("Source did not have a suitable reaction moment")
-        if (draft["reaction_id"] in inventory and 2 <= draft["reaction_at"] < clip["seconds"] - 2
-                and 5 < len(draft["title"]) <= 47 and 10 <= len(draft["lead"]) <= 115
-                and all(5 <= len(line.split()) <= 13 and not re.search(r"[{}\\\n]", line) for line in lines)
-                and 36 <= sum(len(line.split()) for line in lines) <= 58
-                and not UNSUITABLE.search(draft["title"] + " " + draft["lead"])):
+        errors = []
+        if draft["reaction_id"] not in inventory or not 0 <= draft["reaction_at"] <= clip["seconds"]:
+            errors.append("unsupported reaction ID or invalid source timestamp")
+        if not 5 < len(draft["title"]) <= 56 or not 10 <= len(draft["lead"]) <= 160:
+            errors.append("title or lead length")
+        if (not all(4 <= len(line.split()) <= 15 and not re.search(r"[{}\\\n]", line) for line in lines)
+                or not 32 <= sum(len(line.split()) for line in lines) <= 66):
+            errors.append("spoken line length")
+        if UNSUITABLE.search(draft["title"] + " " + draft["lead"]):
+            errors.append("unsuitable subject")
+        if not errors:
             return draft, inventory[draft["reaction_id"]]
-        prompt += "\nThe first draft failed the requested format. Rewrite and count the spoken words and title characters."
-    raise Rejected("No usable narration and reaction plan")
+        prompt += "\nCorrect these issues in the next draft: " + ", ".join(errors)
+    raise Rejected("No usable narration and reaction plan: " + ", ".join(errors))
+
+
+def review_video(model, prompt, video, schema):
+    try:
+        return generate(model, prompt, video, schema)
+    except RuntimeError as error:
+        if str(error).startswith("Incomplete commentary review:"):
+            raise Rejected("The reviewer did not approve this source or edit") from error
+        raise
 
 
 def compose(clip, model, voice, folder, recent_reactions=()):
@@ -130,14 +146,15 @@ def compose(clip, model, voice, folder, recent_reactions=()):
         if file_digest(stream, "sha256").hexdigest() != reaction["sha256"]:
             raise Rejected("Reaction file checksum does not match the reviewed library")
     audio, times = chapter_audio(draft, voice, folder)
-    duration = sum(times)
-    if not 11 <= duration <= 36:
-        raise Rejected("Narration did not fit the short-video format")
     _, source_time = probe(source)
-    if not 0.6 <= duration / source_time <= 2.0:
+    spoken_time = sum(times)
+    duration = max(15, source_time * 0.73, spoken_time)
+    tempo = spoken_time / duration
+    if not 15 <= duration <= 36 or tempo < 0.70 or duration / source_time > 2:
         raise Rejected("Source pacing and original narration are mismatched")
+    times = [seconds / tempo for seconds in times]
     rotation = {0: "", 90: "transpose=clock,", 180: "hflip,vflip,", 270: "transpose=cclock,"}[draft["rotation"]]
-    reaction_at = min(duration - 2, max(2, draft["reaction_at"] * duration / source_time))
+    reaction_at = min(duration - 2.2, max(2, draft["reaction_at"] * duration / source_time))
     captions = make_subtitles(draft, clip, times, folder)
     output = folder / "reaction.mp4"
     filters = (
@@ -145,19 +162,19 @@ def compose(clip, model, voice, folder, recent_reactions=()):
         "scale=1080:1050:force_original_aspect_ratio=decrease,"
         "pad=1080:1920:(ow-iw)/2:300:color=0x151021,setsar=1,fps=30[clip];"
         "[1:v]fps=30,scale=256:-1,format=rgba[reaction];"
-        f"[clip][reaction]overlay=x=735:y=1090:enable='between(t,{reaction_at:.3f},{reaction_at+1.55:.3f})'[stage];"
+        f"[clip][reaction]overlay=x=735:y=1090:enable='between(t,{reaction_at:.3f},{reaction_at+2.0:.3f})'[stage];"
         f"[stage]ass=filename='{captions}':fontsdir='{ROOT/'fonts'}'[final]"
     )
     command("ffmpeg", "-v", "error", "-y", "-i", source, "-ignore_loop", "0", "-i", animation, "-i", audio,
             "-filter_complex_threads", "2", "-filter_complex", filters, "-map", "[final]", "-map", "2:a:0",
-            "-af", "highpass=f=78,loudnorm=I=-16:TP=-1.5:LRA=8", "-t", f"{duration:.4f}",
+            "-af", f"atempo={tempo:.6f},highpass=f=78,loudnorm=I=-16:TP=-1.5:LRA=8", "-t", f"{duration:.4f}",
             "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
             "-c:a", "aac", "-ar", "48000", "-b:a", "128k", "-movflags", "+faststart", output)
     result, seconds = probe(output)
     dimensions = [(s["width"], s["height"]) for s in result["streams"] if s["codec_type"] == "video"]
     if dimensions != [(1080, 1920)] or abs(seconds-duration) > 0.5:
         raise Rejected("Rendered Short does not match the approved dimensions or length")
-    report = generate(model, "Review this entire edited video and audio. Approve only if it is upright, "
+    report = review_video(model, "Review this entire edited video and audio. Approve only if it is upright, "
                       "the text is readable, it includes exactly one brief animated reaction at the intended moment, "
                       "and the original narration is clear and grounded in what is on screen. "
                       "Do not penalize subtitles or the explicit source credit. "
