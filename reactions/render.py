@@ -4,11 +4,10 @@ from hashlib import file_digest
 import json
 from pathlib import Path
 import re
-import textwrap
 
 import requests
 
-from gta6.produce import ass_time, command, generate, object_schema, probe, Rejected
+from gta6.produce import command, generate, object_schema, probe, Rejected
 from reactions.discover import HEADERS, UNSUITABLE
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -23,11 +22,6 @@ QA = object_schema({
     "pass": {"type": "boolean"}, "upright": {"type": "boolean"}, "caption_readable": {"type": "boolean"},
     "one_matching_reaction": {"type": "boolean"}, "narration_clear": {"type": "boolean"}, "reason": STRING,
 })
-COLORS = {
-    "Hook": "Style: Hook,Montserrat ExtraBold,88,&H00FFFFFF,&H00FFFFFF,&H201D1426,&H201D1426,-1,0,0,0,100,100,0,0,1,5,0,8,76,130,160,1",
-    "Caption": "Style: Caption,Montserrat ExtraBold,77,&H00FFFFFF,&H00FFFFFF,&H20000000,&H20000000,-1,0,0,0,100,100,0,0,1,8,2,2,72,145,460,1",
-    "Credit": "Style: Credit,Montserrat SemiBold,28,&H00EFD9FF,&H00EFD9FF,&H101D1426,&H101D1426,0,0,0,0,100,100,0,0,1,2,0,2,76,135,260,1",
-}
 CHOICES = Path(__file__).with_name("reaction_choices.json")
 
 
@@ -45,32 +39,42 @@ def fetch(url, destination, max_bytes):
     return size
 
 
-def make_subtitles(plan, clip, times, folder):
-    template = """[Script Info]
-ScriptType: v4.00+
-PlayResX: 1080
-PlayResY: 1920
-WrapStyle: 2
-[V4+ Styles]
-Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-"""
-    lines = [template, *[style + "\n" for style in COLORS.values()],
-             "[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"]
+def make_graphics(plan, clip, times, folder):
+    from PIL import Image, ImageDraw, ImageFont
 
-    def line(start, end, kind, value, width):
-        clean = re.sub(r"[{}\\\n\r]", " ", value)
-        wrapped = r"\N".join(textwrap.wrap(clean, width, break_long_words=False))
-        lines.append(f"Dialogue: 0,{ass_time(start)},{ass_time(end)},{kind},,0,0,0,,{wrapped}\n")
+    heavy = ROOT / "fonts" / "Montserrat-ExtraBold.ttf"
+    title_font = ImageFont.truetype(str(heavy), 82)
+    caption_font = ImageFont.truetype(str(heavy), 84)
+    credit_font = ImageFont.truetype(str(heavy), 32)
 
-    total = sum(times)
-    line(0, total, "Hook", plan["title"], 19)
-    line(0, total, "Credit", f"Footage: {clip['creator'][:46]} · Original narration", 56)
-    elapsed = 0
-    for phrase, seconds in zip(plan["lines"], times, strict=True):
-        line(elapsed, elapsed + seconds, "Caption", phrase, 24)
-        elapsed += seconds
-    output = folder / "captions.ass"
-    output.write_text("".join(lines))
+    def wrap(draw, value, font, max_width):
+        rows = [""]
+        for word in value.split():
+            line = (rows[-1] + " " + word).strip()
+            if rows[-1] and draw.textlength(line, font=font) > max_width:
+                rows.append(word)
+            else:
+                rows[-1] = line
+        return "\n".join(rows)
+
+    sequence = []
+    for index, (phrase, seconds) in enumerate(zip(plan["lines"], times, strict=True)):
+        frame = Image.new("RGBA", (1080, 1920))
+        draw = ImageDraw.Draw(frame)
+        title = wrap(draw, plan["title"], title_font, 900)
+        caption = wrap(draw, phrase, caption_font, 850)
+        draw.multiline_text((62, 135), title, fill="#fafeff", font=title_font, spacing=6,
+                            stroke_width=4, stroke_fill="#151021")
+        draw.multiline_text((62, 1400), caption, fill="#fafeff", font=caption_font, spacing=10,
+                            stroke_width=6, stroke_fill="#151021")
+        draw.text((64, 1720), f"Footage: {clip['creator'][:46]} · Original narration",
+                  fill="#decbe8", font=credit_font, stroke_width=3, stroke_fill="#151021")
+        name = f"caption-{index}.png"
+        frame.save(folder / name)
+        sequence.extend((f"file '{name}'", f"duration {seconds:.6f}"))
+    sequence.append(sequence[-2])
+    output = folder / "caption-timeline.txt"
+    output.write_text("\n".join(sequence) + "\n")
     return output
 
 
@@ -155,18 +159,18 @@ def compose(clip, model, voice, folder, recent_reactions=()):
     times = [seconds / tempo for seconds in times]
     rotation = {0: "", 90: "transpose=clock,", 180: "hflip,vflip,", 270: "transpose=cclock,"}[draft["rotation"]]
     reaction_at = min(duration - 2.2, max(2, draft["reaction_at"] * duration / source_time))
-    captions = make_subtitles(draft, clip, times, folder)
+    captions = make_graphics(draft, clip, times, folder)
     output = folder / "reaction.mp4"
     filters = (
         f"[0:v]{rotation}setpts={duration/source_time:.7f}*(PTS-STARTPTS),"
-        "scale=1080:1050:force_original_aspect_ratio=decrease,"
-        "pad=1080:1920:(ow-iw)/2:300:color=0x151021,setsar=1,fps=30[clip];"
+        "scale=1080:925:force_original_aspect_ratio=decrease,"
+        "pad=1080:1920:(ow-iw)/2:(oh-ih)/2-100:color=0x151021,setsar=1,fps=30[clip];"
         "[1:v]fps=30,scale=256:-1,format=rgba[reaction];"
         f"[clip][reaction]overlay=x=735:y=1090:enable='between(t,{reaction_at:.3f},{reaction_at+2.0:.3f})'[stage];"
-        f"[stage]ass=filename='{captions}':fontsdir='{ROOT/'fonts'}'[final]"
+        "[3:v]fps=30,format=rgba[graphics];[stage][graphics]overlay[final]"
     )
     command("ffmpeg", "-v", "error", "-y", "-i", source, "-ignore_loop", "0", "-i", animation, "-i", audio,
-            "-filter_complex_threads", "2", "-filter_complex", filters, "-map", "[final]", "-map", "2:a:0",
+            "-f", "concat", "-safe", "0", "-i", captions, "-filter_complex_threads", "2", "-filter_complex", filters, "-map", "[final]", "-map", "2:a:0",
             "-af", f"atempo={tempo:.6f},highpass=f=78,loudnorm=I=-16:TP=-1.5:LRA=8", "-t", f"{duration:.4f}",
             "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
             "-c:a", "aac", "-ar", "48000", "-b:a", "128k", "-movflags", "+faststart", output)

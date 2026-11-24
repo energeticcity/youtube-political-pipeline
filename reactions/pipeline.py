@@ -45,8 +45,10 @@ def prepare(batch_size, inputs, excluded, recent):
             continue
         # Keep the verified cut and public provenance rather than redistributing source media.
         for name in ("source.webm", "source.mp4", "source-review.mp4", "reaction.gif", "reaction-review.mp4",
-                     "speech.wav", "captions.ass"):
+                     "speech.wav", "caption-timeline.txt"):
             (slot / name).unlink(missing_ok=True)
+        for image in slot.glob("caption-*.png"):
+            image.unlink()
         results.append((media, result))
         recent.add(result["reaction_id"])
         if len(results) == batch_size:
