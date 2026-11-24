@@ -1,0 +1,49 @@
+name: GTA VI Weekly Preview
+on:
+  workflow_dispatch:
+    inputs:
+      episode:
+        description: Episode specification slug in gta6/weekly
+        type: string
+        default: recording-audio
+  push:
+    branches: [gta6-weekly-pilot]
+    paths:
+      - .github/workflows/gta6-weekly-preview.yml
+      - gta6/weekly_preview.py
+      - gta6/weekly/**
+permissions:
+  contents: read
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install open-source renderer and voice
+        run: |
+          python -m pip install 'piper-tts==1.8.0' 'Pillow>=10,<13'
+          python -m piper.download_voices --data-dir "$RUNNER_TEMP/voices" en_US-ljspeech-medium
+          if ! command -v ffmpeg >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq ffmpeg
+          fi
+      - name: Render and verify one episode and three Shorts
+        env:
+          EPISODE: ${{ inputs.episode || 'recording-audio' }}
+        run: |
+          if [[ ! "$EPISODE" =~ ^[a-z0-9-]+$ ]]; then exit 2; fi
+          python gta6/weekly_preview.py "gta6/weekly/$EPISODE.json" \
+            --model "$RUNNER_TEMP/voices/en_US-ljspeech-medium.onnx" \
+            --out gta6-output/weekly
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gta6-weekly-preview
+          path: gta6-output/weekly/
+          retention-days: 3
+          if-no-files-found: error

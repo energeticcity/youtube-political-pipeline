@@ -1,0 +1,84 @@
+{
+  "id": "recording-audio",
+  "title": "GTA VI Creator Audio: Three Checks Before You Upload",
+  "description": "An original, illustrated walkthrough of the GTA VI licensed-music setting and a practical pre-upload audio check. Independent commentary. Narrated with a synthetic voice.",
+  "sources": [
+    ["Rockstar Support — Muting licensed music in Grand Theft Auto VI", "https://support.rockstargames.com/articles/3imCdEnB8z1bwQ6MNVL8Tr/muting-licensed-music-in-grand-theft-auto-vi"],
+    ["Rockstar Support — Policy on posting copyrighted material", "https://support.rockstargames.com/articles/7bNaeoMFTV0iUDGhStTXvz"],
+    ["YouTube Help — Common copyright myths", "https://support.google.com/youtube/answer/2797449"]
+  ],
+  "chapters": [
+    {
+      "title": "Three things to check",
+      "labels": ["Game audio", "Recording", "Upload"],
+      "accent": "#86ebcf",
+      "lines": [
+        "You're about to record a clip in Grand Theft Auto Six. You can hear your mic, the game sounds fine, and the take looks clean.",
+        "Then you listen back and realize the music is baked into the same file as the moment you wanted to share.",
+        "There are three checks that make this easier. First, check what the game sends to your recorder.",
+        "Second, listen to what your recorder actually saved. Third, look at every sound you added after you hit stop.",
+        "I'll walk through the menu, the ten-second recording test, and how I would set up a voice-over without losing the game sounds."
+      ]
+    },
+    {
+      "title": "Where the setting lives",
+      "short_title": "The GTA VI setting to check before recording",
+      "labels": ["Pause", "Settings", "Audio", "Mute Licensed Music"],
+      "accent": "#f4ba82",
+      "lines": [
+        "Before recording Grand Theft Auto Six, open the pause menu, go to Settings, and select Audio.",
+        "Rockstar calls the switch Mute Licensed Music. Turn it on before you hit record.",
+        "Picture an audio wire running from the game into the recording. Changing the setting now changes what reaches the next file.",
+        "If you already captured a track with music mixed into it, flipping the switch later leaves that old recording as it was.",
+        "That's why I put this step at the top of the checklist, before I find the moment I want to keep."
+      ]
+    },
+    {
+      "title": "The ten-second test",
+      "short_title": "Do this 10-second test before recording GTA VI",
+      "labels": ["Record", "Play back", "Check the mix"],
+      "accent": "#d7adff",
+      "lines": [
+        "Here's a ten-second test you can run before recording Grand Theft Auto Six. Start a local capture and say one sentence at your normal volume.",
+        "Let some ordinary game sound play underneath it. Stop recording and open the actual file.",
+        "Ask three questions. Can I understand every word? Can I still hear what happened in the game? Did I capture any music I didn't expect?",
+        "Listening to the file catches problems a live monitor can miss. Once the mix sounds right, you're ready to record the real clip."
+      ]
+    },
+    {
+      "title": "Two tracks make editing easier",
+      "labels": ["Gameplay sound", "Microphone", "Final mix"],
+      "accent": "#86ebcf",
+      "lines": [
+        "If your capture setup can save separate audio tracks, try one for the game and one for the microphone.",
+        "Think of those as two faders. If an engine drowns out the first few words of a sentence, you can turn the game down just for those words.",
+        "With everything already on one track, lowering the game also lowers your voice. A separate voice-over recorded afterwards can solve the same problem.",
+        "For a short clip, I would keep the game sound around the action, then bring it down for the one thing I want the viewer to notice.",
+        "Make the point while the moment is on screen. That gives the viewer something to look for as they hear it."
+      ]
+    },
+    {
+      "title": "Check the final export",
+      "short_title": "What GTA VI’s mute setting actually changes",
+      "labels": ["Game capture", "Added sounds", "Upload review"],
+      "accent": "#f4ba82",
+      "lines": [
+        "Turning on Mute Licensed Music in Grand Theft Auto Six helps with the audio the game sends into your next capture.",
+        "Now check the rest of the export. A song added in your editor comes from a different source.",
+        "If you're making one file for Shorts, Reels, and TikTok, use narration and sound you can publish on all three.",
+        "Then listen to that final file from start to finish. The menu setting is step one. The file you're about to upload is the real test."
+      ]
+    },
+    {
+      "title": "A checklist for the next take",
+      "labels": ["Set the game", "Test the capture", "Listen to the export"],
+      "accent": "#d7adff",
+      "lines": [
+        "Here's the checklist for the next take. Set the game audio before recording. Play back a short capture. Listen again after you export.",
+        "A separate check is permission to use the footage commercially. Rockstar's general fan-footage policy describes non-commercial use. Read it before building a monetized video around game footage.",
+        "I made this walkthrough with original diagrams because the audio question is easier to see as a simple path.",
+        "Game to recorder, recorder to edit, edit to upload. Find the stage where a sound enters the file, and you'll know where to fix it."
+      ]
+    }
+  ]
+}
