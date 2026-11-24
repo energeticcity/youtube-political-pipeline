@@ -257,7 +257,7 @@ def build(spec, model, voices, music, folder, background, background_source, foo
             short = {"title": chapter["short_title"], "description": chapter["short_description"],
                      **verify(output, (720, 1280), 20, 60)}
             if background:
-                short["thumbnail"] = thumbnail(background, (scene_start + 8) % background_duration,
+                short["thumbnail"] = thumbnail(background, chapter["thumbnail_second"],
                                                chapter["thumbnail_text"], output.with_suffix(".jpg"), True)
             shorts.append(short)
         offset += sum(times)
