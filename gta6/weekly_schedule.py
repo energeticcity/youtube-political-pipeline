@@ -43,7 +43,7 @@ if __name__ == "__main__":
         if monday >= START:
             spec = plan_week(monday)
             episode = spec["id"]
-    published_video = spec.get("published_youtube_id", "")
+    published_video = spec.get("published_youtube_id") or spec.get("scheduled_release", {}).get("video_id", "")
     if published_video and not re.fullmatch(r"[A-Za-z0-9_-]{11}", published_video):
         raise ValueError("Invalid published YouTube video ID in weekly catalog")
     if spec and os.environ.get("SPEC_OUTPUT"):
@@ -55,4 +55,5 @@ if __name__ == "__main__":
         print(f"episode={episode}", file=stream)
         print(f"published_video={published_video}", file=stream)
         print(f"render={str(render).lower()}", file=stream)
+        print(f"spec_json={json.dumps(spec, ensure_ascii=True)}", file=stream)
     print(f"Weekly episode: {episode}" if episode else "No episode assigned to this week.")

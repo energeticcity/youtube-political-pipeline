@@ -35,6 +35,7 @@ jobs:
       episode: ${{ steps.episode.outputs.episode }}
       published_video: ${{ steps.episode.outputs.published_video }}
       render: ${{ steps.episode.outputs.render }}
+      spec_json: ${{ steps.episode.outputs.spec_json }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -132,6 +133,9 @@ jobs:
        (inputs.verify_published && needs.render.outputs.published_video != ''))
     runs-on: ubuntu-latest
     timeout-minutes: 14
+    permissions:
+      contents: read
+      issues: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -141,7 +145,7 @@ jobs:
           python-version: '3.12'
       - name: Install YouTube API dependencies
         run: |
-          python -m pip install 'requests>=2.32,<3'
+          python -m pip install 'requests>=2.32,<3' 'Pillow>=10,<13'
           if [[ "$NEW_UPLOAD" == 'true' ]]; then
             python -m pip install 'youtube-upload @ git+https://github.com/tokland/youtube-upload.git@6a30b55d0fd4976571a5b9b34c01fd41cec49c7a'
           fi
@@ -155,14 +159,32 @@ jobs:
       - name: Publish or verify the assigned public YouTube episode
         env:
           EPISODE: ${{ needs.render.outputs.episode }}
+          WEEKLY_SPEC: ${{ needs.render.outputs.spec_json }}
           GTA6_YOUTUBE_API_CLIENT_ID: ${{ secrets.GTA6_YOUTUBE_API_CLIENT_ID }}
           GTA6_YOUTUBE_API_CLIENT_SECRET: ${{ secrets.GTA6_YOUTUBE_API_CLIENT_SECRET }}
           GTA6_YOUTUBE_API_REFRESH_TOKEN: ${{ secrets.GTA6_YOUTUBE_API_REFRESH_TOKEN }}
         run: |
           if [[ ! "$EPISODE" =~ ^[a-z0-9-]+$ ]]; then exit 2; fi
-          spec="gta6/weekly/$EPISODE.json"
-          if [[ -f gta6-output/weekly/episode-spec.json ]]; then spec=gta6-output/weekly/episode-spec.json; fi
-          python -m gta6.weekly_youtube "$spec" gta6-output/weekly
+          printf '%s\n' "$WEEKLY_SPEC" > "$RUNNER_TEMP/weekly-spec.json"
+          python -m gta6.weekly_youtube "$RUNNER_TEMP/weekly-spec.json" gta6-output/weekly
+      - name: Notify Adam after the scheduled release is verified
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          receipt=gta6-weekly-youtube.json
+          if ! jq -e '.status == "public" and .notify_release == true' "$receipt" >/dev/null; then exit 0; fi
+          video_id="$(jq -r .video_id "$receipt")"
+          title="$(jq -r .title "$receipt")"
+          url="$(jq -r .url "$receipt")"
+          issue_title="[GTA VI weekly] YouTube release verified ($video_id)"
+          existing="$(gh issue list --state all --search "$video_id in:title" --json title --jq '.[].title')"
+          if printf '%s\n' "$existing" | grep -Fxq "$issue_title"; then exit 0; fi
+          {
+            printf '%s is public on @gtaviclipfix. I verified the exact title, chaptered description, and custom thumbnail on the live video.\n\n' "$title"
+            printf '[Watch on YouTube](%s) · [Verification run](%s/%s/actions/runs/%s)\n' "$url" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID"
+          } > "$RUNNER_TEMP/youtube-release-notice.md"
+          cat "$RUNNER_TEMP/youtube-release-notice.md" >> "$GITHUB_STEP_SUMMARY"
+          gh issue create --title "$issue_title" --assignee energeticcity --body-file "$RUNNER_TEMP/youtube-release-notice.md"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

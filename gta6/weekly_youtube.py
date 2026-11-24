@@ -3,6 +3,7 @@
 import argparse
 from datetime import datetime, timezone
 import hashlib
+from io import BytesIO
 import json
 import os
 from pathlib import Path
@@ -52,7 +53,7 @@ def recent_episode(headers, tag, week):
     return matches[0]["id"] if matches else None
 
 
-def upload(media, title, description, tag, token, values):
+def upload(media, title, description, tag, token, values, publish_at=None):
     from oauth2client.client import GoogleCredentials
 
     with tempfile.TemporaryDirectory(prefix="gta6-weekly-youtube-") as directory:
@@ -69,9 +70,10 @@ def upload(media, title, description, tag, token, values):
         }}))
         credentials.chmod(0o600)
         client.chmod(0o600)
+        visibility = [f"--publish-at={publish_at}"] if publish_at else ["--privacy=public"]
         result = subprocess.run([
             "youtube-upload", "--client-secrets", str(client), "--credentials-file", str(credentials),
-            "--privacy=public", "--category=Gaming", f"--title={title}", f"--description={description}",
+            *visibility, "--category=Gaming", f"--title={title}", f"--description={description}",
             f"--tags={tag}", str(media.resolve()),
         ], capture_output=True, text=True, timeout=420, stdin=subprocess.DEVNULL)
     ids = [line for line in result.stdout.splitlines() if VIDEO_ID.fullmatch(line)]
@@ -94,10 +96,34 @@ def set_thumbnail(headers, video_id, data):
         time.sleep(6 * (attempt + 1))
 
 
-def verify_public(headers, video_id, title, description):
+def description_hash(description):
+    return hashlib.sha256(description.strip().encode()).hexdigest()
+
+
+def cover_sample(data):
+    from PIL import Image, ImageOps
+
+    with Image.open(BytesIO(data)) as image:
+        return list(ImageOps.fit(image.convert("RGB"), (16, 9)).tobytes())
+
+
+def matches_cover(snippet, sample):
+    cover = snippet.get("thumbnails", {}).get("maxres")
+    if not cover or not cover["url"].startswith("https://i.ytimg.com/"):
+        return False
+    response = requests.get(cover["url"], timeout=15, allow_redirects=False)
+    if response.status_code != 200 or not response.headers.get("Content-Type", "").startswith("image/"):
+        return False
+    distance = sum(abs(actual - expected) for actual, expected in zip(
+        cover_sample(response.content), sample, strict=True
+    )) / len(sample)
+    return distance <= 10
+
+
+def verify_public(headers, video_id, title, description, *, release=None, scheduled_at=None):
     if not VIDEO_ID.fullmatch(video_id):
         raise ValueError("Invalid weekly YouTube video ID")
-    for _ in range(20):
+    for _ in range(24):
         entries = videos(headers, [video_id])
         if entries:
             item = entries[0]
@@ -105,20 +131,34 @@ def verify_public(headers, video_id, title, description):
             if (snippet["channelId"] != CHANNEL or snippet["title"] != title
                     or not snippet["description"].startswith(description)):
                 raise RuntimeError("YouTube returned unexpected channel, title, or description")
-            if status["privacyStatus"] != "public":
-                raise RuntimeError(f"Weekly video {video_id} is not public")
-            if status["uploadStatus"] == "processed" and snippet.get("thumbnails"):
-                return item["contentDetails"]["duration"]
+            if release and description_hash(snippet["description"]) != release["description_sha256"]:
+                raise RuntimeError("Scheduled episode description does not match the approved metadata")
             if status["uploadStatus"] in ("failed", "rejected", "deleted"):
                 raise RuntimeError(f"YouTube did not process weekly video {video_id}")
+            visibility_ok = status["privacyStatus"] == "public"
+            if scheduled_at:
+                visibility_ok = status["privacyStatus"] == "private" and status.get("publishAt") == scheduled_at
+            thumbnail_ok = bool(snippet.get("thumbnails"))
+            if visibility_ok and status["uploadStatus"] == "processed":
+                if release:
+                    thumbnail_ok = matches_cover(snippet, release["cover_sample"])
+                if thumbnail_ok:
+                    return item["contentDetails"]["duration"]
         time.sleep(9)
-    raise RuntimeError(f"YouTube is still processing {video_id}; preserve the original video ID")
+    raise RuntimeError(f"YouTube did not verify visibility, processing, or thumbnail for {video_id}; do not reupload")
 
 
-def publish(spec, folder):
+def publish(spec, folder, publish_at=None):
     token, values = youtube_api_client()
     headers = {"Authorization": f"Bearer {token}"}
     title, description = spec["title"], spec["description"]
+    release = spec.get("scheduled_release")
+    if release:
+        video_id = release["video_id"]
+        duration = verify_public(headers, video_id, title, description, release=release)
+        return {"status": "public", "video_id": video_id, "title": title, "duration": duration,
+                "description": "verified", "thumbnail": "verified", "notify_release": True}
+
     video_id = spec.get("published_youtube_id")
     if video_id:
         duration = verify_public(headers, video_id, title, description)
@@ -142,13 +182,24 @@ def publish(spec, folder):
     description = f"{description}\n\n{chapters}\n\nSources\n{sources}\n\n{(folder / 'credits.txt').read_text().strip()}"
     week = spec["preview_week"]
     tag = f"gtaviclipfix-weekly-{week}-{spec['id']}"
+    if publish_at:
+        release_time = datetime.fromisoformat(publish_at.replace("Z", "+00:00"))
+        if release_time <= datetime.now(timezone.utc):
+            raise ValueError("Scheduled release must be in the future")
+        week = datetime.now(timezone.utc).date().isoformat()
     video_id = recent_episode(headers, tag, week)
     if not video_id:
         if os.environ.get("GITHUB_RUN_ATTEMPT", "1") != "1":
             raise RuntimeError("No prior weekly upload found on this retry; no new upload attempted")
-        video_id = upload(media, title, description, tag, token, values)
+        video_id = upload(media, title, description, tag, token, values, publish_at)
     RECEIPT.write_text(json.dumps({"status": "uploaded", "video_id": video_id}) + "\n")
     set_thumbnail(headers, video_id, cover)
+    if publish_at:
+        release = {"video_id": video_id, "publish_at": publish_at,
+                   "description_sha256": description_hash(description), "cover_sample": cover_sample(cover)}
+        duration = verify_public(headers, video_id, title, description, release=release, scheduled_at=publish_at)
+        return {"status": "scheduled", "video_id": video_id, "title": title, "duration": duration,
+                "description": "verified", "thumbnail": "verified", "scheduled_release": release}
     duration = verify_public(headers, video_id, title, description)
     return {"status": "public", "video_id": video_id, "duration": duration, "thumbnail": "applied"}
 
@@ -157,11 +208,12 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("episode", type=Path)
     parser.add_argument("render", type=Path)
+    parser.add_argument("--publish-at")
     args = parser.parse_args()
-    result = publish(json.loads(args.episode.read_text()), args.render)
+    result = publish(json.loads(args.episode.read_text()), args.render, args.publish_at)
     result["url"] = f"https://www.youtube.com/watch?v={result['video_id']}"
     RECEIPT.write_text(json.dumps(result, indent=2) + "\n")
-    print(json.dumps(result))
+    print(json.dumps({key: value for key, value in result.items() if key != "scheduled_release"}))
 
 
 if __name__ == "__main__":
