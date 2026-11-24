@@ -1,4 +1,4 @@
-name: GTA VI Weekly Preview
+name: GTA VI Weekly YouTube
 on:
   schedule:
     - cron: '17 18 * * 2'
@@ -9,6 +9,10 @@ on:
         description: Episode specification slug or weekly to select the current batch
         type: string
         default: weekly
+      verify_published:
+        description: Verify a video ID already recorded in the catalog without uploading
+        type: boolean
+        default: false
   push:
     branches: [gta6-weekly-pilot]
     paths:
@@ -25,6 +29,10 @@ jobs:
   render:
     runs-on: ubuntu-latest
     timeout-minutes: 18
+    outputs:
+      episode: ${{ steps.episode.outputs.episode }}
+      published_video: ${{ steps.episode.outputs.published_video }}
+      render: ${{ steps.episode.outputs.render }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -33,17 +41,18 @@ jobs:
         name: Select the assigned weekly episode
         env:
           EPISODE: ${{ inputs.episode || 'weekly' }}
+          REUSE_PUBLICATION: ${{ github.event_name == 'schedule' || inputs.verify_published }}
         run: python3 gta6/weekly_schedule.py
       - uses: actions/setup-python@v5
-        if: steps.episode.outputs.episode != ''
+        if: steps.episode.outputs.render == 'true'
         with:
           python-version: '3.12'
       - name: Install Kokoro and Pillow
-        if: steps.episode.outputs.episode != ''
+        if: steps.episode.outputs.render == 'true'
         timeout-minutes: 3
         run: python -m pip install --timeout 25 --retries 2 'kokoro-onnx==0.4.7' 'Pillow>=10,<13'
       - name: Download and verify narration and music assets
-        if: steps.episode.outputs.episode != ''
+        if: steps.episode.outputs.render == 'true'
         timeout-minutes: 4
         run: |
           audio_dir="$RUNNER_TEMP/weekly-audio"
@@ -60,7 +69,7 @@ jobs:
           7c570cd7f2d0611fca3d6e411490bc22e1c95473a93583e93888cbb0472ddcb4  electric-dreams.mp3
           CHECKSUMS
       - name: Install FFmpeg and FFprobe
-        if: steps.episode.outputs.episode != ''
+        if: steps.episode.outputs.render == 'true'
         timeout-minutes: 4
         run: |
           if command -v ffmpeg >/dev/null && command -v ffprobe >/dev/null; then exit 0; fi
@@ -72,7 +81,7 @@ jobs:
           tar -xJf ffmpeg.tar.xz --strip-components=2 -C ffmpeg-bin --wildcards '*/bin/ffmpeg' '*/bin/ffprobe'
           echo "$RUNNER_TEMP/ffmpeg-bin" >> "$GITHUB_PATH"
       - name: Download Rockstar game footage
-        if: steps.episode.outputs.episode != ''
+        if: steps.episode.outputs.render == 'true'
         timeout-minutes: 7
         run: |
           footage="$RUNNER_TEMP/weekly-footage"
@@ -88,7 +97,7 @@ jobs:
           3302818c25e9749c3e55a605f72926eff1be05eb4d60b4ee5d48fc2c415b2dea  launch.mp4
           CHECKSUMS
       - name: Render and verify one episode and three Shorts
-        if: steps.episode.outputs.episode != ''
+        if: steps.episode.outputs.render == 'true'
         env:
           EPISODE: ${{ steps.episode.outputs.episode }}
         run: |
@@ -100,9 +109,54 @@ jobs:
             --footage-dir "$RUNNER_TEMP/weekly-footage" \
             --out gta6-output/weekly
       - uses: actions/upload-artifact@v4
-        if: steps.episode.outputs.episode != ''
+        if: steps.episode.outputs.render == 'true'
         with:
           name: gta6-weekly-preview
           path: gta6-output/weekly/
           retention-days: 3
           if-no-files-found: error
+  publish-youtube:
+    needs: render
+    if: >-
+      github.ref_name == 'main' &&
+      needs.render.outputs.episode != '' &&
+      (github.event_name == 'schedule' ||
+       (inputs.verify_published && needs.render.outputs.published_video != ''))
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install YouTube API dependencies
+        run: |
+          python -m pip install 'requests>=2.32,<3'
+          if [[ "$NEW_UPLOAD" == 'true' ]]; then
+            python -m pip install 'youtube-upload @ git+https://github.com/tokland/youtube-upload.git@6a30b55d0fd4976571a5b9b34c01fd41cec49c7a'
+          fi
+        env:
+          NEW_UPLOAD: ${{ needs.render.outputs.render }}
+      - uses: actions/download-artifact@v4
+        if: needs.render.outputs.render == 'true'
+        with:
+          name: gta6-weekly-preview
+          path: gta6-output/weekly
+      - name: Publish or verify the assigned public YouTube episode
+        env:
+          EPISODE: ${{ needs.render.outputs.episode }}
+          GTA6_YOUTUBE_API_CLIENT_ID: ${{ secrets.GTA6_YOUTUBE_API_CLIENT_ID }}
+          GTA6_YOUTUBE_API_CLIENT_SECRET: ${{ secrets.GTA6_YOUTUBE_API_CLIENT_SECRET }}
+          GTA6_YOUTUBE_API_REFRESH_TOKEN: ${{ secrets.GTA6_YOUTUBE_API_REFRESH_TOKEN }}
+        run: |
+          if [[ ! "$EPISODE" =~ ^[a-z0-9-]+$ ]]; then exit 2; fi
+          python -m gta6.weekly_youtube "gta6/weekly/$EPISODE.json" gta6-output/weekly
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gta6-weekly-youtube-receipt
+          path: gta6-weekly-youtube.json
+          retention-days: 90
+          if-no-files-found: ignore

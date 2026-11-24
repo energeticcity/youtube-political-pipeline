@@ -29,6 +29,15 @@ def choose(catalog, now, requested):
 
 if __name__ == "__main__":
     episode = choose(CATALOG, datetime.now(ZoneInfo("UTC")), os.environ.get("EPISODE"))
+    published_video = ""
+    if episode:
+        spec = json.loads((CATALOG / f"{episode}.json").read_text())
+        published_video = spec.get("published_youtube_id", "")
+        if published_video and not re.fullmatch(r"[A-Za-z0-9_-]{11}", published_video):
+            raise ValueError("Invalid published YouTube video ID in weekly catalog")
+    render = bool(episode and not (published_video and os.environ.get("REUSE_PUBLICATION") == "true"))
     with Path(os.environ["GITHUB_OUTPUT"]).open("a") as stream:
         print(f"episode={episode}", file=stream)
+        print(f"published_video={published_video}", file=stream)
+        print(f"render={str(render).lower()}", file=stream)
     print(f"Weekly episode: {episode}" if episode else "No episode assigned to this week.")
