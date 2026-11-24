@@ -1,0 +1,362 @@
+[
+  {
+    "id": "noto-1f632",
+    "category": "surprise",
+    "intensity": "medium",
+    "source": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f632/512.gif",
+    "visual_cue": "gasp and open mouth",
+    "credit": "Animated Noto Emoji by Google LLC (CC BY 4.0), excerpted. https://googlefonts.github.io/noto-emoji-animation/ · https://creativecommons.org/licenses/by/4.0/",
+    "sha256": "83d7ac620848482d2330c6cda2e28f4bd8ca6449e701d71c1aab338f12404596"
+  },
+  {
+    "id": "noto-1f62e",
+    "category": "surprise",
+    "intensity": "medium",
+    "source": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f62e/512.gif",
+    "visual_cue": "jaw drops immediately",
+    "credit": "Animated Noto Emoji by Google LLC (CC BY 4.0), excerpted. https://googlefonts.github.io/noto-emoji-animation/ · https://creativecommons.org/licenses/by/4.0/",
+    "sha256": "3799b8ae7ac9b586f7c2870d93391a81626eada8252b06115e0780cb6d21469f"
+  },
+  {
+    "id": "noto-1f92f",
+    "category": "surprise",
+    "intensity": "high",
+    "source": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f92f/512.gif",
+    "visual_cue": "cartoon head explodes",
+    "credit": "Animated Noto Emoji by Google LLC (CC BY 4.0), excerpted. https://googlefonts.github.io/noto-emoji-animation/ · https://creativecommons.org/licenses/by/4.0/",
+    "sha256": "021a790d5e4f989cbf59cdf83180de6cd80de4dc3cca7666a3bb33a81da97342"
+  },
+  {
+    "id": "noto-1f62f",
+    "category": "surprise",
+    "intensity": "medium",
+    "source": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f62f/512.gif",
+    "visual_cue": "quiet open-mouth surprise",
+    "credit": "Animated Noto Emoji by Google LLC (CC BY 4.0), excerpted. https://googlefonts.github.io/noto-emoji-animation/ · https://creativecommons.org/licenses/by/4.0/",
+    "sha256": "c406034288ee19ae5e0a5c7207ca63a4a51865dad946c2a3c383a9c814e687b5"
+  },
+  {
+    "id": "noto-1f633",
+    "category": "surprise",
+    "intensity": "medium",
+    "source": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f633/512.gif",
+    "visual_cue": "eyes spring open",
+    "credit": "Animated Noto Emoji by Google LLC (CC BY 4.0), excerpted. https://googlefonts.github.io/noto-emoji-animation/ · https://creativecommons.org/licenses/by/4.0/",
+    "sha256": "40a54eedac2d66f664b6d5bf78377b2ef4e85980c3e57b845ae79de5414be4d8"
+  },
+  {
+    "id": "noto-1f914",
+    "category": "confusion",
+    "intensity": "low",
+    "source": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f914/512.gif",
+    "visual_cue": "hand-to-chin thinking",
+    "credit": "Animated Noto Emoji by Google LLC (CC BY 4.0), excerpted. https://googlefonts.github.io/noto-emoji-animation/ · https://creativecommons.org/licenses/by/4.0/",
+    "sha256": "cc4b16879b5f7264a37d7000783776b817b2f8f9e8084672c01d0849ab1bd27c"
+  },
+  {
+    "id": "noto-1f615",
+    "category": "confusion",
+    "intensity": "medium",
+    "source": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f615/512.gif",
+    "visual_cue": "puzzled frown",
+    "credit": "Animated Noto Emoji by Google LLC (CC BY 4.0), excerpted. https://googlefonts.github.io/noto-emoji-animation/ · https://creativecommons.org/licenses/by/4.0/",
+    "sha256": "23d99f31df9dfc50b26458a6717c0bb0e148848355df96a9af0cd1b59aea4b8f"
+  },
+  {
+    "id": "noto-1f635",
+    "category": "confusion",
+    "intensity": "high",
+    "source": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f635/512.gif",
+    "visual_cue": "exaggerated dizzy eyes",
+    "credit": "Animated Noto Emoji by Google LLC (CC BY 4.0), excerpted. https://googlefonts.github.io/noto-emoji-animation/ · https://creativecommons.org/licenses/by/4.0/",
+    "sha256": "a21092c4e375c1a990eb8159ca766e0357fd10471371d31cb3222e6e1e0d8da4"
+  },
+  {
+    "id": "noto-1f928",
+    "category": "skepticism",
+    "intensity": "medium",
+    "source": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f928/512.gif",
+    "visual_cue": "eyebrow raises",
+    "credit": "Animated Noto Emoji by Google LLC (CC BY 4.0), excerpted. https://googlefonts.github.io/noto-emoji-animation/ · https://creativecommons.org/licenses/by/4.0/",
+    "sha256": "d8a9ab199ba3e63e2a809b062e7cf69536fd7947132c0966d66f322358b48f65"
+  },
+  {
+    "id": "noto-1f974",
+    "category": "confusion",
+    "intensity": "medium",
+    "source": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f974/512.gif",
+    "visual_cue": "lopsided woozy face",
+    "credit": "Animated Noto Emoji by Google LLC (CC BY 4.0), excerpted. https://googlefonts.github.io/noto-emoji-animation/ · https://creativecommons.org/licenses/by/4.0/",
+    "sha256": "0a1f9d601e2942ae29b3cf12cb16c82a853d8aae28ff3f4b24dde1a03bf066c6"
+  },
+  {
+    "id": "noto-1f612",
+    "category": "skepticism",
+    "intensity": "low",
+    "source": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f612/512.gif",
+    "visual_cue": "cartoon side-eye",
+    "credit": "Animated Noto Emoji by Google LLC (CC BY 4.0), excerpted. https://googlefonts.github.io/noto-emoji-animation/ · https://creativecommons.org/licenses/by/4.0/",
+    "sha256": "25211df1f8b9841b141c1d3964d56caa8d958d8ae0f36d18255e72e10ed9ec68"
+  },
+  {
+    "id": "noto-1f644",
+    "category": "skepticism",
+    "intensity": "medium",
+    "source": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f644/512.gif",
+    "visual_cue": "animated eye roll",
+    "credit": "Animated Noto Emoji by Google LLC (CC BY 4.0), excerpted. https://googlefonts.github.io/noto-emoji-animation/ · https://creativecommons.org/licenses/by/4.0/",
+    "sha256": "812e322d15642bd75087778b6a98527648565668a14d03cba7ad6d441db3db3e"
+  },
+  {
+    "id": "noto-1f9d0",
+    "category": "skepticism",
+    "intensity": "medium",
+    "source": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f9d0/512.gif",
+    "visual_cue": "monocle and one skeptical eyebrow",
+    "credit": "Animated Noto Emoji by Google LLC (CC BY 4.0), excerpted. https://googlefonts.github.io/noto-emoji-animation/ · https://creativecommons.org/licenses/by/4.0/",
+    "sha256": "cc9d488b467e677d09293a29fcb29e6e5494c434d142faae7cb6799a183097ca"
+  },
+  {
+    "id": "noto-1f60f",
+    "category": "skepticism",
+    "intensity": "low",
+    "source": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f60f/512.gif",
+    "visual_cue": "knowing smirk",
+    "credit": "Animated Noto Emoji by Google LLC (CC BY 4.0), excerpted. https://googlefonts.github.io/noto-emoji-animation/ · https://creativecommons.org/licenses/by/4.0/",
+    "sha256": "87135a22b9c7f6099ff705a51fb3dcecb962ca731007b35b89e94a82a287d95a"
+  },
+  {
+    "id": "noto-1fae4",
+    "category": "skepticism",
+    "intensity": "low",
+    "source": "https://fonts.gstatic.com/s/e/notoemoji/latest/1fae4/512.gif",
+    "visual_cue": "crooked mouth becomes unimpressed stare",
+    "credit": "Animated Noto Emoji by Google LLC (CC BY 4.0), excerpted. https://googlefonts.github.io/noto-emoji-animation/ · https://creativecommons.org/licenses/by/4.0/",
+    "sha256": "86a3082d5b98f8c17a93b6c9a3c43ebd219d9a975e5d0b362928847a954ed573"
+  },
+  {
+    "id": "noto-1f602",
+    "category": "laughter",
+    "intensity": "high",
+    "source": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f602/512.gif",
+    "visual_cue": "animated tears of laughter",
+    "credit": "Animated Noto Emoji by Google LLC (CC BY 4.0), excerpted. https://googlefonts.github.io/noto-emoji-animation/ · https://creativecommons.org/licenses/by/4.0/",
+    "sha256": "ed0f5e16efdbed5d64db46c41cdbbe6bc9a1d8ca2fd8466553a4230b63c59f14"
+  },
+  {
+    "id": "noto-1f923",
+    "category": "laughter",
+    "intensity": "high",
+    "source": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f923/512.gif",
+    "visual_cue": "rolling belly laugh",
+    "credit": "Animated Noto Emoji by Google LLC (CC BY 4.0), excerpted. https://googlefonts.github.io/noto-emoji-animation/ · https://creativecommons.org/licenses/by/4.0/",
+    "sha256": "af593d5a1f24576b03ff47bf984b6d00deef753c66f28a7aa5d100e48ba1b36e"
+  },
+  {
+    "id": "noto-1f92d",
+    "category": "laughter",
+    "intensity": "low",
+    "source": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f92d/512.gif",
+    "visual_cue": "stifled giggle behind hand",
+    "credit": "Animated Noto Emoji by Google LLC (CC BY 4.0), excerpted. https://googlefonts.github.io/noto-emoji-animation/ · https://creativecommons.org/licenses/by/4.0/",
+    "sha256": "1d2782155e6c2b5120b6190ddf475333392129bf6960eae92bdb11e97c6be8de"
+  },
+  {
+    "id": "noto-1f606",
+    "category": "laughter",
+    "intensity": "high",
+    "source": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f606/512.gif",
+    "visual_cue": "squinting grin",
+    "credit": "Animated Noto Emoji by Google LLC (CC BY 4.0), excerpted. https://googlefonts.github.io/noto-emoji-animation/ · https://creativecommons.org/licenses/by/4.0/",
+    "sha256": "2814db8fc0964bc98cdcd8fa1effe429fa8f3a6c2c38a97684b10c8478ccb395"
+  },
+  {
+    "id": "noto-1f605",
+    "category": "laughter",
+    "intensity": "medium",
+    "source": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f605/512.gif",
+    "visual_cue": "sheepish laugh with sweat drop",
+    "credit": "Animated Noto Emoji by Google LLC (CC BY 4.0), excerpted. https://googlefonts.github.io/noto-emoji-animation/ · https://creativecommons.org/licenses/by/4.0/",
+    "sha256": "58b5c0f727b7a8830c54719192affd781e1e105787f98b15c6cf2384f0c78d83"
+  },
+  {
+    "id": "noto-1fae3",
+    "category": "facepalm",
+    "intensity": "medium",
+    "source": "https://fonts.gstatic.com/s/e/notoemoji/latest/1fae3/512.gif",
+    "visual_cue": "hands cover face then peek",
+    "credit": "Animated Noto Emoji by Google LLC (CC BY 4.0), excerpted. https://googlefonts.github.io/noto-emoji-animation/ · https://creativecommons.org/licenses/by/4.0/",
+    "sha256": "540a820bd92ca3264e0538f216d70c3ea8937efac695b13a9e8fd8b4c5cd1f4e"
+  },
+  {
+    "id": "noto-1f648",
+    "category": "facepalm",
+    "intensity": "medium",
+    "source": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f648/512.gif",
+    "visual_cue": "monkey covers eyes",
+    "credit": "Animated Noto Emoji by Google LLC (CC BY 4.0), excerpted. https://googlefonts.github.io/noto-emoji-animation/ · https://creativecommons.org/licenses/by/4.0/",
+    "sha256": "560ca6a60d42baa5b44fbf2241e257e53c381bdb21f6b752b0074de710357e7a"
+  },
+  {
+    "id": "noto-1fae0",
+    "category": "facepalm",
+    "intensity": "medium",
+    "source": "https://fonts.gstatic.com/s/e/notoemoji/latest/1fae0/512.gif",
+    "visual_cue": "melting smile for awkwardness",
+    "credit": "Animated Noto Emoji by Google LLC (CC BY 4.0), excerpted. https://googlefonts.github.io/noto-emoji-animation/ · https://creativecommons.org/licenses/by/4.0/",
+    "sha256": "0d7216134ede842a3cacd4a6744832514842b8813d01cb76bef35ec4180ef54d"
+  },
+  {
+    "id": "noto-1f62c",
+    "category": "facepalm",
+    "intensity": "medium",
+    "source": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f62c/512.gif",
+    "visual_cue": "visible clenched-teeth cringe",
+    "credit": "Animated Noto Emoji by Google LLC (CC BY 4.0), excerpted. https://googlefonts.github.io/noto-emoji-animation/ · https://creativecommons.org/licenses/by/4.0/",
+    "sha256": "61618a76fc5302fb293225a32fd2deab33444ed7b16e74a6421a5c14568a30aa"
+  },
+  {
+    "id": "noto-1f61e",
+    "category": "facepalm",
+    "intensity": "low",
+    "source": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f61e/512.gif",
+    "visual_cue": "disappointed frown",
+    "credit": "Animated Noto Emoji by Google LLC (CC BY 4.0), excerpted. https://googlefonts.github.io/noto-emoji-animation/ · https://creativecommons.org/licenses/by/4.0/",
+    "sha256": "e39689112aa5dc2fd51adc968944d6a305aa9821dd005ecd0b1c602e5973f8dd"
+  },
+  {
+    "id": "noto-1f44f",
+    "category": "cheering",
+    "intensity": "medium",
+    "source": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f44f/512.gif",
+    "visual_cue": "animated clapping hands",
+    "credit": "Animated Noto Emoji by Google LLC (CC BY 4.0), excerpted. https://googlefonts.github.io/noto-emoji-animation/ · https://creativecommons.org/licenses/by/4.0/",
+    "sha256": "36a2cd7143f1028f746c470889a1ba6d8b71f073b97f5dbdd1130ee2b000b867"
+  },
+  {
+    "id": "noto-1f64c",
+    "category": "cheering",
+    "intensity": "high",
+    "source": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f64c/512.gif",
+    "visual_cue": "raised hands celebrating",
+    "credit": "Animated Noto Emoji by Google LLC (CC BY 4.0), excerpted. https://googlefonts.github.io/noto-emoji-animation/ · https://creativecommons.org/licenses/by/4.0/",
+    "sha256": "9f9a1f77304c186a8202a37159beafc33aa5b223bacea44c331868aa33a20748"
+  },
+  {
+    "id": "noto-1f973",
+    "category": "cheering",
+    "intensity": "high",
+    "source": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f973/512.gif",
+    "visual_cue": "party blower and confetti",
+    "credit": "Animated Noto Emoji by Google LLC (CC BY 4.0), excerpted. https://googlefonts.github.io/noto-emoji-animation/ · https://creativecommons.org/licenses/by/4.0/",
+    "sha256": "ed5fe5ed4b9f79aa558c263a83d00986e8dced828b244a3265f4ab684425a777"
+  },
+  {
+    "id": "noto-1f929",
+    "category": "cheering",
+    "intensity": "high",
+    "source": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f929/512.gif",
+    "visual_cue": "starry-eyed delight",
+    "credit": "Animated Noto Emoji by Google LLC (CC BY 4.0), excerpted. https://googlefonts.github.io/noto-emoji-animation/ · https://creativecommons.org/licenses/by/4.0/",
+    "sha256": "3a057adcb1fba20116436fb1892da7bade652a16039fa5bee74cdf15f075bec5"
+  },
+  {
+    "id": "noto-1f389",
+    "category": "cheering",
+    "intensity": "high",
+    "source": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f389/512.gif",
+    "visual_cue": "confetti pop",
+    "credit": "Animated Noto Emoji by Google LLC (CC BY 4.0), excerpted. https://googlefonts.github.io/noto-emoji-animation/ · https://creativecommons.org/licenses/by/4.0/",
+    "sha256": "86879c45175f3901a8676d9b0bb5132c7a98b20a9f40487c21e4c896ce196616"
+  },
+  {
+    "id": "noto-1f631",
+    "category": "panic",
+    "intensity": "high",
+    "source": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f631/512.gif",
+    "visual_cue": "cartoon scream with hands at cheeks",
+    "credit": "Animated Noto Emoji by Google LLC (CC BY 4.0), excerpted. https://googlefonts.github.io/noto-emoji-animation/ · https://creativecommons.org/licenses/by/4.0/",
+    "sha256": "f9c813552a9b456e8f392d9a4d9843c3bbf7d255c63257abbbb8dfcf9665bc1a"
+  },
+  {
+    "id": "noto-1f628",
+    "category": "panic",
+    "intensity": "medium",
+    "source": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f628/512.gif",
+    "visual_cue": "broad-eyed frightened face",
+    "credit": "Animated Noto Emoji by Google LLC (CC BY 4.0), excerpted. https://googlefonts.github.io/noto-emoji-animation/ · https://creativecommons.org/licenses/by/4.0/",
+    "sha256": "94b41b3371ce23208a7767d5b84b77095c3fca58bcb0d1e05e65a6d79cce61af"
+  },
+  {
+    "id": "noto-1f630",
+    "category": "panic",
+    "intensity": "medium",
+    "source": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f630/512.gif",
+    "visual_cue": "anxious face with sweat drop",
+    "credit": "Animated Noto Emoji by Google LLC (CC BY 4.0), excerpted. https://googlefonts.github.io/noto-emoji-animation/ · https://creativecommons.org/licenses/by/4.0/",
+    "sha256": "f1d355e6aa8590c5cd6d73533f112fc858b25f5eca83397615e62240c587d243"
+  },
+  {
+    "id": "noto-1f629",
+    "category": "panic",
+    "intensity": "medium",
+    "source": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f629/512.gif",
+    "visual_cue": "weary dramatic wince",
+    "credit": "Animated Noto Emoji by Google LLC (CC BY 4.0), excerpted. https://googlefonts.github.io/noto-emoji-animation/ · https://creativecommons.org/licenses/by/4.0/",
+    "sha256": "7e67a1fef83c425c0f3e1c929de208c02beae38a5d6097e00963004417a1087d"
+  },
+  {
+    "id": "noto-1f62b",
+    "category": "panic",
+    "intensity": "high",
+    "source": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f62b/512.gif",
+    "visual_cue": "visibly distressed cartoon squint",
+    "credit": "Animated Noto Emoji by Google LLC (CC BY 4.0), excerpted. https://googlefonts.github.io/noto-emoji-animation/ · https://creativecommons.org/licenses/by/4.0/",
+    "sha256": "b8eb2d5002ccb87f5e822508eb87f23a6780d1cd5bc5447bbc4c72050edbfba6"
+  },
+  {
+    "id": "noto-1f610",
+    "category": "deadpan",
+    "intensity": "low",
+    "source": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f610/512.gif",
+    "visual_cue": "flat neutral eyes and mouth",
+    "credit": "Animated Noto Emoji by Google LLC (CC BY 4.0), excerpted. https://googlefonts.github.io/noto-emoji-animation/ · https://creativecommons.org/licenses/by/4.0/",
+    "sha256": "cb6777b697f0063acb284e52885db01529a764e9c457d3deb238b22cedb4d7ad"
+  },
+  {
+    "id": "noto-1f611",
+    "category": "deadpan",
+    "intensity": "low",
+    "source": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f611/512.gif",
+    "visual_cue": "eyes narrow without changing expression",
+    "credit": "Animated Noto Emoji by Google LLC (CC BY 4.0), excerpted. https://googlefonts.github.io/noto-emoji-animation/ · https://creativecommons.org/licenses/by/4.0/",
+    "sha256": "7ece7a77a45acb3daf42f7a5cd2a210252622b546abb64432aaa70571f9f0f16"
+  },
+  {
+    "id": "noto-1f636",
+    "category": "deadpan",
+    "intensity": "low",
+    "source": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f636/512.gif",
+    "visual_cue": "speechless face without a mouth",
+    "credit": "Animated Noto Emoji by Google LLC (CC BY 4.0), excerpted. https://googlefonts.github.io/noto-emoji-animation/ · https://creativecommons.org/licenses/by/4.0/",
+    "sha256": "5bcc294302522f5a06e87c420b84997e3705e4590063102bd6b59e75afd88777"
+  },
+  {
+    "id": "noto-1fae5",
+    "category": "deadpan",
+    "intensity": "low",
+    "source": "https://fonts.gstatic.com/s/e/notoemoji/latest/1fae5/512.gif",
+    "visual_cue": "dotted face for awkward disappearance",
+    "credit": "Animated Noto Emoji by Google LLC (CC BY 4.0), excerpted. https://googlefonts.github.io/noto-emoji-animation/ · https://creativecommons.org/licenses/by/4.0/",
+    "sha256": "ad5cba0775cefd94acd2bde0ad830a8fab44f2df12e225a7bffcb02309f6f138"
+  },
+  {
+    "id": "noto-1f614",
+    "category": "deadpan",
+    "intensity": "low",
+    "source": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f614/512.gif",
+    "visual_cue": "downcast expression for quiet resignation",
+    "credit": "Animated Noto Emoji by Google LLC (CC BY 4.0), excerpted. https://googlefonts.github.io/noto-emoji-animation/ · https://creativecommons.org/licenses/by/4.0/",
+    "sha256": "b775a4c8fc7eddc89c4e9394a20ec8e154b00b26da801aa93280125eebedd57c"
+  }
+]
