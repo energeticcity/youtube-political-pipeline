@@ -179,16 +179,20 @@ def youtube_api():
     folder = Path(sys.argv[2])
     manifest = json.loads((folder / 'manifest.json').read_text())
     episode = manifest['episode']
-    if (manifest['id'] != 'recording-audio' or episode['filename'] != 'episode.mp4'
+    if (not manifest.get('background') or manifest['background']['audio'] != 'muted'
+            or episode['filename'] != 'episode.mp4' or episode['thumbnail'] != 'episode.jpg'
             or not 180 <= episode['seconds'] <= 900):
         raise RuntimeError('unexpected_weekly_episode')
     media = folder / episode['filename']
     with media.open('rb') as stream:
         if hashlib.file_digest(stream, 'sha256').hexdigest() != episode['sha256']:
             raise RuntimeError('weekly_episode_checksum_mismatch')
-    run_number = os.environ['GITHUB_RUN_ID']
-    title = f'Private GitHub Actions proof — GTA VI Creator Audio ({run_number})'
-    description = manifest['description'] + '\n\n' + (folder / 'credits.txt').read_text()
+    title = manifest['title']
+    chapters = '\n'.join(f"{chapter['timestamp']} {chapter['title']}" for chapter in manifest['chapters'])
+    description = manifest['description'] + '\n\n' + chapters + '\n\n' + (folder / 'credits.txt').read_text()
+    thumbnail = (folder / episode['thumbnail']).read_bytes()
+    if not thumbnail.startswith(b'\xff\xd8') or len(thumbnail) > 2_000_000:
+        raise RuntimeError('invalid_episode_thumbnail')
     RESULT.update(episode=manifest['id'], episode_seconds=episode['seconds'])
     with tempfile.TemporaryDirectory() as tmp:
         credentials = Path(tmp) / 'credentials.json'
@@ -231,6 +235,15 @@ def youtube_api():
             RESULT['video_status'] = upload_status
             if upload_status == 'processed':
                 RESULT.update(upload='verified_private_test', duration=item['contentDetails']['duration'])
+                save()
+                response = requests.post('https://www.googleapis.com/upload/youtube/v3/thumbnails/set',
+                                         params={'videoId': video_id, 'uploadType': 'media'}, data=thumbnail,
+                                         headers={'Authorization': 'Bearer ' + token, 'Content-Type': 'image/jpeg'},
+                                         timeout=45)
+                RESULT['thumbnail_http'] = response.status_code
+                RESULT['thumbnail'] = 'applied' if response.ok and response.json().get('items') else 'unconfirmed'
+                if RESULT['thumbnail'] != 'applied':
+                    raise RuntimeError('thumbnail_not_applied_inspect_saved_video_id')
                 return
             if upload_status in ('failed', 'rejected', 'deleted'):
                 raise RuntimeError('youtube_processing_failed')

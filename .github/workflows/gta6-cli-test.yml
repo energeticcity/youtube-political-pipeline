@@ -7,6 +7,10 @@ on:
         type: choice
         default: all
         options: [all, tiktok, youtube, youtube-api, youtube-verify, weekly-oauth, weekly-private, weekly-browser, instagram]
+      render_run:
+        description: Successful gameplay render run ID for the private YouTube upload
+        type: string
+        default: ''
       proof_post:
         description: Existing weekly private test receipt to inspect without uploading
         type: string
@@ -127,11 +131,15 @@ jobs:
           python-version: '3.12'
       - name: Install pinned upstream YouTube API CLI
         run: pip install 'youtube-upload @ git+https://github.com/tokland/youtube-upload.git@6a30b55d0fd4976571a5b9b34c01fd41cec49c7a' 'requests>=2.32,<3'
+      - name: Require a specific gameplay render
+        env:
+          RENDER_RUN: ${{ inputs.render_run }}
+        run: '[[ "$RENDER_RUN" =~ ^[0-9]+$ ]]'
       - uses: actions/download-artifact@v4
         with:
           name: gta6-weekly-preview
           github-token: ${{ github.token }}
-          run-id: '45312836236'
+          run-id: ${{ inputs.render_run }}
           path: weekly-verified-input
       - name: Verify exact channel and upload the full weekly episode privately
         env:
