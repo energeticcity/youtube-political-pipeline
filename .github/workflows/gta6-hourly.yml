@@ -106,7 +106,21 @@ jobs:
           "$binaries/ffprobe" -version | head -n 1
           printf '%s\n' "$binaries" >> "$GITHUB_PATH"
       - if: env.OPERATION == 'tick' || env.OPERATION == 'discover' || env.OPERATION == 'discover-and-publish' || env.OPERATION == 'publish' || env.OPERATION == 'publish-next-slot' || env.OPERATION == 'dry-run' || env.OPERATION == 'resume-publication'
-        run: playwright install --with-deps chromium
+        name: Prepare Chromium
+        run: |
+          timeout 90s playwright install chromium
+          check_chromium() {
+            python - <<'PY'
+          from playwright.sync_api import sync_playwright
+          with sync_playwright() as playwright:
+              browser = playwright.chromium.launch(headless=True)
+              browser.close()
+          PY
+          }
+          if ! check_chromium; then
+            timeout --kill-after=5s 90s playwright install-deps chromium
+            check_chromium
+          fi
       - run: python -m unittest discover -s tests -p 'test_gta6*.py' -v
       - name: Run verified cloud pipeline
         env:
