@@ -132,9 +132,9 @@ def validate_plan(plan, duration):
         if any(c in beat['text'] for c in '{}\\\n') or len(beat['text']) > 400:
             raise Rejected('Invalid narration text')
     script = ' '.join(b['text'] for b in beats)
-    low, high = (28, 49) if duration < 20 else (50, 80)
+    low, high = (24, 56) if duration < 20 else (40, 88)
     if not low <= len(script.split()) <= high or len(script) > 600:
-        raise Rejected(f'Commentary must contain {low}–{high} words')
+        raise Rejected(f'Commentary length outside budget: {len(script.split())} words, expected {low}–{high}')
     return script
 
 
@@ -341,7 +341,7 @@ def produce(source, clip, model, folder, recent_commentary=None):
     script = validate_plan(plan, duration)
     (folder/'story.json').write_text(json.dumps(plan, ensure_ascii=False, indent=2))
     (folder/'script.txt').write_text(script)
-    minimum_runtime = MIN_COMMENTARY_SECONDS if duration < 20 else 20
+    minimum_runtime = MIN_COMMENTARY_SECONDS if duration < 20 else 16
     audio, runtime, segments, boundaries = narration(plan, folder, minimum_seconds=minimum_runtime)
     # Giant captions: one or two words, timed to the existing character alignment.
     alignment=json.loads((folder/'narration-alignment.json').read_text())
