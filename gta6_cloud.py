@@ -469,13 +469,15 @@ def complete_publication(issue_number,row,clip,media,queue_num,queue):
     save_issue(issue['number'],row)
     if 'instagram' not in row['delivery'] or row['delivery']['instagram'].get('status')=='blocked':
         try:instagram_cli_check()
-        except RuntimeError:
+        except (KeyError, ValueError, RuntimeError, subprocess.TimeoutExpired):
             row['delivery']['instagram']={'status':'blocked','reason':'authentication_check_failed','uploader':'sau CLI'}
         else:
             row['delivery']['instagram']={'status':'uploading'};save_issue(issue_number,row)
-            row['delivery']['instagram']=instagram_cli_upload(media,clip['caption'])
+            try:row['delivery']['instagram']=instagram_cli_upload(media,clip['caption'])
+            except (ValueError, RuntimeError, subprocess.TimeoutExpired):
+                row['delivery']['instagram']={'status':'unconfirmed','reason':'inspect_before_retry','uploader':'sau CLI'}
     elif row['delivery']['instagram'].get('status')!='published':
-        raise RuntimeError('Instagram publication is uncertain; inspect before retrying')
+        row['delivery']['instagram'].update(status='unconfirmed',reason='inspect_before_retry')
     row['status']='delivery_in_progress'
     save_issue(issue['number'],row)
     if row['delivery'].get('youtube',{}).get('status')=='published':
