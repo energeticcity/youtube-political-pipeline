@@ -152,6 +152,9 @@ class ProductionTests(unittest.TestCase):
         verdict = {k: True for k in ('pass','upright','captions_readable','claims_supported','narration_clear_complete')}
         verdict.update(issues=[], heard_text=script)
         p.validate_qa(verdict, script)
+        branded_script='G T A six. '+script
+        p.validate_qa(dict(verdict,heard_text='GTA VI. '+script), branded_script)
+        self.assertFalse(p.transcript_matches('G T A six', 'G T A vice'))
         for change in ({'upright': False}, {'issues': ['cut off ending']},
                        {'heard_text': 'Something entirely different'}, {'narration_clear_complete': 'true'}):
             with self.subTest(change=change), self.assertRaises(p.Rejected):
