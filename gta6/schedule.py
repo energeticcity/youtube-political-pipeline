@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 TZ=ZoneInfo('America/Dawson_Creek')
 QUEUE='[gta6-cloud-queue] Active queue'
 POST='[gta6-cloud-post] '
+MIN_COMMENTARY_SECONDS=12
 
 
 def window_for(current):

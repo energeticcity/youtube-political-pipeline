@@ -16,6 +16,7 @@ from zoneinfo import ZoneInfo
 import requests
 from archive_recovery_check import quota_evidence
 import gta6_crosspost as cross
+from gta6.schedule import MIN_COMMENTARY_SECONDS
 
 TZ = ZoneInfo('America/Dawson_Creek')
 QUEUE_TITLE = '[gta6-cloud-queue] Active queue'
@@ -25,6 +26,8 @@ OUT = Path('gta6-output')
 MEDIA = OUT / 'media'
 MAX_DAILY = 12
 MAX_REVIEWS = 24
+MAX_PRODUCTION_ATTEMPTS = 3
+NO_READY_CLIP = 'no eligible ready clip'
 SOURCE_RE = re.compile(r'https://www\.tiktok\.com/@([A-Za-z0-9_.]+)/video/(\d{15,25})')
 
 def now():
@@ -300,11 +303,11 @@ def select_clip(queue, rows, local_now):
     last=max(rows,key=lambda r:r.get('reserved_at',''),default={}).get('creator')
     candidates=sorted(queue['items'],key=lambda c:(c.get('priority',100),c.get('reviewed_at','')))
     for clip in candidates:
-        if os.environ.get('GTA6_COMMENTARY_ENABLED')=='true' and clip.get('duration_seconds',0)<20:continue
+        if os.environ.get('GTA6_COMMENTARY_ENABLED')=='true' and clip.get('duration_seconds',0)<MIN_COMMENTARY_SECONDS:continue
         if (clip.get('status')=='ready' and clip['source'] not in sources and clip['sha256'] not in hashes
                 and counts[clip['creator']]<2 and clip['creator']!=last):
             return clip,'ready'
-    return None,'no eligible ready clip'
+    return None,NO_READY_CLIP
 
 def run(*args):
     r=subprocess.run(list(args),capture_output=True,text=True,timeout=180)
@@ -400,28 +403,52 @@ def publish(queue_num,queue,all_issues,dry_run=False,next_slot=False):
         if os.environ.get('GITHUB_EVENT_NAME')!='workflow_dispatch':
             raise ValueError('Early publication of a scheduled slot requires an explicit manual run')
         local=local+timedelta(hours=1)
-    identities(defer_instagram=True)
     rows=history(all_issues,queue)
     if next_slot:
         reserved={r.get('slot') for r in rows}
         while local.hour<19 and local.strftime('%Y-%m-%dT%H') in reserved:
             local=local+timedelta(hours=1)
-    clip,reason=select_clip(queue,rows,local)
-    summary={'selection':reason,'slot':local.strftime('%Y-%m-%dT%H'),'next_clip':{k:clip[k] for k in ['id','source','creator','title']} if clip else None}
-    (OUT/'selection.json').write_text(json.dumps(summary,indent=2));print(json.dumps(summary))
-    if not clip:return
-    cross.validate_clip(clip)
-    try:media=materialize(clip,recent_commentary=commentary_history(rows))
-    except ValueError:
-        # Reject an editorial failure before creating any publication reservation.
-        # Service outages (RuntimeError) leave the source ready for a later run.
-        if os.environ.get('GTA6_COMMENTARY_ENABLED')=='true' and not dry_run:
-            clip['status']='rejected_production';save_issue(queue_num,queue)
-        raise
+    slot=local.strftime('%Y-%m-%dT%H')
+    commentary=os.environ.get('GTA6_COMMENTARY_ENABLED')=='true'
+    recent=commentary_history(rows)
+    for attempt in range(1,MAX_PRODUCTION_ATTEMPTS+1):
+        clip,reason=select_clip(queue,rows,local)
+        if reason==NO_READY_CLIP and commentary and not dry_run and not next_slot:
+            last_discovery=queue.get('last_discovery',{}).get('time')
+            discovered_this_hour=(last_discovery and
+                datetime.fromisoformat(last_discovery).astimezone(TZ).strftime('%Y-%m-%dT%H')==slot)
+            if queue.get('last_replenishment_slot')!=slot and not discovered_this_hour:
+                queue['last_replenishment_slot']=slot
+                save_issue(queue_num,queue)
+                print('Replenishing the queue for '+slot)
+                discover(queue_num,queue,all_issues)
+                clip,reason=select_clip(queue,rows,local)
+        summary={'selection':reason,'slot':slot,'next_clip':{k:clip[k] for k in ['id','source','creator','title']} if clip else None}
+        (OUT/'selection.json').write_text(json.dumps(summary,indent=2));print(json.dumps(summary))
+        if not clip:return
+        cross.validate_clip(clip)
+        try:
+            media=materialize(clip,recent_commentary=recent)
+        except ValueError:
+            if not commentary or dry_run:raise
+            # A rejected draft must never become the next source's draft.
+            clip['status']='rejected_production'
+            save_issue(queue_num,queue)
+            production=OUT/'production'
+            if production.exists():
+                rejected=OUT/'rejected-production'
+                rejected.mkdir(exist_ok=True)
+                production.rename(rejected/str(attempt))
+            print('Commentary rejected before upload for source '+clip['id'])
+        else:
+            break
+    else:
+        raise RuntimeError('Three commentary candidates failed review; none was uploaded')
     if dry_run:return
+    identities(defer_instagram=True)
     row={k:clip[k] for k in ['id','source','creator','sha256','title','caption']}
     if clip.get('production'):row['production']=clip['production']
-    row.update(status='reserved',slot=local.strftime('%Y-%m-%dT%H'),local_day=local.date().isoformat(),
+    row.update(status='reserved',slot=slot,local_day=local.date().isoformat(),
         reserved_at=now().isoformat(),run_id=os.environ['GITHUB_RUN_ID'])
     issue=cross.gh('POST','issues',json={'title':POST_PREFIX+row['slot'],'body':json.dumps(row,ensure_ascii=False,indent=2)})
     clip['status']='reserved';save_issue(queue_num,queue)
@@ -599,7 +626,7 @@ def discover(queue_num,queue,all_issues):
     rows=history(all_issues,queue)
     known={c['source'] for c in queue['items']}|{r.get('source') for r in rows}
     hashes={c['sha256'] for c in queue['items']}|{r.get('sha256') for r in rows}
-    minimum_duration=20 if os.environ.get('GTA6_COMMENTARY_ENABLED')=='true' else 5
+    minimum_duration=MIN_COMMENTARY_SECONDS if os.environ.get('GTA6_COMMENTARY_ENABLED')=='true' else 5
     ready=[c for c in queue['items'] if c['status']=='ready' and c.get('duration_seconds',60)>=minimum_duration]
     if len(ready)>=24:print('Queue already contains 24 ready clips');return
     links=discover_links()
@@ -617,7 +644,7 @@ def discover(queue_num,queue,all_issues):
         try:
             file,info=download(source,vid)
             duration=info.get('duration') or 0
-            if not minimum_duration<=duration<=60:raise ValueError('Duration outside 5-60 seconds')
+            if not minimum_duration<=duration<=60:raise ValueError('Duration outside clip range')
             sha=hashlib.sha256(file.read_bytes()).hexdigest()
             if sha in hashes:raise ValueError('Duplicate media')
             if str(info.get('uploader','')).lower()!=creator.lower():raise ValueError('Source creator mismatch')
@@ -635,7 +662,7 @@ def discover(queue_num,queue,all_issues):
             reviewed.append({'id':vid,'approved':approve})
             if approve:counts[creator]+=1;added+=1
         except Exception as error:
-            reasons={'Duration outside 5-60 seconds':'duration_outside_clip_range',
+            reasons={'Duration outside clip range':'duration_outside_clip_range',
                      'Duplicate media':'duplicate_media','Source creator mismatch':'source_identity_mismatch',
                      'Incomplete video review':'incomplete_review','Invalid review object':'invalid_review'}
             reason=reasons.get(str(error))
@@ -703,7 +730,7 @@ def main():
         from gta6.produce import produce
         rows=history(all_issues,queue)
         used={r.get('sha256') for r in rows}
-        candidates=[c for c in queue['items'] if c.get('status')=='ready' and c['sha256'] not in used and c.get('duration_seconds',0)>=20]
+        candidates=[c for c in queue['items'] if c.get('status')=='ready' and c['sha256'] not in used and c.get('duration_seconds',0)>=MIN_COMMENTARY_SECONDS]
         if not candidates:raise ValueError('No unused commentary-length source ready')
         clip=sorted(candidates,key=lambda c:(c.get('priority',100),c.get('reviewed_at','')))[0]
         output,manifest=produce(source_media(clip),clip,model_name(commentary=True),OUT/'production',recent_commentary=commentary_history(rows))

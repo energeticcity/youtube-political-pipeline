@@ -77,7 +77,7 @@ def check_rights(source):
     return {k: metadata.get(k) for k in ("identifier", "title", "creator", "date", "licenseurl", "collection", "description")}
 
 
-def narration(episode, directory):
+def narration(episode, directory, *, minimum_seconds=20):
     voice = os.environ.get("ELEVENLABS_VOICE_ID", "").strip()
     key = os.environ.get("ELEVENLABS_API_KEY", "")
     if not key or not voice:
@@ -104,8 +104,8 @@ def narration(episode, directory):
     audio = directory / "narration.mp3"
     audio.write_bytes(base64.b64decode(data["audio_base64"], validate=True))
     duration = float(subprocess.check_output(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", str(audio)]))
-    if not math.isfinite(duration) or not 20 <= duration <= 60 or ends[-1] > duration + 0.1:
-        raise ValueError("Narration outside 20–60 second limit")
+    if not math.isfinite(duration) or not minimum_seconds <= duration <= 60 or ends[-1] > duration + 0.1:
+        raise ValueError(f"Narration outside {minimum_seconds}–60 second limit")
     # Word-aligned groups, preserving actual TTS pauses (not estimated speech timing).
     segments = []
     words = list(re.finditer(r"\S+", text))

@@ -1,4 +1,5 @@
 import copy
+from datetime import datetime
 import tempfile
 import unittest
 from pathlib import Path
@@ -95,12 +96,44 @@ class ProductionTests(unittest.TestCase):
             self.assertEqual(generate.call_count,2)
 
     def test_commentary_selection_skips_sources_too_short_for_narration(self):
-        from datetime import datetime
         short={'status':'ready','source':'short','sha256':'a','creator':'one','priority':1,'duration_seconds':9}
-        long=dict(short,source='long',sha256='b',creator='two',priority=2,duration_seconds=30)
+        eligible=dict(short,source='eligible',sha256='b',creator='two',priority=2,duration_seconds=15)
         with patch.dict(cloud.os.environ,{'GTA6_COMMENTARY_ENABLED':'true'}):
-            selected,_=cloud.select_clip({'items':[short,long]},[],datetime(2026,11,22,17,tzinfo=cloud.TZ))
-        self.assertEqual(selected,long)
+            selected,_=cloud.select_clip({'items':[short,eligible]},[],datetime(2026,11,22,17,tzinfo=cloud.TZ))
+        self.assertEqual(selected,eligible)
+        plan=example()
+        for beat in plan['beats']:
+            beat['text']=' '.join(beat['text'].split()[:12])
+        self.assertEqual(len(p.validate_plan(plan,15).split()),36)
+        with self.assertRaises(p.Rejected):p.validate_plan(plan,30)
+
+    def test_publication_tries_another_source_without_reusing_rejected_production(self):
+        def materialize(clip, **_):
+            production=cloud.OUT/'production'
+            production.mkdir()
+            (production/'story.json').write_text(clip['id'])
+            if clip is first:raise p.Rejected('No grounded angle')
+            return production/'commentary.mp4'
+
+        first={'id':'1','status':'ready','source':'first','sha256':'a','creator':'one',
+               'title':'First','caption':'First caption','duration_seconds':18}
+        second=dict(first,id='2',source='second',sha256='b',creator='two')
+        queue={'items':[first,second]}
+        local=datetime(2026,11,25,10,tzinfo=cloud.TZ)
+        with tempfile.TemporaryDirectory() as folder, patch.object(cloud,'OUT',Path(folder)), \
+             patch.dict(cloud.os.environ,{'GTA6_COMMENTARY_ENABLED':'true','GITHUB_RUN_ID':'123'}), \
+             patch.object(cloud,'now',return_value=local), patch.object(cloud,'save_issue'), \
+             patch.object(cloud.cross,'validate_clip'), patch.object(cloud,'identities'), \
+             patch.object(cloud,'materialize',side_effect=materialize) as render, \
+             patch.object(cloud.cross,'gh',return_value={'number':334}) as reserve, \
+             patch.object(cloud,'complete_publication') as delivery:
+            cloud.publish(266,queue,[])
+            self.assertEqual((Path(folder)/'production/story.json').read_text(),'2')
+            self.assertEqual(render.call_count,2)
+            reserve.assert_called_once()
+            delivery.assert_called_once()
+            self.assertEqual(delivery.call_args.args[2]['id'],'2')
+            self.assertEqual(first['status'],'rejected_production')
 
     def test_plan_requires_source_grounded_three_beat_script_and_real_shot_bounds(self):
         plan = example()
