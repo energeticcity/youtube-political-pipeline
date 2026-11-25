@@ -155,7 +155,8 @@ Create original English GTA VI fan commentary about ONE specific visual detail o
 visible here. Do not merely describe a montage. Explain why the visible detail is interesting; make subjective
 interpretation explicit. Do not claim gameplay, features, release dates, leaks, locations or official provenance
 unless established by the footage. No external facts are supplied. Never invent a comparison or detail.
-Reject unsuitable, blurry, misleading, heavily captioned, unrelated, or too-short footage.
+Reject unsuitable, blurry, misleading, heavily captioned or unrelated footage. A {MIN_COMMENTARY_SECONDS}-second source
+can work when it shows a coherent detail and supports all three narration beats.
 Determine the clockwise rotation (0/90/180/270) needed to make people, horizon and text upright; reject mixed
 orientation you cannot consistently correct. A portrait container does NOT prove upright content.
 Return exactly three narration beats, EACH containing {beat_words}, a specific opening hook, a concrete observation plus

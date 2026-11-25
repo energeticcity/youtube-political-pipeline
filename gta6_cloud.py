@@ -429,8 +429,9 @@ def publish(queue_num,queue,all_issues,dry_run=False,next_slot=False):
         cross.validate_clip(clip)
         try:
             media=materialize(clip,recent_commentary=recent)
-        except ValueError:
+        except ValueError as error:
             if not commentary or dry_run:raise
+            from gta6.produce import Rejected
             # A rejected draft must never become the next source's draft.
             clip['status']='rejected_production'
             save_issue(queue_num,queue)
@@ -439,7 +440,8 @@ def publish(queue_num,queue,all_issues,dry_run=False,next_slot=False):
                 rejected=OUT/'rejected-production'
                 rejected.mkdir(exist_ok=True)
                 production.rename(rejected/str(attempt))
-            print('Commentary rejected before upload for source '+clip['id'])
+            reason=str(error) if isinstance(error,Rejected) or str(error).startswith('Narration outside ') else type(error).__name__
+            print('Commentary rejected before upload for source '+clip['id']+': '+reason,flush=True)
         else:
             break
     else:
